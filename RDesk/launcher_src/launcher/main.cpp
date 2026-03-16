@@ -11,6 +11,8 @@
 #endif
 
 #include "webview/webview.h"
+ 
+static const UINT WM_TRAYICON = WM_USER + 1;
 
 #include <iostream>
 #include <string>
@@ -73,6 +75,8 @@ static HMENU g_hmenu_bar = nullptr;
 static std::map<UINT, std::string> g_menu_actions; // ID → action id string
 static UINT  g_menu_id_counter = 1000;
 static HWND  g_hwnd = nullptr;
+static NOTIFYICONDATAW g_nid = {};
+static bool  g_tray_active = false;
 
 static HMENU build_submenu(const std::string& items_json) {
     HMENU sub = CreatePopupMenu();
@@ -240,6 +244,36 @@ static void show_notification(const std::string& title, const std::string& body)
     }).detach();
 }
 
+ 
+static void set_system_tray(const std::string& label, const std::string& icon_path) {
+    if (!g_hwnd) return;
+ 
+    if (!g_tray_active) {
+        g_nid.cbSize = sizeof(g_nid);
+        g_nid.hWnd = g_hwnd;
+        g_nid.uID = 1001;
+        g_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+        g_nid.uCallbackMessage = WM_TRAYICON;
+        g_nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION); // TODO: Load from icon_path
+        g_tray_active = true;
+    }
+ 
+    std::wstring wlabel(label.begin(), label.end());
+    wcsncpy_s(g_nid.szTip, wlabel.c_str(), 127);
+ 
+    if (g_tray_active) {
+        Shell_NotifyIconW(NIM_ADD, &g_nid);
+        Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+    }
+}
+ 
+static void remove_system_tray() {
+    if (g_tray_active) {
+        Shell_NotifyIconW(NIM_DELETE, &g_nid);
+        g_tray_active = false;
+    }
+}
+ 
 #endif // _WIN32
 
 // ── stdin command processor ──────────────────────────────────────────────────
@@ -324,6 +358,22 @@ static void process_command(const std::string& line) {
         show_notification(title, body);
         return;
     }
+ 
+    if (cmd == "SET_TRAY") {
+        std::string label = json_get(json_get(line, "payload"), "label");
+        std::string icon  = json_get(json_get(line, "payload"), "icon");
+        g_webview->dispatch([label, icon]() {
+            set_system_tray(label, icon);
+        });
+        return;
+    }
+ 
+    if (cmd == "REMOVE_TRAY") {
+        g_webview->dispatch([]() {
+            remove_system_tray();
+        });
+        return;
+    }
 #endif
 }
 
@@ -402,6 +452,17 @@ int main(int argc, char* argv[]) {
                         if (it != g_menu_actions.end()) {
                             write_stdout("{\"event\":\"MENU_CLICK\",\"id\":" +
                                          json_str(it->second) + "}");
+                        }
+                    } else if (msg == WM_TRAYICON) {
+                        if (lp == WM_LBUTTONUP || lp == WM_RBUTTONUP) {
+                            std::string button = (lp == WM_LBUTTONUP) ? "left" : "right";
+                            write_stdout("{\"event\":\"TRAY_CLICK\",\"button\":" + json_str(button) + "}");
+                            
+                            // Bring window to front on left click if visible
+                            if (lp == WM_LBUTTONUP) {
+                                ShowWindow(hwnd, SW_RESTORE);
+                                SetForegroundWindow(hwnd);
+                            }
                         }
                     }
                     return CallWindowProcW(orig_wndproc, hwnd, msg, wp, lp);
