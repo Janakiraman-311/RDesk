@@ -11,21 +11,37 @@
 .temp/
 staging/
 
-# C++ build artifacts
-build/
-bin/rdesk-launcher.exe
-inst/bin/rdesk-launcher.exe
-inst/bin/WebView2Loader.dll
-launcher_v2/
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
+# C++ and Biaries
+**/build/
+**/*.exe
+**/*.dll
+**/*.pdb
+**/*.o
+**/*.obj
+**/*.a
+**/*.lib
+**/.vs/
+**/*.signature.p7s
+**/*.tlb
 
-# Packaging artifacts
+# RDesk Specific
+RDesk/inst/bin/*.exe
+RDesk/inst/bin/*.dll
+RDesk/launcher_src/launcher/*.exe
+
+# WebView2 SDK Tools
+**/wv2winrt.exe
+**/wv2winrt.xml
+**/wv2winrt.exe.config
+
+# Packaging / Output
 dist/
 dist/*
 *.zip
+*.tar.gz
+
+# Logs
+*.log
 
 # System files
 Thumbs.db
