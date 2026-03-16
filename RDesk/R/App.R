@@ -27,7 +27,8 @@ App <- R6::R6Class("App",
     #' @param width Window width in pixels (default 1200)
     #' @param height Window height in pixels (default 800)
     #' @param www Directory containing HTML/CSS/JS assets (default: built-in template)
-    #' @param icon Path to window icon file (optional, Phase 3)
+    #' @param icon Path to window icon file
+    #' @return A new App instance
     initialize = function(title  = "RDesk App",
                           width  = 1200L,
                           height = 800L,
@@ -43,6 +44,7 @@ App <- R6::R6Class("App",
 
     #' @description Register a callback to fire when the window is ready
     #' @param fn A zero-argument function called after the server starts and window opens
+    #' @return The App instance (invisible)
     on_ready = function(fn) {
       if (!is.function(fn)) stop("on_ready() requires a function")
       private$.ready_fn <- fn
@@ -52,6 +54,7 @@ App <- R6::R6Class("App",
     #' @description Register a handler for a UI→R message type
     #' @param type Character string message type (must match rdesk.send() first arg in JS)
     #' @param fn A function(payload) called when this message type arrives
+    #' @return The App instance (invisible)
     on_message = function(type, fn) {
       if (!is.character(type) || length(type) != 1) stop("type must be a single string")
       if (!is.function(fn)) stop("fn must be a function")
@@ -62,6 +65,7 @@ App <- R6::R6Class("App",
     #' @description Send a message from R to the UI
     #' @param type Character string message type (received by rdesk.on() in JS)
     #' @param payload A list or data.frame to serialise as JSON payload
+    #' @return The App instance (invisible)
     send = function(type, payload = list()) {
       if (is.null(private$.ws)) {
         # Queue message for after connection
@@ -78,6 +82,7 @@ App <- R6::R6Class("App",
 
     #' @description Load an HTML file into the window
     #' @param path Path relative to the www directory (e.g. "index.html")
+    #' @return The App instance (invisible)
     load_ui = function(path = "index.html") {
       self$send("__navigate__", list(path = path))
       invisible(self)
@@ -85,6 +90,7 @@ App <- R6::R6Class("App",
 
     #' @description Set the native window menu
     #' @param items A named list of lists defining the menu structure
+    #' @return The App instance (invisible)
     set_menu = function(items) {
       # Convert R named list to JSON array the launcher understands
       menu_json <- private$.build_menu_json(items)
@@ -97,6 +103,8 @@ App <- R6::R6Class("App",
     #' @description Open a native file-open dialog
     #' @param title Dialog title
     #' @param filters List of file filters, e.g. list("CSV files" = "*.csv")
+    #' @return Selected file path (character) or NULL if cancelled
+    #' @export
     dialog_open = function(title = "Open File", filters = NULL) {
       filter_str <- private$.build_filter_str(filters)
       req_id     <- rdesk_req_id()
@@ -110,6 +118,8 @@ App <- R6::R6Class("App",
     #' @param title Dialog title
     #' @param default_name Initial filename
     #' @param filters List of file filters
+    #' @return Selected file path (character) or NULL if cancelled
+    #' @export
     dialog_save = function(title = "Save File", default_name = "",
                             filters = NULL) {
       filter_str <- private$.build_filter_str(filters)
@@ -134,6 +144,7 @@ App <- R6::R6Class("App",
     #' @description Send a native desktop notification
     #' @param title Notification title
     #' @param body Notification body text
+    #' @return The App instance (invisible)
     notify = function(title, body = "") {
       rdesk_send_cmd(private$.window_proc, "NOTIFY",
                      payload = list(title = title, body = body))

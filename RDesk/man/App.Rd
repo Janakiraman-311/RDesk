@@ -2,9 +2,22 @@
 % Please edit documentation in R/App.R
 \name{App}
 \alias{App}
-\title{RDesk Application Class}
+\title{RDesk Application}
 \description{
-Create and manage a native desktop window from R.
+Create and launch a native desktop application window from R.
+Provides bidirectional WebSocket communication between R and the UI.
+}
+\examples{
+\dontrun{
+app <- App$new(title = "My App", width = 1200, height = 800)
+app$on_ready(function() {
+  app$load_ui("www/index.html")
+})
+app$on_message("ping", function(msg) {
+  app$send("pong", list(ts = Sys.time()))
+})
+app$run()
+}
 }
 \section{Methods}{
 \subsection{Public methods}{
@@ -18,7 +31,6 @@ Create and manage a native desktop window from R.
 \item \href{#method-App-dialog_open}{\code{App$dialog_open()}}
 \item \href{#method-App-dialog_save}{\code{App$dialog_save()}}
 \item \href{#method-App-notify}{\code{App$notify()}}
-\item \href{#method-App-set_tray_icon}{\code{App$set_tray_icon()}}
 \item \href{#method-App-quit}{\code{App$quit()}}
 \item \href{#method-App-run}{\code{App$run()}}
 \item \href{#method-App-clone}{\code{App$clone()}}
@@ -28,96 +40,213 @@ Create and manage a native desktop window from R.
 \if{html}{\out{<a id="method-App-new"></a>}}
 \if{latex}{\out{\hypertarget{method-App-new}{}}}
 \subsection{Method \code{new()}}{
+Create a new RDesk application
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$new(title = "RDesk App", width = 1200, height = 800, icon = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{App$new(
+  title = "RDesk App",
+  width = 1200L,
+  height = 800L,
+  www = NULL,
+  icon = NULL
+)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{title}}{Window title string}
+
+\item{\code{width}}{Window width in pixels (default 1200)}
+
+\item{\code{height}}{Window height in pixels (default 800)}
+
+\item{\code{www}}{Directory containing HTML/CSS/JS assets (default: built-in template)}
+
+\item{\code{icon}}{Path to window icon file}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A new App instance
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-on_ready"></a>}}
 \if{latex}{\out{\hypertarget{method-App-on_ready}{}}}
 \subsection{Method \code{on_ready()}}{
+Register a callback to fire when the window is ready
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$on_ready(fn)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{fn}}{A zero-argument function called after the server starts and window opens}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-on_message"></a>}}
 \if{latex}{\out{\hypertarget{method-App-on_message}{}}}
 \subsection{Method \code{on_message()}}{
+Register a handler for a UI→R message type
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$on_message(type, fn)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{type}}{Character string message type (must match rdesk.send() first arg in JS)}
+
+\item{\code{fn}}{A function(payload) called when this message type arrives}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-send"></a>}}
 \if{latex}{\out{\hypertarget{method-App-send}{}}}
 \subsection{Method \code{send()}}{
+Send a message from R to the UI
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$send(type, payload = list())}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{type}}{Character string message type (received by rdesk.on() in JS)}
+
+\item{\code{payload}}{A list or data.frame to serialise as JSON payload}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-load_ui"></a>}}
 \if{latex}{\out{\hypertarget{method-App-load_ui}{}}}
 \subsection{Method \code{load_ui()}}{
+Load an HTML file into the window
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$load_ui(path)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{App$load_ui(path = "index.html")}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{path}}{Path relative to the www directory (e.g. "index.html")}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-set_menu"></a>}}
 \if{latex}{\out{\hypertarget{method-App-set_menu}{}}}
 \subsection{Method \code{set_menu()}}{
+Set the native window menu
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$set_menu(items)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{items}}{A named list of lists defining the menu structure}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-dialog_open"></a>}}
 \if{latex}{\out{\hypertarget{method-App-dialog_open}{}}}
 \subsection{Method \code{dialog_open()}}{
+Open a native file-open dialog
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$dialog_open(...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{App$dialog_open(title = "Open File", filters = NULL)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{title}}{Dialog title}
+
+\item{\code{filters}}{List of file filters, e.g. list("CSV files" = "*.csv")}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Selected file path (character) or NULL if cancelled
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-dialog_save"></a>}}
 \if{latex}{\out{\hypertarget{method-App-dialog_save}{}}}
 \subsection{Method \code{dialog_save()}}{
+Open a native file-save dialog
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$dialog_save(...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{App$dialog_save(title = "Save File", default_name = "", filters = NULL)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{title}}{Dialog title}
+
+\item{\code{default_name}}{Initial filename}
+
+\item{\code{filters}}{List of file filters}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Selected file path (character) or NULL if cancelled
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-notify"></a>}}
 \if{latex}{\out{\hypertarget{method-App-notify}{}}}
 \subsection{Method \code{notify()}}{
+Send a native desktop notification
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$notify(title, msg)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{App$notify(title, body = "")}\if{html}{\out{</div>}}
 }
 
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-App-set_tray_icon"></a>}}
-\if{latex}{\out{\hypertarget{method-App-set_tray_icon}{}}}
-\subsection{Method \code{set_tray_icon()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$set_tray_icon(path)}\if{html}{\out{</div>}}
-}
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{title}}{Notification title}
 
+\item{\code{body}}{Notification body text}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-quit"></a>}}
 \if{latex}{\out{\hypertarget{method-App-quit}{}}}
 \subsection{Method \code{quit()}}{
+Close the window and stop the app
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$quit()}\if{html}{\out{</div>}}
 }
@@ -127,6 +256,7 @@ Create and manage a native desktop window from R.
 \if{html}{\out{<a id="method-App-run"></a>}}
 \if{latex}{\out{\hypertarget{method-App-run}{}}}
 \subsection{Method \code{run()}}{
+Start the application — opens the window and blocks until closed
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$run()}\if{html}{\out{</div>}}
 }

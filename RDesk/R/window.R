@@ -16,6 +16,12 @@ rdesk_launcher_path <- function() {
 }
 
 #' Open a native window pointing to a URL
+#'
+#' @param url The target URL to load
+#' @param title Window title
+#' @param width Window width
+#' @param height Window height
+#' @return A processx process object
 #' @keywords internal
 rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800) {
   launcher <- rdesk_launcher_path()
@@ -54,6 +60,8 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800) 
 }
 
 #' Close the native window process
+#'
+#' @param proc The processx process object returned by rdesk_open_window
 #' @keywords internal
 rdesk_close_window <- function(proc) {
   if (is.null(proc) || !proc$is_alive()) return()
@@ -66,6 +74,11 @@ rdesk_close_window <- function(proc) {
 # ── Command sender ──────────────────────────────────────────────────────────
 
 #' Send a JSON command to the launcher process over stdin
+#'
+#' @param proc Process object
+#' @param cmd Command string (e.g., "QUIT", "SET_MENU")
+#' @param payload Data to send as JSON
+#' @param id Optional request ID for async responses
 #' @keywords internal
 rdesk_send_cmd <- function(proc, cmd, payload = list(), id = NULL) {
   if (is.null(proc) || !proc$is_alive()) return(invisible(NULL))
@@ -77,6 +90,8 @@ rdesk_send_cmd <- function(proc, cmd, payload = list(), id = NULL) {
 }
 
 #' Generate a unique request ID for dialog round-trips
+#'
+#' @return A character string ID
 #' @keywords internal
 rdesk_req_id <- function() {
   # Use double precision for calculation, then cast to integer to avoid overflow
@@ -87,7 +102,9 @@ rdesk_req_id <- function() {
 # ── Stdout event reader ─────────────────────────────────────────────────────
 
 #' Read all pending stdout lines from the launcher without blocking
-#' Returns a list of parsed JSON events (type == "event") or empty list
+#'
+#' @param proc Process object
+#' @return A list of parsed JSON events
 #' @keywords internal
 rdesk_read_events <- function(proc) {
   if (is.null(proc) || !proc$is_alive()) return(list())

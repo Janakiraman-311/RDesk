@@ -1,6 +1,12 @@
 # R/server.R
 # httpuv server: handles HTTP static file serving AND WebSocket IPC
 
+#' Start the internal httpuv server
+#'
+#' @param port TCP port to listen on
+#' @param www_path Path to the web assets directory
+#' @param ws_handler Function called when a WebSocket connection is established
+#' @return An httpuv server object
 #' @keywords internal
 rdesk_start_server <- function(port, www_path, ws_handler) {
   # ws_handler is a function(ws_session) called when the UI connects
@@ -68,6 +74,10 @@ rdesk_start_server <- function(port, www_path, ws_handler) {
   ))
 }
 
+#' Get MIME type based on file extension
+#'
+#' @param path File path
+#' @return MIME type string
 #' @keywords internal
 rdesk_mime_type <- function(path) {
   ext <- tolower(tools::file_ext(path))

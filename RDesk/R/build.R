@@ -117,6 +117,10 @@ build_app <- function(app_dir,
 
 # ── Internal helpers ────────────────────────────────────────────────────────
 
+#' Deep copy a directory
+#'
+#' @param from Source directory
+#' @param to Destination directory
 #' @keywords internal
 rdesk_copy_dir <- function(from, to) {
   files <- list.files(from, recursive = TRUE, full.names = TRUE)
@@ -182,6 +186,9 @@ rdesk_fetch_portable_r <- function(r_version, dest_dir) {
   message("[RDesk]   R runtime installed: ", dest_dir)
 }
 
+#' Find 7-Zip executable in common Windows locations
+#'
+#' @return Path to 7z.exe
 #' @keywords internal
 rdesk_find_7zip <- function() {
   candidates <- c(
@@ -214,6 +221,10 @@ rdesk_to_msys_path <- function(path) {
   path
 }
 
+#' Find the R directory within an extracted installation
+#'
+#' @param extracted_root Path where R was extracted
+#' @return Path to the R root (containing bin/)
 #' @keywords internal
 rdesk_find_r_dir <- function(extracted_root) {
   all_rscripts <- list.files(extracted_root,
@@ -311,6 +322,9 @@ rdesk_build_stub <- function(stub_cpp, out_exe, app_name) {
   message("[RDesk]   Stub compiled: ", basename(out_exe))
 }
 
+#' Find g++ compiler in common Rtools locations
+#'
+#' @return Path to g++.exe
 #' @keywords internal
 rdesk_find_gpp <- function() {
   candidates <- c(

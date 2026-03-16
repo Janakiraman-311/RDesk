@@ -1,6 +1,9 @@
 # R/ipc.R
 # Bidirectional message router: dispatches incoming WS messages to R handlers
 
+#' Initialize a message router for bidirectional IPC
+#'
+#' @return A list of functions: register, dispatch, get_handlers
 #' @keywords internal
 rdesk_make_router <- function() {
   # Returns a list: $register, $dispatch, $handlers
@@ -40,6 +43,11 @@ rdesk_make_router <- function() {
   )
 }
 
+#' Encode a message into JSON for WebSocket transmission
+#'
+#' @param type Message type string
+#' @param payload Data payload (list)
+#' @return JSON string
 #' @keywords internal
 rdesk_encode_message <- function(type, payload = list()) {
   jsonlite::toJSON(

@@ -1,13 +1,18 @@
 # R/utils.R
 
 #' Find a free TCP port
+#'
 #' Uses httpuv's built-in utility — more reliable than manual socket tricks
+#' @return A free port number (integer)
 #' @keywords internal
 rdesk_free_port <- function() {
   httpuv::randomPort(min = 49152L, max = 65535L)
 }
 
 #' Resolve the www directory for an app
+#'
+#' @param www_dir User-provided path to www directory (character)
+#' @return Normalized absolute path to a valid www directory
 #' @keywords internal
 rdesk_resolve_www <- function(www_dir) {
   if (is.null(www_dir)) {
