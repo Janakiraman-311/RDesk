@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RDesk Hello</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 40px 48px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 { font-size: 28px; color: #1B3A5C; margin-bottom: 8px; }
+    .subtitle { color: #666; font-size: 15px; margin-bottom: 32px; }
+    .status {
+      font-size: 13px;
+      color: #999;
+      margin-bottom: 24px;
+      padding: 8px 12px;
+      background: #f9f9f9;
+      border-radius: 6px;
+    }
+    .status.connected { color: #0F6E56; background: #D4EDE6; }
+    button {
+      background: #2E6DA4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 28px;
+      font-size: 15px;
+      cursor: pointer;
+      margin: 6px;
+    }
+    button:hover { background: #1B3A5C; }
+    #output {
+      margin-top: 24px;
+      padding: 16px;
+      background: #f4f6f8;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 13px;
+      text-align: left;
+      min-height: 80px;
+      white-space: pre-wrap;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>RDesk</h1>
+    <p class="subtitle">Native R desktop application framework</p>
+
+    <div class="status" id="status">Connecting to R...</div>
+
+    <button onclick="sendPing()">Ping R</button>
+    <button onclick="sendData()">Get mtcars</button>
+    <button onclick="sendTime()">Get server time</button>
+
+    <div id="output">Waiting for messages...</div>
+  </div>
+
+  <script src="/rdesk.js"></script>
+  <script>
+    var output = document.getElementById("output");
+    var status = document.getElementById("status");
+
+    function log(msg) {
+      var ts = new Date().toLocaleTimeString();
+      output.textContent = "[" + ts + "] " + msg + "\n" + output.textContent;
+    }
+
+    // Connection status
+    rdesk.ready(function () {
+      status.textContent = "Connected to R";
+      status.className   = "status connected";
+      log("WebSocket connected to R backend");
+    });
+
+    // Button handlers — send messages to R
+    function sendPing() {
+      rdesk.send("ping", { ts: Date.now() });
+      log("Sent: ping");
+    }
+    function sendData() {
+      rdesk.send("get_data", { dataset: "mtcars" });
+      log("Sent: get_data");
+    }
+    function sendTime() {
+      rdesk.send("get_time", {});
+      log("Sent: get_time");
+    }
+
+    // Receive messages from R
+    rdesk.on("log", function (payload) {
+      log(payload.msg);
+    });
+
+    rdesk.on("pong", function (payload) {
+      log("R pong: " + JSON.stringify(payload));
+    });
+    rdesk.on("data_result", function (payload) {
+      log("R data: " + payload.nrow + " rows, cols: " + payload.cols.join(", "));
+    });
+    rdesk.on("time_result", function (payload) {
+      log("R time: " + payload.time);
+    });
+  </script>
+</body>
+</html>

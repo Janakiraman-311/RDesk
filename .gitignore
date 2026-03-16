@@ -1,0 +1,32 @@
+# R-related
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+.Rapp.history
+.Rproj.user
+.DS_Store
+*.Rproj
+*.Rcheck/
+.temp/
+staging/
+
+# C++ build artifacts
+build/
+bin/rdesk-launcher.exe
+inst/bin/rdesk-launcher.exe
+inst/bin/WebView2Loader.dll
+launcher_v2/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Packaging artifacts
+dist/
+dist/*
+*.zip
+
+# System files
+Thumbs.db
+Desktop.ini

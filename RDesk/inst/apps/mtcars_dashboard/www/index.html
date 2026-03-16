@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motor Trend Cars Analyser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-r">R</span>
+      <span class="logo-desk">Desk</span>
+    </div>
+    <p class="sidebar-sub">Cars Analyser</p>
+
+    <div class="control-group">
+      <label class="ctrl-label">X axis</label>
+      <select id="x-axis" onchange="setAxes()">
+        <option value="wt"   selected>Weight (wt)</option>
+        <option value="hp">Horsepower (hp)</option>
+        <option value="disp">Displacement</option>
+        <option value="qsec">Quarter mile (qsec)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label class="ctrl-label">Y axis</label>
+      <select id="y-axis" onchange="setAxes()">
+        <option value="mpg"  selected>Fuel economy (mpg)</option>
+        <option value="hp">Horsepower (hp)</option>
+        <option value="disp">Displacement</option>
+        <option value="qsec">Quarter mile (qsec)</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label class="ctrl-label">Cylinders</label>
+      <div class="cyl-group">
+        <label class="pill"><input type="checkbox" value="4"  checked onchange="setCylFilter()"> 4 cyl</label>
+        <label class="pill"><input type="checkbox" value="6"  checked onchange="setCylFilter()"> 6 cyl</label>
+        <label class="pill"><input type="checkbox" value="8"  checked onchange="setCylFilter()"> 8 cyl</label>
+      </div>
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="btn-primary"  onclick="rdesk.send('load_csv', {})">Load CSV</button>
+      <button class="btn-secondary" onclick="rdesk.send('export_csv', {})">Export CSV</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- KPI row -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-value" id="kpi-n">—</div>
+        <div class="kpi-label">Vehicles</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" id="kpi-mpg">—</div>
+        <div class="kpi-label">Mean MPG</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" id="kpi-hp">—</div>
+        <div class="kpi-label">Mean HP</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" id="kpi-wt">—</div>
+        <div class="kpi-label">Mean Weight (lbs)</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-card">
+      <div class="chart-loading" id="chart-loading">Rendering chart...</div>
+      <img id="chart-img" class="chart-img" src="" alt="scatter plot" style="display:none">
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <div class="table-header">Top 15 vehicles</div>
+      <div class="table-wrap">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th>Model</th><th>MPG</th><th>HP</th>
+              <th>Weight</th><th>Cyl</th><th>Gear</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="6" style="text-align:center;color:#999">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/rdesk.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

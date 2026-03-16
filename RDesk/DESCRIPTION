@@ -1,0 +1,22 @@
+Package: RDesk
+Title: Native Desktop App Framework for R
+Version: 0.1.0
+Authors@R: person("Janakiraman", "G", email = "janakiraman@example.com", role = c("aut", "cre"))
+Description: A framework for building native R desktop applications.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports: 
+    R6 (>= 2.5.0),
+    httpuv (>= 1.6.0),
+    jsonlite (>= 1.8.0),
+    processx (>= 3.5.0),
+    base64enc,
+    ggplot2,
+    dplyr,
+    zip
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
