@@ -17,13 +17,24 @@ RDesk is a state-of-the-art framework for building standalone Windows applicatio
     - Native File Open/Save dialogs and System Notifications.
     - Automatic RTools discovery and C++ launcher compilation.
 
+## ✨ Coming from Shiny?
+
+If you already know Shiny, you already know RDesk. Your **R logic remains identical**—you still use `observe`, `reactives`, and data manipulation exactly as you do today. The only difference is the delivery: instead of a browser-based server, RDesk delivers your UI via a high-performance native bridge. You gain professional desktop features (menus, tray icons, offline installers) without learning a new language.
+
+## 📋 Requirements
+
+- **OS**: Windows 10 or Windows 11 (64-bit).
+- **R**: R 4.4.0 or higher.
+- **Build Tools**: [RTools 4.4](https://cran.r-project.org/bin/windows/Rtools/rtools44/rtools44.html) or higher (required for launcher compilation).
+- **Runtime**: [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (Pre-installed on Win11; manual install may be required for some Win10 versions).
+
 ## 📦 Getting Started
 
 ### Installation
 
 ```r
-# Install from source
-devtools::install(".")
+# Install directly from GitHub
+devtools::install_github("Janakiraman-311/RDesk")
 ```
 
 ### Build your first standalone app
