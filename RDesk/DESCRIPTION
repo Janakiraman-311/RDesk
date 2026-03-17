@@ -13,10 +13,12 @@ Imports:
     httpuv (>= 1.6.0),
     jsonlite (>= 1.8.0),
     processx (>= 3.5.0),
+    digest,
     base64enc,
     ggplot2,
     dplyr,
     zip
 Suggests: 
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    fs
 Config/testthat/edition: 3

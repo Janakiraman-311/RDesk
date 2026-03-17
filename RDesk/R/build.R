@@ -11,22 +11,48 @@
 #' @param include_packages Character vector of extra CRAN packages to bundle.
 #'   RDesk's own dependencies are always included automatically.
 #' @param overwrite If TRUE, overwrite existing output. Default FALSE.
+#' @param build_installer If TRUE, also build a Windows installer (.exe) using InnoSetup.
+#' @param publisher Publisher name for the installer.
+#' @param website Website URL for the installer.
+#' @param license_file Path to a license file (.txt or .rtf) to include in the installer.
+#' @param icon_file Path to an .ico file for the installer and application shortcut.
 #' @return Path to the created zip file, invisibly.
 #' @export
 build_app <- function(app_dir,
                       out_dir  = "dist",
-                      app_name = "MyRDeskApp",
-                      version  = "1.0.0",
+                      app_name = NULL,
+                      version  = NULL,
                       r_version = NULL,
                       include_packages = character(0),
-                      overwrite = FALSE) {
+                      overwrite = FALSE,
+                      build_installer = FALSE,
+                      publisher = "RDesk User",
+                      website   = "https://github.com/Janakiraman-311/RDesk",
+                      license_file = NULL,
+                      icon_file    = NULL) {
 
   options(timeout = max(1200, getOption("timeout")))
   app_dir <- normalizePath(app_dir, mustWork = TRUE)
 
-  # ── Validate inputs ────────────────────────────────────────────────────────
-  if (!file.exists(file.path(app_dir, "app.R")))
-    stop("[build_app] app_dir must contain app.R: ", app_dir)
+  # Auto-detect metadata from DESCRIPTION if possible
+  desc_path <- file.path(app_dir, "DESCRIPTION")
+  if (file.exists(desc_path)) {
+    desc <- read.dcf(desc_path)
+    if (is.null(app_name)) {
+      if ("Package" %in% colnames(desc)) app_name <- as.character(desc[1, "Package"])
+      else if ("AppName" %in% colnames(desc)) app_name <- as.character(desc[1, "AppName"])
+    }
+    if (is.null(version) && "Version" %in% colnames(desc)) {
+      version <- as.character(desc[1, "Version"])
+    }
+  }
+
+  # Fallbacks
+  if (is.null(app_name)) app_name <- "MyRDeskApp"
+  if (is.null(version))  version  <- "1.0.0"
+
+  # ── Pre-flight Validation ──────────────────────────────────────────────────
+  rdesk_validate_build_inputs(app_dir, include_packages, build_installer)
 
   if (is.null(r_version))
     r_version <- "4.5.1" # Default to user's known version for consistency
@@ -65,8 +91,7 @@ build_app <- function(app_dir,
   dir.create(pkg_lib, recursive = TRUE)
 
   # Always include RDesk and its hard deps
-  core_pkgs <- c("RDesk", "R6", "httpuv", "jsonlite",
-                 "processx", "base64enc", "ggplot2", "dplyr")
+  core_pkgs <- c("RDesk", "R6", "httpuv", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "digest", "zip")
   all_pkgs  <- unique(c(core_pkgs, include_packages))
 
   rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
@@ -110,9 +135,70 @@ build_app <- function(app_dir,
 
   size_mb <- round(file.info(zip_path)$size / 1024^2, 1)
   message("[RDesk] Done! ", zip_path, " (", size_mb, " MB)")
-  message("[RDesk] Distribute this zip — no R installation needed on the target machine.")
 
-  invisible(zip_path)
+  # ── Step 7: Build installer (Optional) ─────────────────────────────────────
+  if (build_installer) {
+    message("[RDesk] Step 7/7 — building Windows setup executable...")
+    rdesk_build_installer(
+      stage_root = stage_root,
+      out_dir    = out_dir,
+      app_name   = app_name,
+      version    = version,
+      publisher  = publisher,
+      website    = website,
+      license_file = license_file,
+      icon_file    = icon_file
+    )
+  }
+
+  message("[RDesk] Distribute the output — no R installation needed on the target machine.")
+
+invisible(zip_path)
+}
+
+#' Validate build inputs before starting the process
+#' @keywords internal
+rdesk_validate_build_inputs <- function(app_dir, extra_pkgs, build_installer = FALSE) {
+  message("[RDesk] Pre-flight validation...")
+  
+  # 1. Essential files
+  if (!file.exists(file.path(app_dir, "app.R")))
+    stop("[Validation Failed] app.R not found in: ", app_dir)
+    
+  if (!dir.exists(file.path(app_dir, "www")))
+    stop("[Validation Failed] www/ directory not found in: ", app_dir)
+    
+  # 2. Package check
+  core_pkgs <- c("R6", "httpuv", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "zip")
+  all_pkgs  <- unique(c(core_pkgs, extra_pkgs))
+  
+  missing <- all_pkgs[!all_pkgs %in% rownames(utils::installed.packages())]
+  if (length(missing) > 0 && !"RDesk" %in% missing) {
+    stop("[Validation Failed] The following required packages are not installed in your local R library:\n",
+         paste("  -", missing, collapse = "\n"),
+         "\nPlease install them before building.")
+  }
+
+  # 3. Rtools check (needed for stub compilation)
+  tryCatch({
+    rdesk_find_gpp()
+  }, error = function(e) {
+    stop("[Validation Failed] Rtools (g++) is required to build the launcher stub.\n",
+         "Error: ", e$message)
+  })
+
+  # 4. InnoSetup check
+  if (build_installer) {
+    iscc <- rdesk_find_iscc()
+    if (is.null(iscc)) {
+      stop("[Validation Failed] InnoSetup (ISCC.exe) not found.\n",
+           "It is required to build the .exe installer.\n",
+           "Download it from: https://jrsoftware.org/isdl.php")
+    }
+    message("[RDesk]   InnoSetup found: ", iscc)
+  }
+
+  message("[RDesk] Pre-flight check passed.")
 }
 
 # ── Internal helpers ────────────────────────────────────────────────────────
@@ -308,18 +394,117 @@ rdesk_resolve_deps <- function(pkgs, avail) {
 rdesk_build_stub <- function(stub_cpp, out_exe, app_name) {
   gpp <- rdesk_find_gpp()
 
+  # Copy to a temporary file to avoid any potential caching/sync issues with g++ 
+  # especially on network/sync folders like OneDrive
+  tmp_cpp <- file.path(tempdir(), paste0("stub_", digest::digest(app_name, algo="crc32"), ".cpp"))
+  file.copy(stub_cpp, tmp_cpp, overwrite = TRUE)
+  on.exit(unlink(tmp_cpp), add = TRUE)
+
+  # Perform template replacement for APP_NAME
+  lines <- readLines(tmp_cpp)
+  lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE)
+  writeLines(lines, tmp_cpp)
+  
+  message("[RDesk]   Compiling launcher stub...")
+  
   ret <- system2(gpp,
     args = c("-std=c++17", "-O2", "-mwindows",
-             shQuote(stub_cpp),
+             shQuote(tmp_cpp),
              "-o", shQuote(out_exe),
              "-lstdc++fs"),
     stdout = FALSE, stderr = FALSE)
 
-  if (ret != 0 || !file.exists(out_exe))
+  if (ret != 0 || !file.exists(out_exe)) {
+    # If compilation failed, try to capture the error for the user
+    err_out <- system2(gpp,
+      args = c("-std=c++17", "-O2", "-mwindows",
+               shQuote(tmp_cpp),
+               "-o", shQuote(out_exe),
+               "-lstdc++fs"),
+      stdout = TRUE, stderr = TRUE)
+    
     stop("[build_app] Failed to compile launcher stub.\n",
-         "Check that Rtools g++ is working: ", gpp)
+         "G++ Error:\n", paste(err_out, collapse = "\n"),
+         "\n\nCompiler used: ", gpp,
+         "\n\nNote: At runtime, logs will be in %LOCALAPPDATA%/RDesk/", app_name)
+  }
 
   message("[RDesk]   Stub compiled: ", basename(out_exe))
+}
+
+#' Find InnoSetup compiler (ISCC.exe)
+#' @keywords internal
+rdesk_find_iscc <- function() {
+  candidates <- c(
+    Sys.which("ISCC"),
+    "C:/Users/Janak/AppData/Local/Programs/Inno Setup 6/ISCC.exe",
+    "C:/Program Files (x86)/Inno Setup 6/ISCC.exe",
+    "C:/Program Files/Inno Setup 6/ISCC.exe"
+  )
+  found <- candidates[nchar(candidates) > 0 & file.exists(candidates)]
+  if (length(found) == 0) return(NULL)
+  found[1]
+}
+
+#' Generate and compile InnoSetup script
+#' @keywords internal
+rdesk_build_installer <- function(stage_root, out_dir, app_name, version,
+                                   publisher, website, license_file, icon_file) {
+  template_path <- system.file("installer", "template.iss", package = "RDesk")
+  if (template_path == "") {
+    template_path <- file.path(getwd(), "inst/installer/template.iss")
+  }
+  
+  iss_content <- readLines(template_path)
+  
+  # Replace basic placeholders
+  iss_content <- gsub("{{AppName}}", app_name, iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppVersion}}", version, iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppPublisher}}", publisher, iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppURL}}", website, iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppExeName}}", paste0(app_name, ".exe"), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{SourceDir}}", normalizePath(stage_root), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{OutputDir}}", normalizePath(out_dir), iss_content, fixed = TRUE)
+  
+  setup_basename <- paste0(app_name, "-", version, "-setup")
+  iss_content <- gsub("{{SetupBaseName}}", setup_basename, iss_content, fixed = TRUE)
+  
+  # App ID should be stable but unique for the app name
+  # We use a simple hash of the app name for consistency
+  app_id <- sprintf("RDesk-App-%s", digest::digest(app_name, algo = "crc32"))
+  iss_content <- gsub("{{AppID}}", app_id, iss_content, fixed = TRUE)
+
+  # Optional files
+  license_path <- ""
+  if (!is.null(license_file)) {
+    license_path <- normalizePath(license_file, mustWork = TRUE)
+  }
+  iss_content <- gsub("{{LicenseFile}}", license_path, iss_content, fixed = TRUE)
+  
+  icon_path <- ""
+  if (!is.null(icon_file)) {
+    icon_path <- normalizePath(icon_file, mustWork = TRUE)
+  }
+  iss_content <- gsub("{{AppIconFile}}", icon_path, iss_content, fixed = TRUE)
+  
+  iss_temp <- file.path(tempdir(), "installer.iss")
+  writeLines(iss_content, iss_temp)
+  
+  iscc <- rdesk_find_iscc()
+  message("[RDesk]   Compiling installer...")
+  
+  # Run ISCC.exe
+  # /Q = Quiet
+  res <- system2(iscc, args = c("/Q", shQuote(iss_temp)), stdout = TRUE, stderr = TRUE)
+  
+  if (!is.null(attr(res, "status")) && attr(res, "status") != 0) {
+    cat("[InnoSetup Error Output]:\n")
+    cat(paste(res, collapse = "\n"), "\n")
+    stop("[RDesk] InnoSetup compilation failed. See output above.")
+  }
+  
+  setup_exe <- file.path(out_dir, paste0(setup_basename, ".exe"))
+  message("[RDesk]   Installer created: ", setup_exe)
 }
 
 #' Find g++ compiler in common Rtools locations

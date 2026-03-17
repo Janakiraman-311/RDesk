@@ -2,4 +2,5 @@
  
 export(App)
 export(build_app)
+export(rdesk_create_app)
 export(rdesk_service)

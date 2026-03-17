@@ -7,6 +7,7 @@
   var _ready_fns = [];   // callbacks for when connection opens
   var _connected = false;
   var _port      = null;
+  var _version   = "1.0"; // RDesk IPC Contract Version
 
   // Auto-detect port from URL query string: ?__rdesk_port__=49217
   function detect_port() {
@@ -35,11 +36,14 @@
 
     _ws.onmessage = function (evt) {
       try {
-        var msg      = JSON.parse(evt.data);
-        var handlers = _handlers[msg.type] || [];
+        var envelope = JSON.parse(evt.data);
+        var type     = envelope.type;
+        var payload  = envelope.payload || {};
+        
+        var handlers = _handlers[type] || [];
         handlers.forEach(function (h) {
-          try { h(msg.payload); } catch (e) {
-            console.error("[rdesk] handler error for '" + msg.type + "':", e);
+          try { h(payload); } catch (e) {
+            console.error("[rdesk] handler error for '" + type + "':", e);
           }
         });
       } catch (e) {
@@ -68,7 +72,13 @@
     },
 
     send: function (type, payload) {
-      var msg = JSON.stringify({ type: type, payload: payload || {} });
+      var msg = JSON.stringify({
+        id: "msg_" + Math.random().toString(36).slice(2, 11),
+        type: type,
+        version: _version,
+        payload: payload || {},
+        timestamp: Date.now() / 1000
+      });
       if (_connected && _ws) {
         _ws.send(msg);
       } else {

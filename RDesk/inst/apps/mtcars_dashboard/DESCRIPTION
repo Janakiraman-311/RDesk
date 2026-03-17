@@ -1,0 +1,8 @@
+Package: CarsAnalyser
+Title: Motor Trend Cars Analyser
+Version: 1.0.0
+RDeskVersion: 0.1.0
+Depends: ggplot2, dplyr
+Description: A modular RDesk application demonstrating data visualization and IPC.
+Author: Janakiraman
+License: MIT

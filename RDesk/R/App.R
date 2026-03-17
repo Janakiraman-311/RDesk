@@ -71,16 +71,17 @@ App <- R6::R6Class("App",
     #' @param payload A list or data.frame to serialise as JSON payload
     #' @return The App instance (invisible)
     send = function(type, payload = list()) {
+      # Construct the standard envelope
+      msg_envelope <- rdesk_message(type, payload)
+      
       if (is.null(private$.ws)) {
         # Queue message for after connection
-        private$.send_queue <- c(
-          private$.send_queue,
-          list(list(type = type, payload = payload))
-        )
+        private$.send_queue[[length(private$.send_queue) + 1]] <- msg_envelope
         return(invisible(self))
       }
-      msg <- rdesk_encode_message(type, payload)
-      private$.ws$send(as.character(msg))
+      
+      msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
+      private$.ws$send(msg_json)
       invisible(self)
     },
  
@@ -203,7 +204,10 @@ App <- R6::R6Class("App",
  
           # Register WebSocket message handler
           ws$onMessage(function(binary, message) {
-            private$.router$dispatch(message)
+            msg <- rdesk_parse_message(message)
+            if (!is.null(msg)) {
+              private$.router$dispatch(msg$type, msg$payload)
+            }
           })
  
           # On close: stop the run loop
@@ -214,8 +218,9 @@ App <- R6::R6Class("App",
           })
  
           # Flush any queued messages
-          for (queued in private$.send_queue) {
-            self_ref$send(queued$type, queued$payload)
+          for (msg_envelope in private$.send_queue) {
+            msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
+            ws$send(msg_json)
           }
           private$.send_queue <- list()
         }

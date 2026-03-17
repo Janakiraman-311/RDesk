@@ -38,26 +38,79 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     // Set a flag so the R code knows it's running in a bundle
     _wputenv(L"R_BUNDLE_APP=1");
+    _wputenv(L"R_APP_NAME={{APP_NAME}}");
+
+    // LOGGING SETUP
+    std::wstring log_dir_str;
+    const wchar_t* local_appdata = _wgetenv(L"LOCALAPPDATA");
+    if (local_appdata) {
+        log_dir_str = std::wstring(local_appdata) + L"\\RDesk\\" + L"{{APP_NAME}}";
+    } else {
+        const wchar_t* temp_dir = _wgetenv(L"TEMP");
+        log_dir_str = std::wstring(temp_dir ? temp_dir : L"C:\\Temp") + L"\\RDesk\\" + L"{{APP_NAME}}";
+    }
+
+    std::filesystem::path log_dir = log_dir_str;
+    std::filesystem::create_directories(log_dir);
+    
+    std::wstring log_name = L"{{APP_NAME}}_crash.log";
+    std::filesystem::path log_path = log_dir / log_name;
+
+    SECURITY_ATTRIBUTES saAttr;
+    saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+    saAttr.bInheritHandle = TRUE;
+    saAttr.lpSecurityDescriptor = nullptr;
+
+    HANDLE hLogFile = CreateFileW(log_path.wstring().c_str(),
+                                  FILE_APPEND_DATA,
+                                  FILE_SHARE_READ,
+                                  &saAttr,
+                                  CREATE_ALWAYS,
+                                  FILE_ATTRIBUTE_NORMAL,
+                                  nullptr);
 
     STARTUPINFOW        si = {};
     PROCESS_INFORMATION pi = {};
     si.cb = sizeof(si);
+    
+    if (hLogFile != INVALID_HANDLE_VALUE) {
+        si.hStdError = hLogFile;
+        si.hStdOutput = hLogFile;
+        si.dwFlags |= STARTF_USESTDHANDLES;
+    }
 
     if (!CreateProcessW(nullptr,
             const_cast<wchar_t*>(cmd.c_str()),
-            nullptr, nullptr, FALSE,
-            CREATE_NO_WINDOW,   // silent — no black console flicker
+            nullptr, nullptr, TRUE, // TRUE to inherit handles
+            CREATE_NO_WINDOW,
             nullptr,
-            base.wstring().c_str(),  // working dir = app root
+            base.wstring().c_str(),
             &si, &pi)) {
-        MessageBoxW(nullptr, L"Failed to start Rscript.exe",
+        if (hLogFile != INVALID_HANDLE_VALUE) CloseHandle(hLogFile);
+        MessageBoxW(nullptr, (L"Failed to start Rscript.exe\nCommand: " + cmd).c_str(),
                     L"RDesk — Launch Error", MB_ICONERROR);
         return 1;
     }
 
-    // Wait for R to finish (app$run() blocks until window closes)
+    // Wait for R to finish
     WaitForSingleObject(pi.hProcess, INFINITE);
+    
+    DWORD exitCode = 0;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
-    return 0;
+    if (hLogFile != INVALID_HANDLE_VALUE) CloseHandle(hLogFile);
+
+    if (exitCode != 0) {
+        std::wstring msg = L"The application encountered an error (Code: " + std::to_wstring(exitCode) + 
+                           L").\n\nSee " + log_name + L" for details.";
+        MessageBoxW(nullptr, msg.c_str(), L"RDesk — Application Error", MB_ICONERROR);
+    } else {
+        // Clean exit -> Remove log file
+        std::error_code ec;
+        std::filesystem::remove(log_path, ec);
+    }
+
+    return exitCode;
 }
