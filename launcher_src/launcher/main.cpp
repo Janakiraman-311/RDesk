@@ -67,21 +67,35 @@ public:
 };
 
 static std::string json_get(const std::string& json, const std::string& key) {
-    // Minimal key lookup: finds "key":"value" or "key":number
+    // Minimal key lookup: finds "key":"value" or "key":number/object
+    // We add a quote to the start and end of search to be more specific
     std::string search = "\"" + key + "\":\"";
     auto pos = json.find(search);
     if (pos != std::string::npos) {
         pos += search.size();
         auto end = json.find('"', pos);
-        return json.substr(pos, end - pos);
+        if (end != std::string::npos) return json.substr(pos, end - pos);
     }
-    // Try without quotes (number/bool)
+    // Try without quotes (number/bool/object/array)
     search = "\"" + key + "\":";
     pos = json.find(search);
     if (pos != std::string::npos) {
         pos += search.size();
+        // Skip leading whitespace
+        while (pos < json.size() && isspace(static_cast<unsigned char>(json[pos]))) pos++;
+        
+        if (pos < json.size() && json[pos] == '{') {
+            // Very primitive object extractor - find matching }
+            int depth = 0;
+            for (size_t i = pos; i < json.size(); ++i) {
+                if (json[i] == '{') ++depth;
+                else if (json[i] == '}') --depth;
+                if (depth == 0) return json.substr(pos, i - pos + 1);
+            }
+        }
         auto end = json.find_first_of(",}", pos);
-        return json.substr(pos, end - pos);
+        if (end != std::string::npos) return json.substr(pos, end - pos);
+        return json.substr(pos);
     }
     return "";
 }
@@ -346,7 +360,8 @@ static void process_command(const std::string& line) {
     }
 
     if (cmd == "DIALOG_OPEN") {
-        std::string payload = line; // full line contains all we need
+        std::string payload = json_get(line, "payload");
+        if (payload.empty()) payload = line; // Fallback
         std::string title   = json_get(payload, "title");
         std::string filter  = json_get(payload, "filters");
         if (filter.empty()) filter = "All Files|*.*|";
@@ -364,10 +379,12 @@ static void process_command(const std::string& line) {
     }
 
     if (cmd == "DIALOG_SAVE") {
-        std::string title   = json_get(line, "title");
-        std::string defname = json_get(line, "default_name");
-        std::string filter  = json_get(line, "filters");
-        std::string defext  = json_get(line, "default_ext");
+        std::string payload = json_get(line, "payload");
+        if (payload.empty()) payload = line;
+        std::string title   = json_get(payload, "title");
+        std::string defname = json_get(payload, "default_name");
+        std::string filter  = json_get(payload, "filters");
+        std::string defext  = json_get(payload, "default_ext");
         if (filter.empty()) filter = "All Files|*.*|";
 
         std::thread([id, title, defname, filter, defext]() {
@@ -486,7 +503,11 @@ int main(int argc, char* argv[]) {
                 if (SUCCEEDED(g_core_webview->QueryInterface(IID_ICoreWebView2_3, reinterpret_cast<void**>(&webview3)))) {
                     std::wstring wwwPath;
                     if (!www.empty()) {
-                        wwwPath = std::wstring(www.begin(), www.end());
+                        int len = MultiByteToWideChar(CP_UTF8, 0, www.c_str(), -1, nullptr, 0);
+                        if (len > 0) {
+                            wwwPath.resize(len - 1);
+                            MultiByteToWideChar(CP_UTF8, 0, www.c_str(), -1, &wwwPath[0], len);
+                        }
                     } else {
                         wchar_t exePath[MAX_PATH];
                         GetModuleFileNameW(NULL, exePath, MAX_PATH);
@@ -563,6 +584,11 @@ int main(int argc, char* argv[]) {
 
         write_stdout("CLOSED");
         g_webview = nullptr;
+
+        if (g_core_webview) {
+            g_core_webview->Release();
+            g_core_webview = nullptr;
+        }
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << "\n";

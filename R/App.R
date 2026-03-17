@@ -122,7 +122,6 @@ App <- R6::R6Class("App",
     #' @param title Dialog title
     #' @param filters List of file filters, e.g. list("CSV files" = "*.csv")
     #' @return Selected file path (character) or NULL if cancelled
-    #' @export
     dialog_open = function(title = "Open File", filters = NULL) {
       filter_str <- private$.build_filter_str(filters)
       req_id     <- rdesk_req_id()
@@ -137,7 +136,6 @@ App <- R6::R6Class("App",
     #' @param default_name Initial filename
     #' @param filters List of file filters
     #' @return Selected file path (character) or NULL if cancelled
-    #' @export
     dialog_save = function(title = "Save File", default_name = "",
                             filters = NULL) {
       filter_str <- private$.build_filter_str(filters)
@@ -281,8 +279,6 @@ App <- R6::R6Class("App",
     .icon        = NULL,
     .ready_fn    = NULL,
     .running     = FALSE,
-    .server      = NULL,
-    .ws          = NULL,
     .window_proc = NULL,
     .router      = NULL,
     .send_queue  = list(),

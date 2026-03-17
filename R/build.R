@@ -12,12 +12,8 @@
 #'   RDesk's own dependencies are always included automatically.
 #' @param overwrite If TRUE, overwrite existing output. Default FALSE.
 #' @param build_installer If TRUE, also build a Windows installer (.exe) using InnoSetup.
-#' @param publisher Publisher name for the installer.
-#' @param website Website URL for the installer.
 #' @param license_file Path to a license file (.txt or .rtf) to include in the installer.
 #' @param icon_file Path to an .ico file for the installer and application shortcut.
-#' @param publisher Publisher name for the installer.
-#' @param website Website URL for the installer.
 #' @return Path to the created zip file, invisibly.
 #' @export
 build_app <- function(app_dir,
@@ -57,7 +53,7 @@ build_app <- function(app_dir,
   rdesk_validate_build_inputs(app_dir, include_packages, build_installer)
 
   if (is.null(r_version))
-    r_version <- "4.5.1" # Default to user's known version for consistency
+    r_version <- paste(R.version$major, R.version$minor, sep = ".")
 
   # ---- Staging directory ----------------------------------------------------
   dist_name  <- paste0(app_name, "-", version, "-windows")
@@ -442,7 +438,7 @@ rdesk_build_stub <- function(stub_cpp, out_exe, app_name) {
 rdesk_find_iscc <- function() {
   candidates <- c(
     Sys.which("ISCC"),
-    "C:/Users/Janak/AppData/Local/Programs/Inno Setup 6/ISCC.exe",
+    file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "Inno Setup 6", "ISCC.exe"),
     "C:/Program Files (x86)/Inno Setup 6/ISCC.exe",
     "C:/Program Files/Inno Setup 6/ISCC.exe"
   )
