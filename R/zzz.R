@@ -10,3 +10,10 @@
      options(rdesk.ci_mode = TRUE)
   }
 }
+
+.onAttach <- function(libname, pkgname) {
+  packageStartupMessage(
+    "[RDesk] v", utils::packageVersion("RDesk"),
+    " ready. Build apps with RDesk::build_app()"
+  )
+}
