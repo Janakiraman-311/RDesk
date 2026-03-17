@@ -7,11 +7,16 @@
 build_app(
   app_dir,
   out_dir = "dist",
-  app_name = "MyRDeskApp",
-  version = "1.0.0",
+  app_name = NULL,
+  version = NULL,
   r_version = NULL,
   include_packages = character(0),
-  overwrite = FALSE
+  overwrite = FALSE,
+  build_installer = FALSE,
+  publisher = "RDesk User",
+  website = "https://github.com/Janakiraman-311/RDesk",
+  license_file = NULL,
+  icon_file = NULL
 )
 }
 \arguments{
@@ -19,9 +24,9 @@ build_app(
 
 \item{out_dir}{Output directory for the zip file (created if not exists)}
 
-\item{app_name}{Name of the application (used for folder and exe names)}
+\item{app_name}{Name of the application. Defaults to name in DESCRIPTION or "MyRDeskApp".}
 
-\item{version}{Version string e.g. "1.0.0"}
+\item{version}{Version string. Defaults to version in DESCRIPTION or "1.0.0".}
 
 \item{r_version}{R version to bundle e.g. "4.4.2". Defaults to current R version.}
 
@@ -29,6 +34,16 @@ build_app(
 RDesk's own dependencies are always included automatically.}
 
 \item{overwrite}{If TRUE, overwrite existing output. Default FALSE.}
+
+\item{build_installer}{If TRUE, also build a Windows installer (.exe) using InnoSetup.}
+
+\item{publisher}{Publisher name for the installer.}
+
+\item{website}{Website URL for the installer.}
+
+\item{license_file}{Path to a license file (.txt or .rtf) to include in the installer.}
+
+\item{icon_file}{Path to an .ico file for the installer and application shortcut.}
 }
 \value{
 Path to the created zip file, invisibly.

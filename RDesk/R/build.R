@@ -5,8 +5,8 @@
 #'
 #' @param app_dir Path to the app directory (must contain app.R and www/)
 #' @param out_dir Output directory for the zip file (created if not exists)
-#' @param app_name Name of the application (used for folder and exe names)
-#' @param version Version string e.g. "1.0.0"
+#' @param app_name Name of the application. Defaults to name in DESCRIPTION or "MyRDeskApp".
+#' @param version Version string. Defaults to version in DESCRIPTION or "1.0.0".
 #' @param r_version R version to bundle e.g. "4.4.2". Defaults to current R version.
 #' @param include_packages Character vector of extra CRAN packages to bundle.
 #'   RDesk's own dependencies are always included automatically.
@@ -16,6 +16,8 @@
 #' @param website Website URL for the installer.
 #' @param license_file Path to a license file (.txt or .rtf) to include in the installer.
 #' @param icon_file Path to an .ico file for the installer and application shortcut.
+#' @param publisher Publisher name for the installer.
+#' @param website Website URL for the installer.
 #' @return Path to the created zip file, invisibly.
 #' @export
 build_app <- function(app_dir,
@@ -51,13 +53,13 @@ build_app <- function(app_dir,
   if (is.null(app_name)) app_name <- "MyRDeskApp"
   if (is.null(version))  version  <- "1.0.0"
 
-  # ── Pre-flight Validation ──────────────────────────────────────────────────
+  # ---- Pre-flight Validation -----------------------------------------------
   rdesk_validate_build_inputs(app_dir, include_packages, build_installer)
 
   if (is.null(r_version))
     r_version <- "4.5.1" # Default to user's known version for consistency
 
-  # ── Staging directory ──────────────────────────────────────────────────────
+  # ---- Staging directory ----------------------------------------------------
   dist_name  <- paste0(app_name, "-", version, "-windows")
   stage_root <- file.path(tempdir(), dist_name)
   if (dir.exists(stage_root)) unlink(stage_root, recursive = TRUE)
@@ -66,32 +68,32 @@ build_app <- function(app_dir,
   message("[RDesk] Building: ", dist_name)
   message("[RDesk] Staging in: ", stage_root)
 
-  # ── Step 1: Copy app files ─────────────────────────────────────────────────
-  message("[RDesk] Step 1/6 — copying app files...")
+  # ---- Step 1: Copy app files ----------------------------------------------
+  message("[RDesk] Step 1/6 - copying app files...")
   app_stage <- file.path(stage_root, "app")
   dir.create(app_stage)
   rdesk_copy_dir(app_dir, app_stage)
 
-  # ── Step 2: Copy RDesk binaries ────────────────────────────────────────────
-  message("[RDesk] Step 2/6 — copying launcher binaries...")
+  # ---- Step 2: Copy RDesk binaries -----------------------------------------
+  message("[RDesk] Step 2/6 - copying launcher binaries...")
   bin_src   <- system.file("bin", package = "RDesk")
   bin_stage <- file.path(stage_root, "bin")
   dir.create(bin_stage)
   rdesk_copy_dir(bin_src, bin_stage)
 
-  # ── Step 3: Download and extract portable R ────────────────────────────────
-  message("[RDesk] Step 3/6 — downloading portable R ", r_version, "...")
+  # ---- Step 3: Download and extract portable R -----------------------------
+  message("[RDesk] Step 3/6 - downloading portable R ", r_version, "...")
   runtime_dir <- file.path(stage_root, "runtime", "R")
   dir.create(runtime_dir, recursive = TRUE)
   rdesk_fetch_portable_r(r_version, runtime_dir)
 
-  # ── Step 4: Bundle packages ────────────────────────────────────────────────
-  message("[RDesk] Step 4/6 — bundling R packages...")
+  # ---- Step 4: Bundle packages ---------------------------------------------
+  message("[RDesk] Step 4/6 - bundling R packages...")
   pkg_lib <- file.path(stage_root, "packages", "library")
   dir.create(pkg_lib, recursive = TRUE)
 
   # Always include RDesk and its hard deps
-  core_pkgs <- c("RDesk", "R6", "httpuv", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "digest", "zip")
+  core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "digest", "zip")
   all_pkgs  <- unique(c(core_pkgs, include_packages))
 
   rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
@@ -101,14 +103,17 @@ build_app <- function(app_dir,
   rdesk_src <- getwd()
   # Build a binary version of RDesk for the current session's platform (Windows)
   # This ensures all Meta/ and other files are created correctly.
+  if (!requireNamespace("devtools", quietly = TRUE)) {
+    stop("[build_app] devtools is required to build the local package.")
+  }
   rdesk_bin_zip <- devtools::build(path = rdesk_src, binary = TRUE)
   on.exit(unlink(rdesk_bin_zip), add = TRUE)
   
   # Use zip::unzip to bypass "in use" locks of install.packages()
   zip::unzip(rdesk_bin_zip, exdir = pkg_lib)
   
-  # ── Step 5: Build the launcher stub ───────────────────────────────────────
-  message("[RDesk] Step 5/6 — building launcher stub...")
+  # ---- Step 5: Build the launcher stub ------------------------------------
+  message("[RDesk] Step 5/6 - building launcher stub...")
   # In development, system.file might not work correctly if not installed
   stub_src <- system.file("stub", "stub.cpp", package = "RDesk")
   if (stub_src == "") {
@@ -118,8 +123,8 @@ build_app <- function(app_dir,
   stub_exe <- file.path(stage_root, paste0(app_name, ".exe"))
   rdesk_build_stub(stub_src, stub_exe, app_name)
 
-  # ── Step 6: Zip everything ─────────────────────────────────────────────────
-  message("[RDesk] Step 6/6 — creating zip archive...")
+  # ---- Step 6: Zip everything ----------------------------------------------
+  message("[RDesk] Step 6/6 - creating zip archive...")
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
   zip_path <- file.path(normalizePath(out_dir), paste0(dist_name, ".zip"))
   if (file.exists(zip_path)) {
@@ -136,9 +141,9 @@ build_app <- function(app_dir,
   size_mb <- round(file.info(zip_path)$size / 1024^2, 1)
   message("[RDesk] Done! ", zip_path, " (", size_mb, " MB)")
 
-  # ── Step 7: Build installer (Optional) ─────────────────────────────────────
+  # ---- Step 7: Build installer (Optional) ----------------------------------
   if (build_installer) {
-    message("[RDesk] Step 7/7 — building Windows setup executable...")
+    message("[RDesk] Step 7/7 - building Windows setup executable...")
     rdesk_build_installer(
       stage_root = stage_root,
       out_dir    = out_dir,
@@ -151,7 +156,7 @@ build_app <- function(app_dir,
     )
   }
 
-  message("[RDesk] Distribute the output — no R installation needed on the target machine.")
+  message("[RDesk] Distribute the output - no R installation needed on the target machine.")
 
 invisible(zip_path)
 }
@@ -169,7 +174,7 @@ rdesk_validate_build_inputs <- function(app_dir, extra_pkgs, build_installer = F
     stop("[Validation Failed] www/ directory not found in: ", app_dir)
     
   # 2. Package check
-  core_pkgs <- c("R6", "httpuv", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "zip")
+  core_pkgs <- c("R6", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "zip")
   all_pkgs  <- unique(c(core_pkgs, extra_pkgs))
   
   missing <- all_pkgs[!all_pkgs %in% rownames(utils::installed.packages())]
@@ -201,7 +206,7 @@ rdesk_validate_build_inputs <- function(app_dir, extra_pkgs, build_installer = F
   message("[RDesk] Pre-flight check passed.")
 }
 
-# ── Internal helpers ────────────────────────────────────────────────────────
+# ---- Internal helpers --------------------------------------------------------
 
 #' Deep copy a directory
 #'

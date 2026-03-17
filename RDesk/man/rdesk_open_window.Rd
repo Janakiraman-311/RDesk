@@ -4,7 +4,7 @@
 \alias{rdesk_open_window}
 \title{Open a native window pointing to a URL}
 \usage{
-rdesk_open_window(url, title = "RDesk", width = 1200, height = 800)
+rdesk_open_window(url, title = "RDesk", width = 1200, height = 800, www_path = "")
 }
 \arguments{
 \item{url}{The target URL to load}
@@ -14,6 +14,8 @@ rdesk_open_window(url, title = "RDesk", width = 1200, height = 800)
 \item{width}{Window width}
 
 \item{height}{Window height}
+
+\item{www_path}{Path to the local assets directory}
 }
 \value{
 A processx process object

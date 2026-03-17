@@ -21,7 +21,7 @@ rdesk_launcher_path <- function() {
 #' @param title Window title
 #' @param width Window width
 #' @param height Window height
-#' @param www_path Path to the directory containing frontend assets
+#' @param www_path Path to the local assets directory
 #' @return A processx process object
 #' @keywords internal
 rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, www_path = "") {
