@@ -23,7 +23,7 @@ jobs:
 
       - name: Install RTools
         run: |
-          choco install rtools -y
+          choco install rtools --version=4.4.6459 -y --allow-downgrade
           echo "C:\rtools44\usr\bin" >> $GITHUB_PATH
           echo "C:\rtools44\mingw64\bin" >> $GITHUB_PATH
 
