@@ -25,9 +25,17 @@ staging/
 **/*.tlb
 
 # RDesk Specific
-RDesk/inst/bin/*.exe
-RDesk/inst/bin/*.dll
-RDesk/launcher_src/launcher/*.exe
+inst/bin/*.exe
+inst/bin/*.dll
+launcher_src/launcher/*.exe
+launcher_src/launcher/build/
+launcher_src/launcher/out/
+launcher_src/launcher/x64/
+launcher_src/launcher/ARM64/
+
+# Webview2 SDK Binaries (should be fetched or ignored if pre-bundled)
+**/webview2_sdk/native/
+**/webview2_sdk/build/
 
 # WebView2 SDK Tools
 **/wv2winrt.exe

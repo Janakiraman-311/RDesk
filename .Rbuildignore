@@ -1,1 +1,10 @@
 ^launcher_src$
+^.github$
+^dist$
+^temp_scaffold$
+^MIGRATION_GUIDE\.md$
+^PROJECT_STATUS\.md$
+^RDesk_Agent_Briefing.*$
+^RDesk_TS_CREATOR_EXPLAINED\.md$
+^.*\.Rproj$
+^\.Rproj\.user$
