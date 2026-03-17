@@ -24,7 +24,7 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           args: 'c("--no-manual", "--as-cran")'
-          error-on: warning
+          error-on: '"warning"'
 
       - name: Upload check results
         if: failure()
