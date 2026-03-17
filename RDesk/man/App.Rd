@@ -94,7 +94,7 @@ The App instance (invisible)
 \if{html}{\out{<a id="method-App-on_message"></a>}}
 \if{latex}{\out{\hypertarget{method-App-on_message}{}}}
 \subsection{Method \code{on_message()}}{
-Register a handler for a UI→R message type
+Register a handler for a UI -> R message type
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$on_message(type, fn)}\if{html}{\out{</div>}}
 }
@@ -256,7 +256,7 @@ Close the window and stop the app
 \if{html}{\out{<a id="method-App-run"></a>}}
 \if{latex}{\out{\hypertarget{method-App-run}{}}}
 \subsection{Method \code{run()}}{
-Start the application — opens the window and blocks until closed
+Start the application - opens the window and blocks until closed
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$run()}\if{html}{\out{</div>}}
 }

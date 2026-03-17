@@ -1,5 +1,5 @@
 # R/App.R
-# RDesk App R6 class — the complete public API
+# RDesk App R6 class - the complete public API
  
 # Global registry for multi-window management
 .rdesk_apps <- new.env(parent = emptyenv())
@@ -55,7 +55,7 @@ App <- R6::R6Class("App",
       invisible(self)
     },
  
-    #' @description Register a handler for a UI→R message type
+    #' @description Register a handler for a UI -> R message type
     #' @param type Character string message type (must match rdesk.send() first arg in JS)
     #' @param fn A function(payload) called when this message type arrives
     #' @return The App instance (invisible)
@@ -199,7 +199,7 @@ App <- R6::R6Class("App",
       invisible(self)
     },
  
-    #' @description Start the application — opens the window
+    #' @description Start the application - opens the window
     #' @param block If TRUE (default), blocks with an event loop until the window is closed.
     run = function(block = TRUE) {
       # CI Guard: Skip initialization if running in a headless environment

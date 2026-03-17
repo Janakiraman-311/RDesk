@@ -72,7 +72,7 @@ rdesk_close_window <- function(proc) {
   if (proc$is_alive()) proc$kill()
 }
 
-# ── Command sender ──────────────────────────────────────────────────────────
+# ---- Command sender ----------------------------------------------------------
 
 #' Send a JSON command to the launcher process over stdin
 #'
@@ -100,7 +100,7 @@ rdesk_req_id <- function() {
   paste0("req_", as.integer(id_num))
 }
 
-# ── Stdout event reader ─────────────────────────────────────────────────────
+# ---- Stdout event reader -----------------------------------------------------
 
 #' Read all pending stdout lines from the launcher without blocking
 #'

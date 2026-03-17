@@ -1,5 +1,5 @@
 # R/build.R
-# rdesk::build_app() — packages an RDesk app into a self-contained distributable
+# rdesk::build_app() - packages an RDesk app into a self-contained distributable
 
 #' Build a self-contained distributable from an RDesk application
 #'
