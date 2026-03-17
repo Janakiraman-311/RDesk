@@ -4,4 +4,9 @@
 .onLoad <- function(libname, pkgname) {
   # Set default IPC version for the contract
   options(rdesk.ipc_version = "1.0")
+
+  # CI Guard: Detect if running in GitHub Actions to skip windowed operations
+  if (Sys.getenv("GITHUB_ACTIONS") == "true") {
+     options(rdesk.ci_mode = TRUE)
+  }
 }

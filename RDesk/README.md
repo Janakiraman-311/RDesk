@@ -1,4 +1,5 @@
 # RDesk
+[![R-CMD-check](https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml)
 
 The first native desktop app framework for R.
 

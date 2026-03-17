@@ -202,6 +202,11 @@ App <- R6::R6Class("App",
     #' @description Start the application — opens the window
     #' @param block If TRUE (default), blocks with an event loop until the window is closed.
     run = function(block = TRUE) {
+      # CI Guard: Skip initialization if running in a headless environment
+      if (getOption("rdesk.ci_mode", FALSE)) {
+        message("[RDesk] CI Mode: Skipping native window initialization.")
+        return(invisible(self))
+      }
       private$.running <- TRUE
 
       if (rdesk_is_bundle()) {

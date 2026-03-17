@@ -1,0 +1,38 @@
+name: build-app
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::devtools, any::rcmdcheck
+
+      - name: Install RTools
+        run: |
+          choco install rtools -y
+          echo "C:\rtools44\usr\bin" >> $GITHUB_PATH
+          echo "C:\rtools44\mingw64\bin" >> $GITHUB_PATH
+
+      - name: Build App
+        run: |
+          Rscript -e 'devtools::install(".", quiet = TRUE)'
+          Rscript -e 'RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser")'
+
+      - name: Upload Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CarsAnalyser-dist
+          path: dist/*
+          retention-days: 30
