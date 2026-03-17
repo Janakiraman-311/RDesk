@@ -1,12 +1,11 @@
 # R/utils.R
 
-#' Find a free TCP port
-#'
-#' Uses httpuv's built-in utility — more reliable than manual socket tricks
-#' @return A free port number (integer)
-#' @keywords internal
-rdesk_free_port <- function() {
-  httpuv::randomPort(min = 49152L, max = 65535L)
+#' Check if the app is running in a bundled (standalone) environment
+#' @return TRUE if running in a bundle, FALSE otherwise
+#' @export
+rdesk_is_bundle <- function() {
+  # This environment variable is set by stub.cpp
+  Sys.getenv("R_BUNDLE_APP") == "1"
 }
 
 #' Resolve the www directory for an app

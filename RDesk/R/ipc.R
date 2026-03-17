@@ -39,3 +39,26 @@ rdesk_parse_message <- function(raw_json) {
   
   msg
 }
+
+#' Create an IPC message router
+#'
+#' @return A list with register() and dispatch() methods
+#' @keywords internal
+rdesk_make_router <- function() {
+  handlers <- new.env(parent = emptyenv())
+  
+  list(
+    register = function(type, fn) {
+      handlers[[type]] <- fn
+    },
+    dispatch = function(type, payload) {
+      fn <- handlers[[type]]
+      if (is.function(fn)) {
+        tryCatch(fn(payload), 
+                 error = function(e) warning("[RDesk] handler error for ", type, ": ", e$message))
+      } else {
+        # Silent ignore for unknown types (common in JS events)
+      }
+    }
+  )
+}

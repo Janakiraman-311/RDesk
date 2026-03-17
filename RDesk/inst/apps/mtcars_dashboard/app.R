@@ -6,9 +6,9 @@ library(ggplot2)
 library(dplyr)
 
 # Standardize path: use the app directory
-app_dir <- if (nzchar(Sys.getenv("R_BUNDLE_APP"))) getwd() else dirname(rstudioapi::getActiveDocumentContext()$path)
-# Fallback for some dev environments
-if (!dir.exists(file.path(app_dir, "www"))) app_dir <- getwd()
+app_dir <- tryCatch({
+  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) getwd() else dirname(rstudioapi::getActiveDocumentContext()$path)
+}, error = function(e) getwd())
 
 # Source all modular logic from R/
 r_dir <- file.path(app_dir, "R")

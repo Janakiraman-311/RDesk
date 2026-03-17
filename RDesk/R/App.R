@@ -7,7 +7,7 @@
 #' @title RDesk Application
 #' @description
 #' Create and launch a native desktop application window from R.
-#' Provides bidirectional WebSocket communication between R and the UI.
+#' Provides bidirectional native pipe communication between R and the UI.
 #'
 #' @examples
 #' \dontrun{
@@ -73,15 +73,22 @@ App <- R6::R6Class("App",
     send = function(type, payload = list()) {
       # Construct the standard envelope
       msg_envelope <- rdesk_message(type, payload)
-      
-      if (is.null(private$.ws)) {
-        # Queue message for after connection
-        private$.send_queue[[length(private$.send_queue) + 1]] <- msg_envelope
-        return(invisible(self))
-      }
-      
       msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
-      private$.ws$send(msg_json)
+
+      if (rdesk_is_bundle()) {
+        # Bundled mode: write directly to stdout (launcher reads this)
+        cat(msg_json, "\n")
+        flush(stdout())
+      } else {
+        # Dev mode: write to the launcher process's stdin
+        if (!is.null(private$.window_proc) && private$.window_proc$is_alive()) {
+          # Use internal command SEND_MSG to bridge to PostWebMessage
+          rdesk_send_cmd(private$.window_proc, "SEND_MSG", payload = msg_json)
+        } else {
+          # Queue message if launcher not yet ready
+          private$.send_queue[[length(private$.send_queue) + 1]] <- msg_envelope
+        }
+      }
       invisible(self)
     },
  
@@ -99,9 +106,15 @@ App <- R6::R6Class("App",
     set_menu = function(items) {
       # Convert R named list to JSON array the launcher understands
       menu_json <- private$.build_menu_json(items)
-      rdesk_send_cmd(private$.window_proc, "SET_MENU",
-                     payload = menu_json)
-      private$.menu_callbacks <- items # Store the original structure to resolve callbacks
+      
+      if (rdesk_is_bundle()) {
+        cat(jsonlite::toJSON(list(cmd = "SET_MENU", payload = menu_json), auto_unbox = TRUE), "\n")
+        flush(stdout())
+      } else {
+        rdesk_send_cmd(private$.window_proc, "SET_MENU", payload = menu_json)
+      }
+      
+      private$.menu_callbacks <- items
       invisible(self)
     },
  
@@ -190,70 +203,58 @@ App <- R6::R6Class("App",
     #' @param block If TRUE (default), blocks with an event loop until the window is closed.
     run = function(block = TRUE) {
       private$.running <- TRUE
- 
-      # 1. Find a free port
-      port <- rdesk_free_port()
- 
-      # 2. Start the httpuv server
-      self_ref <- self
-      private$.server <- rdesk_start_server(
-        port     = port,
-        www_path = private$.www,
-        ws_handler = function(ws) {
-          private$.ws <- ws
- 
-          # Register WebSocket message handler
-          ws$onMessage(function(binary, message) {
-            msg <- rdesk_parse_message(message)
-            if (!is.null(msg)) {
-              private$.router$dispatch(msg$type, msg$payload)
-            }
-          })
- 
-          # On close: stop the run loop
-          ws$onClose(function() {
-            message("[RDesk] UI disconnected.")
-            private$.ws      <- NULL
-            private$.running <- FALSE
-          })
- 
-          # Flush any queued messages
-          for (msg_envelope in private$.send_queue) {
-            msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
-            ws$send(msg_json)
-          }
-          private$.send_queue <- list()
+
+      if (rdesk_is_bundle()) {
+        # BUNDLED MODE: R is the child process.
+        if (!is.null(private$.ready_fn)) {
+          tryCatch(private$.ready_fn(), error = function(e) warning("[RDesk] on_ready error: ", e$message))
         }
-      )
- 
-      message("[RDesk] Server running at http://127.0.0.1:", port)
- 
-      # 3. Inject port into rdesk.js URL — window navigates to app
-      url <- paste0("http://127.0.0.1:", port, "/?__rdesk_port__=", port)
- 
-      # 4. Launch the native window
-      private$.window_proc <- rdesk_open_window(
-        url    = url,
-        title  = private$.title,
-        width  = private$.width,
-        height = private$.height
-      )
- 
-      # 5. Fire on_ready callback
-      if (!is.null(private$.ready_fn)) {
-        tryCatch(
-          private$.ready_fn(),
-          error = function(e) warning("[RDesk] on_ready error: ", e$message)
-        )
+
+        # Main blocking stdin loop
+        repeat {
+          line <- readLines(con = stdin(), n = 1, warn = FALSE)
+          if (length(line) == 0) break # stdin closed = launcher exited
+          
+          # Process the message
+          msg <- rdesk_parse_message(line)
+          if (!is.null(msg)) {
+             if (!is.null(msg$type)) {
+               private$.router$dispatch(msg$type, msg$payload)
+             } else if (!is.null(msg$event)) {
+               private$.handle_launcher_event(msg)
+             }
+          }
+          if (!private$.running) break
+        }
+        return(invisible(self))
       }
- 
-      # 6. Register for multi-window management
+
+      # DEV MODE: R is the parent process.
+      url <- "https://app.rdesk/index.html" 
+
+      private$.window_proc <- rdesk_open_window(
+        url      = url,
+        title    = private$.title,
+        width    = private$.width,
+        height   = private$.height,
+        www_path = private$.www
+      )
+
+      # Flush queued messages
+      for (msg_envelope in private$.send_queue) {
+        msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
+        rdesk_send_cmd(private$.window_proc, "SEND_MSG", payload = msg_json)
+      }
+      private$.send_queue <- list()
+
+      if (!is.null(private$.ready_fn)) {
+        tryCatch(private$.ready_fn(), error = function(e) warning("[RDesk] on_ready error: ", e$message))
+      }
+
       assign(as.character(private$.id), self, envir = .rdesk_apps)
- 
-      # 7. Main event loop
+
       if (block) {
         while (private$.running) {
-          # Process all registered apps
           rdesk_service()
           if (!private$.running) break
           Sys.sleep(0.01)
@@ -261,7 +262,7 @@ App <- R6::R6Class("App",
         private$.cleanup()
         message("[RDesk] App closed.")
       }
- 
+
       invisible(self)
     }
   ),
@@ -285,18 +286,11 @@ App <- R6::R6Class("App",
     .tray_callback = NULL,      # Function(button)
  
     .cleanup = function() {
-      # Close window
-      rdesk_close_window(private$.window_proc)
-      private$.window_proc <- NULL
- 
-      # Stop httpuv server
-      if (!is.null(private$.server)) {
-        httpuv::stopServer(private$.server)
-        private$.server <- NULL
+      if (!rdesk_is_bundle()) {
+        # Dev mode: Close window
+        rdesk_close_window(private$.window_proc)
+        private$.window_proc <- NULL
       }
- 
-      # Clear WebSocket
-      private$.ws      <- NULL
       private$.running <- FALSE
     },
  
@@ -340,15 +334,26 @@ App <- R6::R6Class("App",
     },
  
     .wait_dialog_result = function(req_id, timeout_sec = 60) {
-      # Block R's event loop until dialog returns, still servicing httpuv
       private$.pending_dialogs[[req_id]] <- NULL
       deadline <- Sys.time() + timeout_sec
       while (Sys.time() < deadline) {
-        httpuv::service(50L)
-        if (!is.null(private$.window_proc)) {
-          events <- rdesk_read_events(private$.window_proc)
-          for (evt in events) private$.handle_launcher_event(evt)
+        if (rdesk_is_bundle()) {
+           # Process stdin to find the dialog result
+           line <- readLines(stdin(), 1)
+           if (length(line) > 0) {
+             msg <- rdesk_parse_message(line)
+             if (!is.null(msg)) {
+               if (!is.null(msg$event)) private$.handle_launcher_event(msg)
+               else private$.router$dispatch(msg$type, msg$payload)
+             }
+           }
+        } else {
+          if (!is.null(private$.window_proc)) {
+            events <- rdesk_read_events(private$.window_proc)
+            for (evt in events) private$.handle_launcher_event(evt)
+          }
         }
+        
         result <- private$.pending_dialogs[[req_id]]
         if (!is.null(result)) {
           private$.pending_dialogs[[req_id]] <- NULL
@@ -360,21 +365,26 @@ App <- R6::R6Class("App",
     },
  
     .handle_launcher_event = function(evt) {
-      if (evt$event == "MENU_CLICK") {
-        callback <- private$.menu_actions[[evt$id]]
-        if (is.function(callback)) {
-          tryCatch(callback(),
-                   error = function(e) warning("[RDesk] menu handler error: ", e$message))
+      if (!is.null(evt$event)) {
+        if (evt$event == "MENU_CLICK") {
+          callback <- private$.menu_actions[[evt$id]]
+          if (is.function(callback)) {
+            tryCatch(callback(),
+                     error = function(e) warning("[RDesk] menu handler error: ", e$message))
+          }
+        } else if (evt$event == "DIALOG_RESULT") {
+          private$.pending_dialogs[[evt$id]] <- evt$path
+        } else if (evt$event == "DIALOG_CANCEL") {
+          private$.pending_dialogs[[evt$id]] <- "__CANCEL__"
+        } else if (evt$event == "TRAY_CLICK") {
+          if (is.function(private$.tray_callback)) {
+            tryCatch(private$.tray_callback(evt$button),
+                     error = function(e) warning("[RDesk] tray handler error: ", e$message))
+          }
         }
-      } else if (evt$event == "DIALOG_RESULT") {
-        private$.pending_dialogs[[evt$id]] <- evt$path
-      } else if (evt$event == "DIALOG_CANCEL") {
-        private$.pending_dialogs[[evt$id]] <- "__CANCEL__"
-      } else if (evt$event == "TRAY_CLICK") {
-        if (is.function(private$.tray_callback)) {
-          tryCatch(private$.tray_callback(evt$button),
-                   error = function(e) warning("[RDesk] tray handler error: ", e$message))
-        }
+      } else if (!is.null(evt$type)) {
+        # It's a JS -> R message forwarded by launcher
+        private$.router$dispatch(evt$type, evt$payload)
       }
     },
  
@@ -395,15 +405,12 @@ App <- R6::R6Class("App",
  
 #' Service all active RDesk applications
 #' 
-#' Processes WebSocket events and native OS events for all open windows.
+#' Processes native OS events for all open windows.
 #' Call this periodically if you are running apps with \code{block = FALSE}.
 #' 
 #' @export
 rdesk_service <- function() {
-  # 1. Service httpuv (global for all apps)
-  httpuv::service(10)
-  
-  # 2. Service each registered app
+  # Service each registered app
   app_ids <- ls(.rdesk_apps)
   for (id in app_ids) {
     app <- .rdesk_apps[[id]]

@@ -1,16 +1,19 @@
-#ifdef _WIN32
-#define UNICODE
-#define _UNICODE
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <commdlg.h>
 #include <shellapi.h>
+#include <shlwapi.h>
 #pragma comment(lib, "comdlg32.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
-#endif
 
+
+#if defined(_WIN32)
+#include <wrl.h>
+#endif
 #include "webview/webview.h"
+#include <WebView2.h>
+
+// IID_ICoreWebView2_3 is already in WebView2.h, removing manual definition.
  
 static const UINT WM_TRAYICON = WM_USER + 1;
 
@@ -37,6 +40,32 @@ static std::string json_str(const std::string& s) {
     return out + "\"";
 }
 
+// --- Custom WebView2 Event Handler (MinGW/RTools doesn't have WRL) ---
+class MessageHandler : public ICoreWebView2WebMessageReceivedEventHandler {
+    std::function<HRESULT(ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs*)> f;
+    std::atomic<long> count{1};
+public:
+    MessageHandler(std::function<HRESULT(ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs*)> f) : f(f) {}
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2WebMessageReceivedEventHandler) {
+            *ppv = static_cast<ICoreWebView2WebMessageReceivedEventHandler*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return ++count; }
+    ULONG STDMETHODCALLTYPE Release() override {
+        auto c = --count;
+        if (c == 0) delete this;
+        return c;
+    }
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* sender, ICoreWebView2WebMessageReceivedEventArgs* args) override {
+        return f(sender, args);
+    }
+};
+
 static std::string json_get(const std::string& json, const std::string& key) {
     // Minimal key lookup: finds "key":"value" or "key":number
     std::string search = "\"" + key + "\":\"";
@@ -60,6 +89,7 @@ static std::string json_get(const std::string& json, const std::string& key) {
 // ── global state ─────────────────────────────────────────────────────────────
 static std::atomic<bool>  g_quit{false};
 static webview::webview*  g_webview = nullptr;
+static ICoreWebView2*     g_core_webview = nullptr;
 static std::mutex         g_out_mutex;
 
 static void write_stdout(const std::string& line) {
@@ -374,6 +404,19 @@ static void process_command(const std::string& line) {
         });
         return;
     }
+    if (cmd == "SEND_MSG") {
+        std::string payload = json_get(line, "payload");
+        if (g_core_webview && !payload.empty()) {
+            std::wstring wpayload;
+            int len = MultiByteToWideChar(CP_UTF8, 0, payload.c_str(), -1, nullptr, 0);
+            if (len > 0) {
+                wpayload.resize(len - 1);
+                MultiByteToWideChar(CP_UTF8, 0, payload.c_str(), -1, &wpayload[0], len);
+                g_core_webview->PostWebMessageAsString(wpayload.c_str());
+            }
+        }
+        return;
+    }
 #endif
 }
 
@@ -412,7 +455,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     if (args.empty()) {
-        std::cerr << "Usage: rdesk-launcher <url> [title] [width] [height]\n";
+        std::cerr << "Usage: rdesk-launcher <url> [title] [width] [height] [www_path]\n";
         return 1;
     }
 
@@ -420,6 +463,7 @@ int main(int argc, char* argv[]) {
     std::string title  = args.size() > 1 ? args[1] : "RDesk App";
     int         width  = args.size() > 2 ? std::stoi(args[2]) : 1200;
     int         height = args.size() > 3 ? std::stoi(args[3]) : 800;
+    std::string www    = args.size() > 4 ? args[4] : "";
 
     try {
         webview::webview w(false, nullptr);
@@ -432,6 +476,50 @@ int main(int argc, char* argv[]) {
 
         w.set_title(title);
         w.set_size(width, height, WEBVIEW_HINT_NONE);
+
+        // --- Native IPC & Virtual Hostname setup ---
+        auto controller = static_cast<ICoreWebView2Controller*>(w.browser_controller().value());
+        if (controller) {
+            controller->get_CoreWebView2(&g_core_webview);
+            if (g_core_webview) {
+                ICoreWebView2_3* webview3 = nullptr;
+                if (SUCCEEDED(g_core_webview->QueryInterface(IID_ICoreWebView2_3, reinterpret_cast<void**>(&webview3)))) {
+                    std::wstring wwwPath;
+                    if (!www.empty()) {
+                        wwwPath = std::wstring(www.begin(), www.end());
+                    } else {
+                        wchar_t exePath[MAX_PATH];
+                        GetModuleFileNameW(NULL, exePath, MAX_PATH);
+                        PathRemoveFileSpecW(exePath);
+                        wwwPath = std::wstring(exePath) + L"\\www";
+                    }
+                    
+                    webview3->SetVirtualHostNameToFolderMapping(
+                        L"app.rdesk", wwwPath.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+                    webview3->Release();
+                }
+
+                // Register native message handler
+                EventRegistrationToken token;
+                auto handler = new MessageHandler(
+                        [](ICoreWebView2* sender, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
+                            LPWSTR message = nullptr;
+                            if (SUCCEEDED(args->TryGetWebMessageAsString(&message))) {
+                                int len = WideCharToMultiByte(CP_UTF8, 0, message, -1, nullptr, 0, nullptr, nullptr);
+                                if (len > 0) {
+                                    std::string s(len - 1, '\0');
+                                    WideCharToMultiByte(CP_UTF8, 0, message, -1, &s[0], len, nullptr, nullptr);
+                                    write_stdout(s);
+                                }
+                                CoTaskMemFree(message);
+                            }
+                            return S_OK;
+                        });
+                g_core_webview->add_WebMessageReceived(handler, &token);
+                handler->Release(); // WebView2 will hold onto it via AddRef
+            }
+        }
+
         w.navigate(url);
 
         write_stdout("READY");

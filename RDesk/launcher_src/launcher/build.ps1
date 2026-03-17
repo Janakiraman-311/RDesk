@@ -1,5 +1,8 @@
+$RTOOLS_BIN = "C:/rtools45/x86_64-w64-mingw32.static.posix/bin"
+$env:PATH = "$RTOOLS_BIN;$env:PATH"
+
 $currentDir = Get-Location
-$buildDir = "$currentDir/build"
+$buildDir = "$currentDir/build_vs"
 
 if (Test-Path $buildDir) {
     Remove-Item -Recurse -Force $buildDir
@@ -7,38 +10,20 @@ if (Test-Path $buildDir) {
 New-Item -ItemType Directory -Path $buildDir
 Set-Location $buildDir
 
-# Use forward slashes for Rtools paths to avoid MSYS2 escaping issues
-$RTOOLS_BIN = "C:/rtools45/x86_64-w64-mingw32.static.posix/bin"
-$RTOOLS_USR = "C:/rtools45/usr/bin"
+Write-Output "Attempting build with RTools CMake + VS 2022..."
 
-# Export to environment
-$env:PATH = "$RTOOLS_BIN;$RTOOLS_USR;$env:PATH"
+# Use RTools cmake but VS generator
+& cmake .. -G "Visual Studio 17 2022" -A x64
 
-$CMAKE = "$RTOOLS_BIN/cmake.exe"
-$GXX = "$RTOOLS_BIN/g++.exe"
-$GCC = "$RTOOLS_BIN/gcc.exe"
-$MAKE = "$RTOOLS_USR/make.exe"
+# Build
+& cmake --build . --config Release
 
-Write-Output "Using CMAKE: $CMAKE"
-Write-Output "Using GXX: $GXX"
-Write-Output "Using MAKE: $MAKE"
-
-# Run CMake
-& $CMAKE .. -G "MinGW Makefiles" `
-    "-DCMAKE_BUILD_TYPE=Release" `
-    "-DCMAKE_CXX_COMPILER=$GXX" `
-    "-DCMAKE_C_COMPILER=$GCC" `
-    "-DCMAKE_MAKE_PROGRAM=$MAKE" `
-    "-DCMAKE_SH=CMAKE_SH-NOTFOUND"
-
-# Run Build
-& $CMAKE --build . --config Release
-
-if (Test-Path "rdesk-launcher.exe") {
+if (Test-Path "Release/rdesk-launcher.exe") {
     Write-Output "Build SUCCESS!"
-    # The CMakeLists.txt should have copied it to inst/bin/
+} elseif (Test-Path "rdesk-launcher.exe") {
+    Write-Output "Build SUCCESS!"
 } else {
-    Write-Output "Build FAILED - binary not found in build directory"
+    Write-Output "Build FAILED"
 }
 
 Set-Location $currentDir

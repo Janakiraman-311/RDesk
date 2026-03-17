@@ -21,16 +21,17 @@ rdesk_launcher_path <- function() {
 #' @param title Window title
 #' @param width Window width
 #' @param height Window height
+#' @param www_path Path to the directory containing frontend assets
 #' @return A processx process object
 #' @keywords internal
-rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800) {
+rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, www_path = "") {
   launcher <- rdesk_launcher_path()
 
   message("[RDesk] Window opened: ", url)
 
   proc <- processx::process$new(
     command = launcher,
-    args    = c(url, title, as.character(width), as.character(height)),
+    args    = c(url, title, as.character(width), as.character(height), www_path),
     stdin   = "|",   # allow writing QUIT and other commands
     stdout  = "|",   # pipe so we can read READY signal and events
     stderr  = "|",
@@ -114,8 +115,9 @@ rdesk_read_events <- function(proc) {
     line <- trimws(line)
     if (nchar(line) == 0 || line == "READY" || line == "CLOSED") next
     tryCatch({
+      # Any valid JSON from the launcher is an "event" or "message"
       parsed <- jsonlite::fromJSON(line, simplifyVector = FALSE)
-      if (!is.null(parsed$event)) events <- c(events, list(parsed))
+      events <- c(events, list(parsed))
     }, error = function(e) NULL)
   }
   events

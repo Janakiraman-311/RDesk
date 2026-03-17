@@ -13,6 +13,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(webview)
 
 add_executable(rdesk-launcher WIN32 main.cpp)
+target_include_directories(rdesk-launcher PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/webview2_sdk/build/native/include")
 target_link_libraries(rdesk-launcher PRIVATE webview::core)
 
 # On Windows, also need these

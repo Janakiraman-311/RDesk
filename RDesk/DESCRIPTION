@@ -10,7 +10,6 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
     R6 (>= 2.5.0),
-    httpuv (>= 1.6.0),
     jsonlite (>= 1.8.0),
     processx (>= 3.5.0),
     digest,
