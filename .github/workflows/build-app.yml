@@ -17,7 +17,6 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::devtools, any::rcmdcheck
-          working-directory: RDesk
 
       - name: Install RTools
         run: |
@@ -29,12 +28,11 @@ jobs:
         run: |
           Rscript -e 'devtools::install(".", quiet = TRUE)'
           Rscript -e 'RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser")'
-        working-directory: RDesk
 
       - name: Upload Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: CarsAnalyser-dist
-          path: RDesk/dist/*
+          path: dist/*
           retention-days: 30

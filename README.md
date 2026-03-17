@@ -36,9 +36,12 @@ RDesk::build_app(
 
 ## Project Structure
 
-- `RDesk/`: Core R package source.
-- `launcher_src/`: C++ source for the native launcher and stub.
-- `dist/`: Generated distributable packages (Git ignored by default).
+- `R/`: Core R framework logic.
+- `inst/`: Bundled assets, templates, and application shims.
+- `launcher_src/`: C++ source for the native launcher.
+- `man/`: Package documentation.
+- `vignettes/`: Technical guides and architecture docs.
+- `dist/`: Generated distributable packages (Git ignored).
 
 ## License
 

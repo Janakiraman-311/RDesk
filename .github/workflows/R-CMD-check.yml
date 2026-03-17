@@ -20,11 +20,9 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck
-          working-directory: RDesk
 
       - uses: r-lib/actions/check-r-package@v2
         with:
-          working-directory: RDesk
           args: 'c("--no-manual", "--as-cran")'
           error-on: '"warning"'
 
