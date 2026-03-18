@@ -18,7 +18,8 @@ Imports:
     ggplot2,
     dplyr,
     zip,
-    stats
+    stats,
+    mirai (>= 1.0.0)
 Suggests: 
     testthat (>= 3.0.0),
     fs,

@@ -269,6 +269,8 @@ App <- R6::R6Class("App",
 
       if (rdesk_is_bundle()) {
         # BUNDLED MODE: R is the child process.
+        rdesk_start_daemons()  # Pre-warm worker pool
+        
         if (!is.null(private$.ready_fn)) {
           tryCatch(private$.ready_fn(), error = function(e) warning("[RDesk] on_ready error: ", e$message))
         }
@@ -365,6 +367,7 @@ App <- R6::R6Class("App",
     .tray_callback = NULL,      # Function(button)
  
     .cleanup = function() {
+      rdesk_stop_daemons()  # Shut down worker pool cleanly
       if (!rdesk_is_bundle()) {
         # Dev mode: Close window
         rdesk_close_window(private$.window_proc)

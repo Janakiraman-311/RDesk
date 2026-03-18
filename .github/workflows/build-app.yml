@@ -20,7 +20,7 @@ jobs:
 
       - name: Verify async dependencies
         run: |
-          Rscript -e 'stopifnot(requireNamespace("callr", quietly = TRUE), requireNamespace("processx", quietly = TRUE))'
+          Rscript -e 'stopifnot(requireNamespace("callr"), requireNamespace("processx"), requireNamespace("mirai"))'
 
 
       - name: Install RTools

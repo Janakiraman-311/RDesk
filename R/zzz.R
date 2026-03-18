@@ -10,12 +10,17 @@ NULL
   # Set default IPC version for the contract
   options(rdesk.ipc_version = "1.0")
 
-  # CI Guard: Detect if running in GitHub Actions to skip windowed operations
+  # CI Guard: Detect if running in GitHub Actions and set async backend
   if (Sys.getenv("GITHUB_ACTIONS") == "true") {
-     options(rdesk.ci_mode = TRUE)
+    options(rdesk.ci_mode    = TRUE)
+    options(rdesk.async_backend = "callr")  # mirai daemons fail in CI headless
+  } else {
+    # Default to mirai if available, fallback to callr
+    backend <- if (requireNamespace("mirai", quietly = TRUE)) "mirai" else "callr"
+    options(rdesk.async_backend = backend)
   }
 
-  # Hard reset all registries to prevent stale state across sessions
+  # Ensure clean job registry on load to prevent stale state across sessions
   if (exists(".rdesk_jobs")) rm(list = ls(envir = .rdesk_jobs), envir = .rdesk_jobs)
   if (exists(".rdesk_apps")) rm(list = ls(envir = .rdesk_apps), envir = .rdesk_apps)
 }
