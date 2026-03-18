@@ -22,7 +22,7 @@ jobs:
         run: |
           Rscript -e '
             options(rdesk.async_backend = "callr")
-            library(RDesk)
+            devtools::load_all(".")
             done <- FALSE
             fn <- RDesk::async(function(p) list(result = p$x * 2))
             # Simulate what on_message() does — inject type
