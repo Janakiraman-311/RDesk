@@ -19,5 +19,5 @@ rdesk_async(task, args = list(), on_done = NULL, on_error = NULL)
 Invisible job ID.
 }
 \description{
-Run a task in the background
+Automatically switches between 'mirai' (persistent daemons) and 'callr' (on-demand processes).
 }

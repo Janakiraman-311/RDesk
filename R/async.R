@@ -185,3 +185,133 @@ rdesk_cancel_job <- function(job_id) {
 rdesk_jobs_pending <- function() {
   length(ls(.rdesk_jobs, pattern = "^job_"))
 }
+
+#' Wrap a message handler to run asynchronously with zero configuration
+#'
+#' @description
+#' \code{async()} is the simplest way to make an RDesk message handler
+#' non-blocking. Wrap any handler function with \code{async()} and RDesk
+#' automatically handles background execution, loading states, error toasts,
+#' and result routing.
+#'
+#' The wrapped function runs in an isolated worker process. All packages
+#' loaded in the main session at registration time are automatically
+#' reloaded in the worker. The return value is automatically sent back
+#' to the UI as a message of type \code{<original_type>_result}.
+#'
+#' @param fn A function(payload) that performs the computation and returns
+#'   a list to send back to the UI. Must be self-contained — do not
+#'   reference variables from the parent environment directly.
+#' @param loading_message Character string shown in the loading overlay.
+#'   Default "Working..."
+#' @param cancellable Logical. If TRUE, shows a Cancel button. Default TRUE.
+#' @param error_message Character string prefix for error toasts.
+#'   Default "Error: "
+#'
+#' @return A function suitable for use with \code{app$on_message()}
+#'
+#' @examples
+#' \dontrun{
+#' app$on_message("filter_cars", async(function(payload) {
+#'   mtcars[mtcars$cyl == payload$cylinders, ]
+#' }))
+#' }
+#' @export
+async <- function(fn,
+                  loading_message = "Working...",
+                  cancellable     = TRUE,
+                  error_message   = "Error: ") {
+
+  # Capture packages loaded NOW at registration time
+  # This is intentional — we snapshot the environment when the
+  # developer calls async(), not when the task runs
+  base_pkgs <- c("base", "methods", "datasets", "utils",
+                 "grDevices", "graphics", "stats", "R6",
+                 "jsonlite", "digest", "processx", "callr", "mirai")
+
+  loaded_pkgs <- tryCatch({
+    loaded <- search()
+    pkg_names <- gsub("^package:", "", grep("^package:", loaded, value = TRUE))
+    setdiff(pkg_names, base_pkgs)
+  }, error = function(e) character(0))
+
+  # Capture the app reference at registration time
+  # async() is always called inside an on_message() context where
+  # app exists in the calling frame
+  app_ref <- tryCatch(
+    get("app", envir = parent.frame(2), inherits = TRUE),
+    error = function(e) NULL
+  )
+
+  # Store the message type for result routing
+  # This gets populated when on_message() registers the handler
+  msg_type_env <- new.env(parent = emptyenv())
+  msg_type_env$type <- NULL
+
+  # Return the actual handler function
+  wrapper <- function(payload) {
+    # Resolve app reference — try stored ref first, then global registry
+    app_obj <- app_ref
+    if (is.null(app_obj)) {
+      app_ids <- ls(.rdesk_apps)
+      if (length(app_ids) > 0) app_obj <- .rdesk_apps[[app_ids[1]]]
+    }
+    if (is.null(app_obj)) {
+      warning("[RDesk] async(): could not resolve app reference")
+      return(invisible(NULL))
+    }
+
+    # Derive result message type from stored type
+    result_type <- if (!is.null(msg_type_env$type)) {
+      paste0(msg_type_env$type, "_result")
+    } else {
+      "__async_result__"
+    }
+
+    # Launch background task
+    job_id <- rdesk_async(
+      task = function(.fn, .pkgs, .payload) {
+        # Reload packages in isolated worker context
+        invisible(lapply(.pkgs, function(p) {
+          tryCatch(
+            library(p, character.only = TRUE,
+                    quietly = TRUE, warn.conflicts = FALSE),
+            error = function(e) NULL
+          )
+        }))
+        # Run the developer's function
+        .fn(.payload)
+      },
+      args = list(
+        .fn      = fn,
+        .pkgs    = loaded_pkgs,
+        .payload = payload
+      ),
+      on_done = function(result) {
+        app_obj$loading_done()
+        app_obj$send(result_type, result)
+      },
+      on_error = function(err) {
+        app_obj$loading_done()
+        app_obj$toast(
+          paste0(error_message, conditionMessage(err)),
+          type = "error"
+        )
+      }
+    )
+
+    # Show loading overlay
+    app_obj$loading_start(
+      message     = loading_message,
+      cancellable = cancellable,
+      job_id      = job_id
+    )
+
+    invisible(job_id)
+  }
+
+  # Tag the wrapper so on_message() can inject the type
+  attr(wrapper, "rdesk_async_wrapper") <- TRUE
+  attr(wrapper, "rdesk_msg_type_env")  <- msg_type_env
+  wrapper
+}

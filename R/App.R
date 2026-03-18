@@ -74,6 +74,14 @@ App <- R6::R6Class("App",
     on_message = function(type, fn) {
       if (!is.character(type) || length(type) != 1) stop("type must be a single string")
       if (!is.function(fn)) stop("fn must be a function")
+
+      # If fn is an async() wrapper, inject the message type
+      # so it can auto-route results as <type>_result
+      if (isTRUE(attr(fn, "rdesk_async_wrapper"))) {
+        type_env <- attr(fn, "rdesk_msg_type_env")
+        if (!is.null(type_env)) type_env$type <- type
+      }
+
       private$.router$register(type, fn)
       invisible(self)
     },

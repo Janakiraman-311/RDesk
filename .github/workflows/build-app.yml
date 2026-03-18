@@ -18,9 +18,18 @@ jobs:
         with:
           extra-packages: any::devtools, any::rcmdcheck
 
-      - name: Verify async dependencies
+      - name: Verify async stack
         run: |
-          Rscript -e 'stopifnot(requireNamespace("callr"), requireNamespace("processx"), requireNamespace("mirai"))'
+          Rscript -e '
+            options(rdesk.async_backend = "callr")
+            library(RDesk)
+            done <- FALSE
+            fn <- RDesk::async(function(p) list(result = p$x * 2))
+            # Simulate what on_message() does — inject type
+            attr_env <- attr(fn, "rdesk_msg_type_env")
+            if (!is.null(attr_env)) attr_env$type <- "test"
+            cat("async() wrapper created successfully\n")
+          '
 
 
       - name: Install RTools

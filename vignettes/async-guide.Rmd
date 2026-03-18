@@ -1,0 +1,69 @@
+---
+title: "Async & Background Tasks in RDesk"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Async & Background Tasks in RDesk}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## The three tiers of async in RDesk
+
+RDesk provides three levels of async support. Start at Tier 1.
+Move to Tier 2 or 3 only when you need something Tier 1 cannot do.
+
+### Tier 1 -- async() wrapper (recommended)
+
+Wrap any message handler with `async()`. RDesk handles everything else.
+
+```r
+app$on_message("calculate_total", async(function(payload) {
+  # This runs in a background worker
+  result <- sum(payload$values)
+  list(total = result)
+}, loading_message = "Calculating..."))
+```
+
+**What async() does for you automatically:**
+- Runs your function in a background worker (non-blocking).
+- Shows a loading overlay with a cancel button.
+- Reloads your packages in the worker context.
+- Sends the result back as `<type>_result`.
+- Shows an error toast if something goes wrong.
+
+### Tier 2 -- rdesk_async() (manual control)
+
+Use `rdesk_async()` when you need:
+- Custom loading messages that update during the task.
+- Progress bar updates (`loading_progress()`).
+- Different error handling per task.
+- Knowing the `job_id` before the task starts.
+
+```r
+app$on_message("long_job", function(payload) {
+  job_id <- rdesk_async(
+    task = function(x) { Sys.sleep(2); x * 2 },
+    args = list(x = 10),
+    on_done = function(res) {
+      app$loading_done()
+      app$send("job_finished", list(result = res))
+    }
+  )
+  app$loading_start("Starting long job...", job_id = job_id)
+})
+```
+
+### Tier 3 -- mirai direct (expert use)
+
+Use `mirai::mirai()` directly when you need:
+- Custom daemon counts per task type.
+- Task chaining or pipelines.
+- Integration with other mirai-aware packages.
+
+## One rule that applies to all three tiers
+
+Background workers are completely isolated from the main R session.
+They cannot see your variables, your loaded data, or your functions
+unless you pass them explicitly through `args`.
+
+This is not a limitation -- it makes your code reproducible and safe.

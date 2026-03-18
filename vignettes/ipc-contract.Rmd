@@ -76,3 +76,23 @@ if (is.null(msg)) {
 
 # Safely access msg$type and msg$payload here
 ```
+
+## The async result convention
+
+When using `async()`, the result is automatically sent back to the UI
+as a message of type `<original_type>_result`.
+
+For example:
+
+| R registers | JS sends | JS receives |
+|---|---|---|
+| `on_message("filter_cars", async(...))` | `rdesk.send("filter_cars", payload)` | `rdesk.on("filter_cars_result", fn)` |
+| `on_message("run_model", async(...))` | `rdesk.send("run_model", payload)` | `rdesk.on("run_model_result", fn)` |
+
+This convention means the JS developer always knows which event to
+listen for without reading the R code. It is consistent and predictable.
+
+### Overriding the result type
+
+If you need a different result type, use `rdesk_async()` directly
+(Tier 2) and call `app$send()` explicitly in your `on_done` callback.

@@ -32,7 +32,9 @@ app$run()
 \item \href{#method-App-dialog_save}{\code{App$dialog_save()}}
 \item \href{#method-App-notify}{\code{App$notify()}}
 \item \href{#method-App-loading_start}{\code{App$loading_start()}}
+\item \href{#method-App-loading_progress}{\code{App$loading_progress()}}
 \item \href{#method-App-loading_done}{\code{App$loading_done()}}
+\item \href{#method-App-toast}{\code{App$toast()}}
 \item \href{#method-App-set_tray}{\code{App$set_tray()}}
 \item \href{#method-App-remove_tray}{\code{App$remove_tray()}}
 \item \href{#method-App-quit}{\code{App$quit()}}
@@ -252,13 +254,43 @@ The App instance (invisible)
 \subsection{Method \code{loading_start()}}{
 Show a loading state in the UI
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$loading_start(message = "Loading...")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{App$loading_start(
+  message = "Loading...",
+  progress = NULL,
+  cancellable = FALSE,
+  job_id = NULL
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{message}}{Optional message to display}
+\item{\code{message}}{Text shown under the spinner}
+
+\item{\code{progress}}{Optional numeric 0-100 for a progress bar}
+
+\item{\code{cancellable}}{If TRUE, shows a cancel button in the UI}
+
+\item{\code{job_id}}{Optional job_id from rdesk_async() to wire cancel button}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-loading_progress"></a>}}
+\if{latex}{\out{\hypertarget{method-App-loading_progress}{}}}
+\subsection{Method \code{loading_progress()}}{
+Update progress on an active loading state
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$loading_progress(value, message = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{value}}{Numeric 0-100}
+
+\item{\code{message}}{Optional updated message}
 }
 \if{html}{\out{</div>}}
 }
@@ -272,6 +304,27 @@ Hide the loading state in the UI
 \if{html}{\out{<div class="r">}}\preformatted{App$loading_done()}\if{html}{\out{</div>}}
 }
 
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-toast"></a>}}
+\if{latex}{\out{\hypertarget{method-App-toast}{}}}
+\subsection{Method \code{toast()}}{
+Show a non-blocking toast notification in the UI
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$toast(message, type = "info", duration_ms = 3000L)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{message}}{Text to show}
+
+\item{\code{type}}{One of "info", "success", "warning", "error"}
+
+\item{\code{duration_ms}}{How long to show it (default 3000ms)}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-set_tray"></a>}}
