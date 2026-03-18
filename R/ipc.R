@@ -1,3 +1,7 @@
+#' @importFrom digest digest
+#' @importFrom stats runif
+NULL
+
 #' Construct a standard RDesk IPC message envelope
 #'
 #' @param type The message type/action name

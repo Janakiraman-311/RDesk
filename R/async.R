@@ -3,6 +3,7 @@
 
 #' @importFrom digest digest
 #' @importFrom callr r_bg
+#' @importFrom stats runif
 NULL
 
 # Job registry - a private environment to track running jobs

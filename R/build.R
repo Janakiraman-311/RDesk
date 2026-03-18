@@ -12,6 +12,8 @@
 #'   RDesk's own dependencies are always included automatically.
 #' @param overwrite If TRUE, overwrite existing output. Default FALSE.
 #' @param build_installer If TRUE, also build a Windows installer (.exe) using InnoSetup.
+#' @param publisher Documentation for the application publisher (used in installer).
+#' @param website URL for the application website (used in installer).
 #' @param license_file Path to a license file (.txt or .rtf) to include in the installer.
 #' @param icon_file Path to an .ico file for the installer and application shortcut.
 #' @return Path to the created zip file, invisibly.

@@ -4,6 +4,9 @@
 # Global registry for multi-window management
 .rdesk_apps <- new.env(parent = emptyenv())
  
+#' @importFrom R6 R6Class
+NULL
+
 #' @title RDesk Application
 #' @description
 #' Create and launch a native desktop application window from R.

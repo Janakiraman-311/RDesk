@@ -1,3 +1,8 @@
+#' @importFrom base64enc base64encode
+#' @importFrom dplyr %>%
+#' @importFrom ggplot2 ggplot
+NULL
+
 # R/zzz.R
 # Package initialization logic
 
