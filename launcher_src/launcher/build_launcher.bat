@@ -1,6 +1,10 @@
 @echo off
 set "RTOOLS_BIN=C:\rtools45\x86_64-w64-mingw32.static.posix\bin"
 set "RTOOLS_USR=C:\rtools45\usr\bin"
+if not exist "%RTOOLS_BIN%" (
+    set "RTOOLS_BIN=C:\rtools44\x86_64-w64-mingw32.static.posix\bin"
+    set "RTOOLS_USR=C:\rtools44\usr\bin"
+)
 set "PATH=%RTOOLS_BIN%;%RTOOLS_USR%;%PATH%"
 
 set "CMAKE=%RTOOLS_BIN%\cmake.exe"
@@ -8,7 +12,8 @@ set "GXX=%RTOOLS_BIN%\g++.exe"
 set "GCC=%RTOOLS_BIN%\gcc.exe"
 set "MAKE=%RTOOLS_USR%\make.exe"
 
-cd /d "c:\Users\Janak\OneDrive\Documents\RDesk\RDesk\launcher_src\launcher"
+REM Go to script directory
+cd /d "%~dp0"
 if exist build rmdir /s /q build
 mkdir build
 cd build

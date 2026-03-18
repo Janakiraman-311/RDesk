@@ -2,14 +2,14 @@
 % Please edit documentation in R/ipc.R
 \name{rdesk_make_router}
 \alias{rdesk_make_router}
-\title{Initialize a message router for bidirectional IPC}
+\title{Create an IPC message router}
 \usage{
 rdesk_make_router()
 }
 \value{
-A list of functions: register, dispatch, get_handlers
+A list with register() and dispatch() methods
 }
 \description{
-Initialize a message router for bidirectional IPC
+Create an IPC message router
 }
 \keyword{internal}

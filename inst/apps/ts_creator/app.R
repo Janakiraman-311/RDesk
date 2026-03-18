@@ -1,11 +1,21 @@
-# inst/apps/ts_creator/app.R
-library(RDesk)
+# Standardize path for RDesk
+script_dir <- getwd()
+
+# Development Guard
+pkg_root <- dirname(dirname(dirname(script_dir)))
+is_dev <- file.exists(file.path(pkg_root, "DESCRIPTION")) && 
+          file.exists(file.path(pkg_root, "R", "App.R"))
+
+if (is_dev) {
+  message("[RDesk] Dev mode detected. Loading local source...")
+  devtools::load_all(pkg_root)
+} else {
+  library(RDesk)
+}
+
 library(haven)
 library(Hmisc)
 library(dplyr)
-
-# Standardize path for RDesk
-script_dir <- getwd()
 
 # Handle startup logging for bundled apps
 if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
@@ -53,15 +63,17 @@ tryCatch({
     
     # Validation
     if (is.null(input$studyID) || trimws(input$studyID) == "") {
-      app$send("status_result", list(message = "Error: Study ID is mandatory.", type = "error"))
+      app$toast("Error: Study ID is mandatory.", type = "error")
       return()
     }
     
     selected_directory <- input$directoryPath
     if (is.null(selected_directory) || selected_directory == "") {
-      app$send("status_result", list(message = "Error: Invalid directory path.", type = "error"))
+      app$toast("Error: Invalid directory path.", type = "error")
       return()
     }
+    
+    app$loading_start("Generating TS domain...")
     
     # Ensure directory exists locally
     if (!dir.exists(selected_directory)) {
@@ -97,11 +109,9 @@ tryCatch({
     # Write to XPT
     write_xpt(data, path = full_file_path, version = 5)
     
-    # Success Status
-    app$send("status_result", list(
-      message = paste("Exported successfully to:", full_file_path),
-      type = "success"
-    ))
+    # Success
+    app$loading_done()
+    app$toast("Export successful!", type = "success")
     
     # --- UI Refresh logic ---
     

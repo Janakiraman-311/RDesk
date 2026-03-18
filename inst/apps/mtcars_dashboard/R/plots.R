@@ -18,7 +18,7 @@ make_plot <- function(df, x, y) {
       label = model
     )) +
     ggplot2::geom_point(size = 3.5, alpha = 0.85) +
-    ggplot2::geom_smooth(method = "lm", se = TRUE,
+    ggplot2::geom_smooth(ggplot2::aes(label = NULL), method = "lm", se = TRUE,
                           color = "#2E6DA4", fill = "#D6E8F7", alpha = 0.3) +
     ggplot2::scale_color_manual(
       name   = "Cylinders",

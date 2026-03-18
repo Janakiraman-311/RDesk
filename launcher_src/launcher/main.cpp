@@ -40,6 +40,15 @@ static std::string json_str(const std::string& s) {
     return out + "\"";
 }
 
+static std::wstring widen(const std::string& s) {
+    if (s.empty()) return L"";
+    int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+    if (len <= 0) return L"";
+    std::vector<wchar_t> buf(len);
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, buf.data(), len);
+    return std::wstring(buf.data());
+}
+
 // --- Custom WebView2 Event Handler (MinGW/RTools doesn't have WRL) ---
 class MessageHandler : public ICoreWebView2WebMessageReceivedEventHandler {
     std::function<HRESULT(ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs*)> f;
@@ -66,38 +75,9 @@ public:
     }
 };
 
+// Use webview's built-in JSON parser for robust handling
 static std::string json_get(const std::string& json, const std::string& key) {
-    // Minimal key lookup: finds "key":"value" or "key":number/object
-    // We add a quote to the start and end of search to be more specific
-    std::string search = "\"" + key + "\":\"";
-    auto pos = json.find(search);
-    if (pos != std::string::npos) {
-        pos += search.size();
-        auto end = json.find('"', pos);
-        if (end != std::string::npos) return json.substr(pos, end - pos);
-    }
-    // Try without quotes (number/bool/object/array)
-    search = "\"" + key + "\":";
-    pos = json.find(search);
-    if (pos != std::string::npos) {
-        pos += search.size();
-        // Skip leading whitespace
-        while (pos < json.size() && isspace(static_cast<unsigned char>(json[pos]))) pos++;
-        
-        if (pos < json.size() && json[pos] == '{') {
-            // Very primitive object extractor - find matching }
-            int depth = 0;
-            for (size_t i = pos; i < json.size(); ++i) {
-                if (json[i] == '{') ++depth;
-                else if (json[i] == '}') --depth;
-                if (depth == 0) return json.substr(pos, i - pos + 1);
-            }
-        }
-        auto end = json.find_first_of(",}", pos);
-        if (end != std::string::npos) return json.substr(pos, end - pos);
-        return json.substr(pos);
-    }
-    return "";
+    return webview::json_parse(json, key, 0);
 }
 
 // ── global state ─────────────────────────────────────────────────────────────
@@ -138,7 +118,7 @@ static HMENU build_submenu(const std::string& items_json) {
             AppendMenuW(sub, MF_SEPARATOR, 0, nullptr);
         } else if (!label.empty()) {
             UINT item_id = g_menu_id_counter++;
-            std::wstring wlabel(label.begin(), label.end());
+            std::wstring wlabel = widen(label);
             AppendMenuW(sub, MF_STRING, item_id, wlabel.c_str());
             if (!id.empty()) g_menu_actions[item_id] = id;
         }
@@ -180,7 +160,7 @@ static void apply_menu(const std::string& payload_json) {
                 }
 
                 HMENU sub = build_submenu(items_json);
-                std::wstring wlabel(top_label.begin(), top_label.end());
+                std::wstring wlabel = widen(top_label);
                 AppendMenuW(bar, MF_POPUP, (UINT_PTR)sub, wlabel.c_str());
                 obj_start = std::string::npos;
             }
@@ -205,12 +185,12 @@ static std::string open_file_dialog(const std::string& title,
     ofn.Flags          = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
     // Convert filter string (pairs separated by \0, double-\0 terminated)
-    std::wstring wfilter(filter_str.begin(), filter_str.end());
+    std::wstring wfilter = widen(filter_str);
     // Replace literal \0 markers — R sends "|" as separator for null bytes
     for (auto& c : wfilter) if (c == L'|') c = L'\0';
     ofn.lpstrFilter = wfilter.empty() ? nullptr : wfilter.c_str();
 
-    std::wstring wtitle(title.begin(), title.end());
+    std::wstring wtitle = widen(title);
     ofn.lpstrTitle = wtitle.empty() ? nullptr : wtitle.c_str();
 
     if (GetOpenFileNameW(&ofn)) {
@@ -239,14 +219,14 @@ static std::string save_file_dialog(const std::string& title,
     ofn.nMaxFile      = 32767;
     ofn.Flags         = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
 
-    std::wstring wfilter(filter_str.begin(), filter_str.end());
+    std::wstring wfilter = widen(filter_str);
     for (auto& c : wfilter) if (c == L'|') c = L'\0';
     ofn.lpstrFilter = wfilter.empty() ? nullptr : wfilter.c_str();
 
-    std::wstring wtitle(title.begin(), title.end());
+    std::wstring wtitle = widen(title);
     ofn.lpstrTitle = wtitle.empty() ? nullptr : wtitle.c_str();
 
-    std::wstring wext(default_ext.begin(), default_ext.end());
+    std::wstring wext = widen(default_ext);
     ofn.lpstrDefExt = default_ext.empty() ? nullptr : wext.c_str();
 
     if (GetSaveFileNameW(&ofn)) {
@@ -266,8 +246,8 @@ static void show_notification(const std::string& title, const std::string& body)
     nid.dwInfoFlags = NIIF_INFO;
     nid.uTimeout    = 4000;
 
-    std::wstring wtitle(title.begin(), title.end());
-    std::wstring wbody(body.begin(),   body.end());
+    std::wstring wtitle = widen(title);
+    std::wstring wbody  = widen(body);
     wcsncpy_s(nid.szInfoTitle, wtitle.c_str(), 63);
     wcsncpy_s(nid.szInfo,      wbody.c_str(),  255);
 
@@ -302,7 +282,7 @@ static void set_system_tray(const std::string& label, const std::string& icon_pa
         g_tray_active = true;
     }
  
-    std::wstring wlabel(label.begin(), label.end());
+    std::wstring wlabel = widen(label);
     wcsncpy_s(g_nid.szTip, wlabel.c_str(), 127);
  
     if (g_tray_active) {
@@ -423,14 +403,13 @@ static void process_command(const std::string& line) {
     }
     if (cmd == "SEND_MSG") {
         std::string payload = json_get(line, "payload");
-        if (g_core_webview && !payload.empty()) {
-            std::wstring wpayload;
-            int len = MultiByteToWideChar(CP_UTF8, 0, payload.c_str(), -1, nullptr, 0);
-            if (len > 0) {
-                wpayload.resize(len - 1);
-                MultiByteToWideChar(CP_UTF8, 0, payload.c_str(), -1, &wpayload[0], len);
-                g_core_webview->PostWebMessageAsString(wpayload.c_str());
-            }
+        if (g_webview && !payload.empty()) {
+            g_webview->dispatch([payload]() {
+                if (g_core_webview) {
+                    std::wstring wpayload = widen(payload);
+                    g_core_webview->PostWebMessageAsString(wpayload.c_str());
+                }
+            });
         }
         return;
     }
@@ -501,14 +480,8 @@ int main(int argc, char* argv[]) {
             if (g_core_webview) {
                 ICoreWebView2_3* webview3 = nullptr;
                 if (SUCCEEDED(g_core_webview->QueryInterface(IID_ICoreWebView2_3, reinterpret_cast<void**>(&webview3)))) {
-                    std::wstring wwwPath;
-                    if (!www.empty()) {
-                        int len = MultiByteToWideChar(CP_UTF8, 0, www.c_str(), -1, nullptr, 0);
-                        if (len > 0) {
-                            wwwPath.resize(len - 1);
-                            MultiByteToWideChar(CP_UTF8, 0, www.c_str(), -1, &wwwPath[0], len);
-                        }
-                    } else {
+                    std::wstring wwwPath = widen(www);
+                    if (wwwPath.empty()) {
                         wchar_t exePath[MAX_PATH];
                         GetModuleFileNameW(NULL, exePath, MAX_PATH);
                         PathRemoveFileSpecW(exePath);

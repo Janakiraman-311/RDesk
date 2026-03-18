@@ -196,7 +196,6 @@
 
                     <button onclick="handleExport()" class="btn">Export to XPT</button>
 
-                    <div id="status" class="status"></div>
                 </div>
             </aside>
 
@@ -235,10 +234,6 @@
                 directoryPath: document.getElementById('directoryPath').value
             };
             
-            const statusDiv = document.getElementById('status');
-            statusDiv.className = "status info";
-            statusDiv.innerText = "Exporting...";
-            
             rdesk.send('export', payload);
         }
 
@@ -246,11 +241,6 @@
             document.getElementById('directoryPath').value = data.path;
         });
 
-        rdesk.on('status_result', (data) => {
-            const statusDiv = document.getElementById('status');
-            statusDiv.innerText = data.message;
-            statusDiv.className = `status ${data.type}`;
-        });
 
         rdesk.on('results', (data) => {
             document.getElementById('fileInfoCard').classList.remove('hidden');

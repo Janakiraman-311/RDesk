@@ -11,6 +11,7 @@ RoxygenNote: 7.3.3
 Imports: 
     R6 (>= 2.5.0),
     jsonlite (>= 1.8.0),
+    callr,
     processx (>= 3.5.0),
     digest,
     base64enc,

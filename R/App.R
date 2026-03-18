@@ -44,6 +44,15 @@ App <- R6::R6Class("App",
       private$.icon   <- icon
       private$.router <- rdesk_make_router()
       private$.id     <- as.character(as.numeric(Sys.time()) * 1000)
+
+      # System handler for UI-initiated job cancellation
+      private$.router$register("__cancel_job__", function(payload) {
+        if (!is.null(payload$job_id)) {
+          rdesk_cancel_job(payload$job_id)
+          self$loading_done()
+          self$toast("Operation cancelled.", type = "warning")
+        }
+      })
     },
  
     #' @description Register a callback to fire when the window is ready
@@ -166,6 +175,54 @@ App <- R6::R6Class("App",
                      payload = list(title = title, body = body))
       invisible(self)
     },
+
+    #' @description Show a loading state in the UI
+    #' @param message Text shown under the spinner
+    #' @param progress Optional numeric 0-100 for a progress bar
+    #' @param cancellable If TRUE, shows a cancel button in the UI
+    #' @param job_id Optional job_id from rdesk_async() to wire cancel button
+    loading_start = function(message     = "Loading...",
+                             progress    = NULL,
+                             cancellable = FALSE,
+                             job_id      = NULL) {
+      self$send("__loading__", list(
+        active      = TRUE,
+        message     = message,
+        progress    = progress,
+        cancellable = cancellable,
+        job_id      = job_id
+      ))
+      invisible(self)
+    },
+
+    #' @description Update progress on an active loading state
+    #' @param value Numeric 0-100
+    #' @param message Optional updated message
+    loading_progress = function(value, message = NULL) {
+      payload <- list(active = TRUE, progress = value)
+      if (!is.null(message)) payload$message <- message
+      self$send("__loading__", payload)
+      invisible(self)
+    },
+
+    #' @description Hide the loading state in the UI
+    loading_done = function() {
+      self$send("__loading__", list(active = FALSE, message = "", progress = NULL))
+      invisible(self)
+    },
+
+    #' @description Show a non-blocking toast notification in the UI
+    #' @param message Text to show
+    #' @param type One of "info", "success", "warning", "error"
+    #' @param duration_ms How long to show it (default 3000ms)
+    toast = function(message, type = "info", duration_ms = 3000L) {
+      self$send("__toast__", list(
+        message     = message,
+        type        = type,
+        duration_ms = as.integer(duration_ms)
+      ))
+      invisible(self)
+    },
  
     #' @description Set or update the system tray icon
     #' @param label Tooltip text for the tray icon
@@ -213,12 +270,30 @@ App <- R6::R6Class("App",
           tryCatch(private$.ready_fn(), error = function(e) warning("[RDesk] on_ready error: ", e$message))
         }
 
-        # Main blocking stdin loop
+        # Initialize non-blocking stdin
+        con <- processx::conn_create_fd(0L, encoding = "")
+
+        # Main non-blocking loop
         repeat {
-          line <- readLines(con = stdin(), n = 1, warn = FALSE)
-          if (length(line) == 0) break # stdin closed = launcher exited
-          
-          # Process the message
+          # 1. Poll any background jobs
+          rdesk_poll_jobs()
+
+          # 2. Read next message from launcher (non-blocking)
+          line <- tryCatch(
+            processx::conn_read_lines(con, n = 1, timeout = 10),
+            error = function(e) character(0)
+          )
+
+          if (length(line) == 0) {
+             # No message yet, check if stdin is actually closed
+             if (processx::conn_is_closed(con)) break
+             
+             # If not closed, check if running and continue
+             if (!private$.running) break
+             next
+          }
+
+          # 3. Process the message
           msg <- rdesk_parse_message(line)
           if (!is.null(msg)) {
              if (!is.null(msg$type)) {
@@ -411,7 +486,10 @@ App <- R6::R6Class("App",
 #' 
 #' @export
 rdesk_service <- function() {
-  # Service each registered app
+  # 1. Poll any background jobs
+  rdesk_poll_jobs()
+
+  # 2. Service each registered app
   app_ids <- ls(.rdesk_apps)
   for (id in app_ids) {
     app <- .rdesk_apps[[id]]

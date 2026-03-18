@@ -5,7 +5,7 @@
 \title{RDesk Application}
 \description{
 Create and launch a native desktop application window from R.
-Provides bidirectional WebSocket communication between R and the UI.
+Provides bidirectional native pipe communication between R and the UI.
 }
 \examples{
 \dontrun{
@@ -31,6 +31,10 @@ app$run()
 \item \href{#method-App-dialog_open}{\code{App$dialog_open()}}
 \item \href{#method-App-dialog_save}{\code{App$dialog_save()}}
 \item \href{#method-App-notify}{\code{App$notify()}}
+\item \href{#method-App-loading_start}{\code{App$loading_start()}}
+\item \href{#method-App-loading_done}{\code{App$loading_done()}}
+\item \href{#method-App-set_tray}{\code{App$set_tray()}}
+\item \href{#method-App-remove_tray}{\code{App$remove_tray()}}
 \item \href{#method-App-quit}{\code{App$quit()}}
 \item \href{#method-App-run}{\code{App$run()}}
 \item \href{#method-App-clone}{\code{App$clone()}}
@@ -243,6 +247,70 @@ The App instance (invisible)
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-loading_start"></a>}}
+\if{latex}{\out{\hypertarget{method-App-loading_start}{}}}
+\subsection{Method \code{loading_start()}}{
+Show a loading state in the UI
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$loading_start(message = "Loading...")}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{message}}{Optional message to display}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-loading_done"></a>}}
+\if{latex}{\out{\hypertarget{method-App-loading_done}{}}}
+\subsection{Method \code{loading_done()}}{
+Hide the loading state in the UI
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$loading_done()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-set_tray"></a>}}
+\if{latex}{\out{\hypertarget{method-App-set_tray}{}}}
+\subsection{Method \code{set_tray()}}{
+Set or update the system tray icon
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$set_tray(label = "RDesk App", icon = NULL, on_click = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{label}}{Tooltip text for the tray icon}
+
+\item{\code{icon}}{Path to .ico file (optional)}
+
+\item{\code{on_click}}{Character "left" or "right" or callback function(button)}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-remove_tray"></a>}}
+\if{latex}{\out{\hypertarget{method-App-remove_tray}{}}}
+\subsection{Method \code{remove_tray()}}{
+Remove the system tray icon
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$remove_tray()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-quit"></a>}}
 \if{latex}{\out{\hypertarget{method-App-quit}{}}}
 \subsection{Method \code{quit()}}{
@@ -256,11 +324,18 @@ Close the window and stop the app
 \if{html}{\out{<a id="method-App-run"></a>}}
 \if{latex}{\out{\hypertarget{method-App-run}{}}}
 \subsection{Method \code{run()}}{
-Start the application - opens the window and blocks until closed
+Start the application - opens the window
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$run()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{App$run(block = TRUE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{block}}{If TRUE (default), blocks with an event loop until the window is closed.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-clone"></a>}}

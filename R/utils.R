@@ -20,12 +20,25 @@ rdesk_resolve_www <- function(www_dir) {
     if (path == "" || !dir.exists(path)) {
       path <- file.path(getwd(), "inst", "templates", "hello", "www")
     }
-    if (dir.exists(path)) return(path)
+    www_dir <- path
   }
 
-  # 2. Try exactly as provided (Absolute or relative to current WD)
+  # 2. Ensure rdesk.js is present and up-to-date in the target www directory
   path <- normalizePath(www_dir, mustWork = FALSE)
-  if (dir.exists(path)) return(path)
+  if (dir.exists(path)) {
+    target_js <- file.path(path, "rdesk.js")
+    
+    # In dev mode, always copy to reflect library changes
+    src_js <- system.file("www", "rdesk.js", package = "RDesk")
+    if (src_js == "" || !file.exists(src_js)) {
+      src_js <- file.path(getwd(), "inst", "www", "rdesk.js")
+    }
+    
+    if (file.exists(src_js)) {
+      file.copy(src_js, target_js, overwrite = TRUE)
+    }
+    return(path)
+  }
 
   # 3. TRIPLE-LOCK SEARCH FOR SOURCE SCRIPT
   # We climb the stack to find where the call came from

@@ -37,10 +37,6 @@ RDesk's own dependencies are always included automatically.}
 
 \item{build_installer}{If TRUE, also build a Windows installer (.exe) using InnoSetup.}
 
-\item{publisher}{Publisher name for the installer.}
-
-\item{website}{Website URL for the installer.}
-
 \item{license_file}{Path to a license file (.txt or .rtf) to include in the installer.}
 
 \item{icon_file}{Path to an .ico file for the installer and application shortcut.}
