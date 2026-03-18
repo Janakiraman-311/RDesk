@@ -60,3 +60,6 @@ MIGRATION_GUIDE.md
 PROJECT_STATUS.md
 RDesk_Agent_Briefing.*
 RDesk_TS_CREATOR_EXPLAINED.md
+
+# Agent Workflows
+.agents/
