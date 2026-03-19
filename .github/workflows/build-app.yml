@@ -33,6 +33,12 @@ jobs:
           }
           Get-Command cmake -ErrorAction Stop | Select-Object -ExpandProperty Source
 
+      - name: Verify build tools
+        run: |
+          g++ --version
+          gcc --version
+          cmake --version
+          
       - name: Prepare WebView2 SDK
         run: |
           [xml]$nuspec = Get-Content launcher_src\launcher\webview2_sdk\Microsoft.Web.WebView2.nuspec
