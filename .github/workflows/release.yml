@@ -28,9 +28,22 @@ jobs:
           echo "C:\rtools45\usr\bin" >> $GITHUB_PATH
           echo "C:\rtools45\x86_64-w64-mingw32.static.posix\bin" >> $GITHUB_PATH
 
+      - name: Prepare WebView2 SDK
+        run: |
+          [xml]$nuspec = Get-Content launcher_src\launcher\webview2_sdk\Microsoft.Web.WebView2.nuspec
+          $wvVersion = $nuspec.package.metadata.version
+          $zip = Join-Path $env:RUNNER_TEMP "webview2-sdk-$wvVersion.zip"
+          $extract = Join-Path $env:RUNNER_TEMP "webview2-sdk-$wvVersion"
+          Invoke-WebRequest "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/$wvVersion" -OutFile $zip
+          if (Test-Path $extract) { Remove-Item -Recurse -Force $extract }
+          Expand-Archive -Path $zip -DestinationPath $extract -Force
+          Copy-Item "$extract\\build" launcher_src\launcher\webview2_sdk\build -Recurse -Force
+          Copy-Item "$extract\\runtimes" launcher_src\launcher\webview2_sdk\runtimes -Recurse -Force
+
       - name: Build launcher assets
         run: |
           cmd /c launcher_src\launcher\build_launcher.bat
+          if ($LASTEXITCODE -ne 0) { throw "Launcher build failed." }
           New-Item -ItemType Directory -Force -Path inst\bin | Out-Null
           Copy-Item launcher_src\launcher\webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll inst\bin\WebView2Loader.dll -Force
 
