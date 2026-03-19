@@ -9,7 +9,7 @@
     ]
   },
   "Bioconductor": {
-    "Version": "FALSE"
+    "Version": null
   },
   "Packages": {
     "R6": {

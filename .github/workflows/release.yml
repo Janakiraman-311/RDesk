@@ -12,6 +12,7 @@ jobs:
       RENV_PATHS_LIBRARY: renv/library
       RENV_CONFIG_AUTOLOADER_ENABLED: false
       RENV_CONFIG_SNAPSHOT_TYPE: explicit
+      RENV_CONFIG_BIOCONDUCTOR_VERSION: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +34,8 @@ jobs:
       - name: Restore renv environment
         run: |
           if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
-          renv::restore(prompt = FALSE, clean = FALSE)
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          renv::restore(prompt = FALSE, clean = FALSE, bioconductor = FALSE)
         shell: Rscript {0}
 
       - uses: r-lib/actions/setup-r-dependencies@v2
