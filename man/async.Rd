@@ -6,6 +6,7 @@
 \usage{
 async(
   fn,
+  app = NULL,
   loading_message = "Working...",
   cancellable = TRUE,
   error_message = "Error: "
@@ -15,6 +16,10 @@ async(
 \item{fn}{A function(payload) that performs the computation and returns
 a list to send back to the UI. Must be self-contained — do not
 reference variables from the parent environment directly.}
+
+\item{app}{The App instance. If NULL (default), attempts to resolve
+from the global registry. Explicitly passing \code{app = app} is
+recommended for reliability.}
 
 \item{loading_message}{Character string shown in the loading overlay.
 Default "Working..."}
@@ -42,6 +47,6 @@ to the UI as a message of type \code{<original_type>_result}.
 \dontrun{
 app$on_message("filter_cars", async(function(payload) {
   mtcars[mtcars$cyl == payload$cylinders, ]
-}))
+}, app = app))
 }
 }

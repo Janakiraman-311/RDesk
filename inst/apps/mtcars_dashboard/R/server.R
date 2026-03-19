@@ -33,7 +33,7 @@ init_handlers <- function(app, env) {
         dplyr::select(model, mpg, hp, wt, cyl, gear) %>%
         head(15)
     )
-  }, loading_message = "Updating plot..."))
+  }, app = app, loading_message = "Updating plot..."))
 
   app$on_message("set_cyl_filter", async(function(msg) {
     env$cyl_filter <- as.numeric(unlist(msg$cyls))
@@ -62,7 +62,7 @@ init_handlers <- function(app, env) {
     # However, the user's example showed simple return.
     # I'll add a result handler in JS or keep it as is.
     result
-  }, loading_message = "Filtering cars..."))
+  }, app = app, loading_message = "Filtering cars..."))
 
   app$on_message("load_csv", function(msg) {
     path <- app$dialog_open(
@@ -123,7 +123,7 @@ init_handlers <- function(app, env) {
       ),
       Help = list(
         "About RDesk"   = function() {
-          app$toast("RDesk v0.1.0: The first native desktop framework for R.", type = "info")
+          app$toast("RDesk v0.9.0: The native desktop framework for R.", type = "info")
         }
       )
     ))

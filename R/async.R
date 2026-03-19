@@ -57,7 +57,7 @@ rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL) {
     # mirai path — submit to persistent daemon pool
     # We use .expr to execute the task with provided args
     m <- mirai::mirai(
-      .expr = task(...args),
+      .expr = do.call(task, args),
       task  = task,
       args  = args
     )
@@ -202,6 +202,9 @@ rdesk_jobs_pending <- function() {
 #' @param fn A function(payload) that performs the computation and returns
 #'   a list to send back to the UI. Must be self-contained — do not
 #'   reference variables from the parent environment directly.
+#' @param app The App instance. If NULL (default), attempts to resolve
+#'   from the global registry. Explicitly passing `app = app` is
+#'   recommended for reliability.
 #' @param loading_message Character string shown in the loading overlay.
 #'   Default "Working..."
 #' @param cancellable Logical. If TRUE, shows a Cancel button. Default TRUE.
@@ -214,10 +217,11 @@ rdesk_jobs_pending <- function() {
 #' \dontrun{
 #' app$on_message("filter_cars", async(function(payload) {
 #'   mtcars[mtcars$cyl == payload$cylinders, ]
-#' }))
+#' }, app = app))
 #' }
 #' @export
 async <- function(fn,
+                  app             = NULL,
                   loading_message = "Working...",
                   cancellable     = TRUE,
                   error_message   = "Error: ") {
@@ -235,14 +239,6 @@ async <- function(fn,
     setdiff(pkg_names, base_pkgs)
   }, error = function(e) character(0))
 
-  # Capture the app reference at registration time
-  # async() is always called inside an on_message() context where
-  # app exists in the calling frame
-  app_ref <- tryCatch(
-    get("app", envir = parent.frame(2), inherits = TRUE),
-    error = function(e) NULL
-  )
-
   # Store the message type for result routing
   # This gets populated when on_message() registers the handler
   msg_type_env <- new.env(parent = emptyenv())
@@ -250,8 +246,8 @@ async <- function(fn,
 
   # Return the actual handler function
   wrapper <- function(payload) {
-    # Resolve app reference — try stored ref first, then global registry
-    app_obj <- app_ref
+    # Resolve app reference — try explicit param first, then global registry
+    app_obj <- app
     if (is.null(app_obj)) {
       app_ids <- ls(.rdesk_apps)
       if (length(app_ids) > 0) app_obj <- .rdesk_apps[[app_ids[1]]]

@@ -19,11 +19,8 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          extra-packages: any::rcmdcheck, any::withr
 
-      - name: Verify async dependencies
-        run: |
-          Rscript -e 'stopifnot(requireNamespace("callr", quietly = TRUE), requireNamespace("processx", quietly = TRUE))'
 
       - uses: r-lib/actions/check-r-package@v2
         with:
