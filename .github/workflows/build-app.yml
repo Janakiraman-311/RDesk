@@ -39,9 +39,9 @@ jobs:
 
       - name: Build launcher assets
         run: |
+          New-Item -ItemType Directory -Force -Path inst\bin | Out-Null
           cmd /c launcher_src\launcher\build_launcher.bat
           if ($LASTEXITCODE -ne 0) { throw "Launcher build failed." }
-          New-Item -ItemType Directory -Force -Path inst\bin | Out-Null
           Copy-Item launcher_src\launcher\webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll inst\bin\WebView2Loader.dll -Force
 
       - name: Build App

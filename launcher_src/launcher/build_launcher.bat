@@ -37,4 +37,9 @@ if errorlevel 1 (
 )
 
 echo Build SUCCESS!
+if not exist "..\..\..\inst\bin" mkdir "..\..\..\inst\bin"
 copy /y rdesk-launcher.exe "..\..\..\inst\bin\rdesk-launcher.exe"
+if errorlevel 1 (
+    echo Copy to inst\bin failed
+    exit /b 1
+)
