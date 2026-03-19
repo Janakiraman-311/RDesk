@@ -25,6 +25,12 @@ jobs:
           echo "C:\rtools45\usr\bin" >> $GITHUB_PATH
           echo "C:\rtools45\x86_64-w64-mingw32.static.posix\bin" >> $GITHUB_PATH
 
+      - name: Build launcher assets
+        run: |
+          cmd /c launcher_src\launcher\build_launcher.bat
+          New-Item -ItemType Directory -Force -Path inst\bin | Out-Null
+          Copy-Item launcher_src\launcher\webview2_sdk\build\native\x64\WebView2Loader.dll inst\bin\WebView2Loader.dll -Force
+
       - name: Build App
         run: |
           Rscript -e "install.packages('.', repos = NULL, type = 'source')"
