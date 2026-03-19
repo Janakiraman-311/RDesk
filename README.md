@@ -17,12 +17,12 @@ RDesk is a state-of-the-art framework for building standalone Windows applicatio
     - Native File Open/Save dialogs and System Notifications.
     - Automatic RTools discovery and C++ launcher compilation.
 
-## ✨ High-Performance Async (Phase 19 & 20)
+## ✨ High-Performance Async
 
-RDesk is built for speed. With the latest updates, it features a sophisticated background task engine:
+RDesk features a sophisticated background task engine built for speed and reliability:
 - **Persistent Daemon Pool**: Uses `mirai` to pre-warm R workers, achieving a **3.4x speedup** in task latency. Tasks start in <50ms.
 - **`async()` Tier 1 Wrapper**: Zero-configuration async handling. Wrap any handler with `async()` and RDesk handles worker isolation, package reloading, loading states, and result routing automatically.
-- **Intelligent Fallback**: Seamlessly switches between `mirai` and `callr` based on environment availability, ensuring stability in CI/CD and production.
+- **Intelligent Fallback**: Seamlessly switches between `mirai` and `callr` based on environment availability, ensuring stability across local and CI/CD environments.
 
 ## ✨ Coming from Shiny?
 
