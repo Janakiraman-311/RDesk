@@ -10,6 +10,7 @@ jobs:
     env:
       RENV_PATHS_LIBRARY: renv/library
       RENV_CONFIG_AUTOLOADER_ENABLED: false
+      RENV_CONFIG_SNAPSHOT_TYPE: explicit
 
     steps:
       - uses: actions/checkout@v4
