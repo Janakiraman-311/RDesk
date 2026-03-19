@@ -7,7 +7,7 @@ if not exist "%RTOOLS_BIN%" (
 )
 set "PATH=%RTOOLS_BIN%;%RTOOLS_USR%;%PATH%"
 
-set "CMAKE=%RTOOLS_BIN%\cmake.exe"
+set "CMAKE=cmake"
 set "GXX=%RTOOLS_BIN%\g++.exe"
 set "GCC=%RTOOLS_BIN%\gcc.exe"
 set "MAKE=%RTOOLS_USR%\make.exe"

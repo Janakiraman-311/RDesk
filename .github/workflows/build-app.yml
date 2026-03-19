@@ -25,6 +25,14 @@ jobs:
           echo "C:\rtools45\usr\bin" >> $GITHUB_PATH
           echo "C:\rtools45\x86_64-w64-mingw32.static.posix\bin" >> $GITHUB_PATH
 
+      - name: Ensure CMake is available
+        run: |
+          $cmake = Get-Command cmake -ErrorAction SilentlyContinue
+          if (-not $cmake) {
+            choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          }
+          Get-Command cmake -ErrorAction Stop | Select-Object -ExpandProperty Source
+
       - name: Prepare WebView2 SDK
         run: |
           [xml]$nuspec = Get-Content launcher_src\launcher\webview2_sdk\Microsoft.Web.WebView2.nuspec
