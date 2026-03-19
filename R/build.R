@@ -202,6 +202,12 @@ invisible(zip_path)
 }
 
 #' Validate build inputs before starting the process
+#' @param app_dir App directory to validate.
+#' @param extra_pkgs Extra packages requested for bundling.
+#' @param build_installer Whether installer prerequisites should be validated.
+#' @param portable_r_method Runtime provisioning method used when
+#'   `runtime_dir` is not supplied.
+#' @param runtime_dir Optional existing runtime directory to validate.
 #' @keywords internal
 rdesk_validate_build_inputs <- function(app_dir,
                                         extra_pkgs,
@@ -294,7 +300,12 @@ rdesk_copy_dir <- function(from, to) {
 
 #' Download and extract a portable R installation
 #' Uses the official CRAN Windows binary installer, extracted via 7-Zip
+#' @param r_version R version string to fetch.
+#' @param dest_dir Destination directory for the unpacked runtime.
 #' @param prune If TRUE, call rdesk_prune_runtime() after installation.
+#' @param method Runtime provisioning method. `"extract_only"` requires
+#'   standalone 7-Zip, while `"installer"` explicitly allows silent
+#'   installer expansion.
 #' @keywords internal
 rdesk_fetch_portable_r <- function(r_version,
                                    dest_dir,

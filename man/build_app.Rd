@@ -11,6 +11,8 @@ build_app(
   version = NULL,
   r_version = NULL,
   include_packages = character(0),
+  portable_r_method = c("extract_only", "installer"),
+  runtime_dir = NULL,
   overwrite = FALSE,
   build_installer = FALSE,
   publisher = "RDesk User",
@@ -33,6 +35,15 @@ build_app(
 
 \item{include_packages}{Character vector of extra CRAN packages to bundle.
 RDesk's own dependencies are always included automatically.}
+
+\item{portable_r_method}{How to provision the bundled R runtime when
+\code{runtime_dir} is not supplied. \code{"extract_only"} requires standalone 7-Zip
+and never launches the R installer. \code{"installer"} allows the legacy silent
+installer path explicitly.}
+
+\item{runtime_dir}{Optional path to an existing portable R runtime root
+containing \code{bin/}. When supplied, RDesk copies this runtime directly and
+skips the download/extract step.}
 
 \item{overwrite}{If TRUE, overwrite existing output. Default FALSE.}
 

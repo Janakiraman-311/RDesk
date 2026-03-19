@@ -4,7 +4,14 @@
 \alias{rdesk_async}
 \title{Run a task in the background}
 \usage{
-rdesk_async(task, args = list(), on_done = NULL, on_error = NULL)
+rdesk_async(
+  task,
+  args = list(),
+  on_done = NULL,
+  on_error = NULL,
+  timeout_sec = NULL,
+  app_id = NULL
+)
 }
 \arguments{
 \item{task}{A function to run in the background.}
@@ -14,6 +21,11 @@ rdesk_async(task, args = list(), on_done = NULL, on_error = NULL)
 \item{on_done}{Callback function(result) called when the task finishes successfully.}
 
 \item{on_error}{Callback function(error) called if the task fails.}
+
+\item{timeout_sec}{Optional timeout in seconds. If exceeded, the job is
+cancelled and \code{on_error()} receives a timeout error.}
+
+\item{app_id}{Optional App ID used to associate a job with a specific app.}
 }
 \value{
 Invisible job ID.

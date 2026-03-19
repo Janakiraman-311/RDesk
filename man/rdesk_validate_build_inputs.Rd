@@ -4,7 +4,25 @@
 \alias{rdesk_validate_build_inputs}
 \title{Validate build inputs before starting the process}
 \usage{
-rdesk_validate_build_inputs(app_dir, extra_pkgs, build_installer = FALSE)
+rdesk_validate_build_inputs(
+  app_dir,
+  extra_pkgs,
+  build_installer = FALSE,
+  portable_r_method = c("extract_only", "installer"),
+  runtime_dir = NULL
+)
+}
+\arguments{
+\item{app_dir}{App directory to validate.}
+
+\item{extra_pkgs}{Extra packages requested for bundling.}
+
+\item{build_installer}{Whether installer prerequisites should be validated.}
+
+\item{portable_r_method}{Runtime provisioning method used when
+\code{runtime_dir} is not supplied.}
+
+\item{runtime_dir}{Optional existing runtime directory to validate.}
 }
 \description{
 Validate build inputs before starting the process
