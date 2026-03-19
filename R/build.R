@@ -16,6 +16,8 @@
 #' @param website URL for the application website (used in installer).
 #' @param license_file Path to a license file (.txt or .rtf) to include in the installer.
 #' @param icon_file Path to an .ico file for the installer and application shortcut.
+#' @param prune_runtime If TRUE, remove unnecessary files (Tcl/Tk, docs, tests) from 
+#'   the bundled R runtime to reduce size (~15-20MB saving). Default TRUE.
 #' @return Path to the created zip file, invisibly.
 #' @export
 build_app <- function(app_dir,
@@ -29,7 +31,8 @@ build_app <- function(app_dir,
                       publisher = "RDesk User",
                       website   = "https://github.com/Janakiraman-311/RDesk",
                       license_file = NULL,
-                      icon_file    = NULL) {
+                      icon_file    = NULL,
+                      prune_runtime = TRUE) {
 
   options(timeout = max(1200, getOption("timeout")))
   app_dir <- normalizePath(app_dir, mustWork = TRUE)
@@ -83,7 +86,7 @@ build_app <- function(app_dir,
   message("[RDesk] Step 3/6 - downloading portable R ", r_version, "...")
   runtime_dir <- file.path(stage_root, "runtime", "R")
   dir.create(runtime_dir, recursive = TRUE)
-  rdesk_fetch_portable_r(r_version, runtime_dir)
+  rdesk_fetch_portable_r(r_version, runtime_dir, prune = prune_runtime)
 
   # ---- Step 4: Bundle packages ---------------------------------------------
   message("[RDesk] Step 4/6 - bundling R packages...")
@@ -223,8 +226,9 @@ rdesk_copy_dir <- function(from, to) {
 
 #' Download and extract a portable R installation
 #' Uses the official CRAN Windows binary installer, extracted via 7-Zip
+#' @param prune If TRUE, call rdesk_prune_runtime() after installation.
 #' @keywords internal
-rdesk_fetch_portable_r <- function(r_version, dest_dir) {
+rdesk_fetch_portable_r <- function(r_version, dest_dir, prune = TRUE) {
   # Use Cloud mirror for better reliability
   # Note: Latest version is in /base/, older versions move to /base/old/
   url <- paste0("https://cloud.r-project.org/bin/windows/base/R-", r_version, "-win.exe")
@@ -272,7 +276,38 @@ rdesk_fetch_portable_r <- function(r_version, dest_dir) {
   if (ret != 0) stop("[build_app] Silent installation of R failed.")
 
   rdesk_copy_dir(tmp_extract, dest_dir)
+  
+  if (prune) {
+    rdesk_prune_runtime(dest_dir)
+  }
+  
   message("[RDesk]   R runtime installed: ", dest_dir)
+}
+
+#' Prune unnecessary files from the portable R runtime to reduce size
+#' @param runtime_dir Path to the installed R root
+#' @keywords internal
+rdesk_prune_runtime <- function(runtime_dir) {
+  # Directories safe to remove from portable R
+  prune <- c(
+    "doc",           # R documentation — ~8MB
+    "tests",         # R test suite — ~2MB
+    "Tcl",           # Tk GUI toolkit — ~8MB, RDesk uses WebView2
+    "share/locale",  # Translations — ~3MB
+    "library/tcltk", # Tcl/Tk R package
+    "library/KernSmooth",  # rarely needed
+    "library/spatial",     # rarely needed
+    "library/nlme"         # only if not in app deps
+  )
+  
+  message("[RDesk]   Optimizing R runtime size...")
+  for (p in prune) {
+    target <- file.path(runtime_dir, p)
+    if (dir.exists(target)) {
+      unlink(target, recursive = TRUE)
+      message("[RDesk]     Pruned: ", p)
+    }
+  }
 }
 
 #' Find 7-Zip executable in common Windows locations
