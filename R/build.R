@@ -99,8 +99,8 @@ build_app <- function(app_dir,
   # ---- Step 2: Copy RDesk binaries -----------------------------------------
   message("[RDesk] Step 2/6 - copying launcher binaries...")
   bin_src   <- system.file("bin", package = "RDesk")
-  if (bin_src == "") {
-    bin_src <- file.path(getwd(), "inst", "bin")
+  if (bin_src == "" || !dir.exists(bin_src)) {
+    bin_src <- rdesk_resolve_launcher_bin_dir(getwd())
   }
   if (!dir.exists(bin_src)) {
     stop("[build_app] Could not locate launcher binaries under installed package or source tree.")
@@ -697,6 +697,37 @@ rdesk_find_gpp <- function() {
   if (length(found) == 0)
     stop("[build_app] g++ not found. Install Rtools45 from https://cran.r-project.org/bin/windows/Rtools/")
   found[1]
+}
+
+#' Resolve a source-tree launcher binary directory when package bin assets are absent
+#'
+#' @param project_root Path to the current project root.
+#' @return Path to a directory containing rdesk-launcher.exe and WebView2Loader.dll.
+#' @keywords internal
+rdesk_resolve_launcher_bin_dir <- function(project_root) {
+  inst_bin <- file.path(project_root, "inst", "bin")
+  if (dir.exists(inst_bin) &&
+      file.exists(file.path(inst_bin, "rdesk-launcher.exe")) &&
+      file.exists(file.path(inst_bin, "WebView2Loader.dll"))) {
+    return(inst_bin)
+  }
+
+  launcher_dir <- file.path(project_root, "launcher_src", "launcher")
+  launcher_exe <- file.path(launcher_dir, "rdesk-launcher.exe")
+  loader_dll <- file.path(
+    launcher_dir, "webview2_sdk", "build", "native", "x64", "WebView2Loader.dll"
+  )
+
+  if (file.exists(launcher_exe) && file.exists(loader_dll)) {
+    temp_bin <- file.path(tempdir(), "rdesk-launcher-bin")
+    if (dir.exists(temp_bin)) unlink(temp_bin, recursive = TRUE, force = TRUE)
+    dir.create(temp_bin, recursive = TRUE)
+    file.copy(launcher_exe, file.path(temp_bin, "rdesk-launcher.exe"), overwrite = TRUE)
+    file.copy(loader_dll, file.path(temp_bin, "WebView2Loader.dll"), overwrite = TRUE)
+    return(temp_bin)
+  }
+
+  ""
 }
 
 #' Write an renv-compatible lockfile into the bundle for reproducibility
