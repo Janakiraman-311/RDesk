@@ -10,3 +10,9 @@
 ^\.Rproj\.user$
 ^\.agents$
 ^inst/include$
+^dist.*$
+^build_.*$
+^backup$
+^.*\.txt$
+^.*\.zip$
+^CONTRIBUTING\.md$
