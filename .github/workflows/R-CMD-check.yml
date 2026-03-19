@@ -25,6 +25,11 @@ jobs:
         run: |
           Rscript -e 'if (!requireNamespace("waldo", quietly = TRUE)) tryCatch({ install.packages("waldo") }, error = function(e) { install.packages("waldo", type = "source") })'
 
+      - name: Sync dependencies from lockfile
+        run: |
+          Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")'
+          Rscript -e 'renv::init(bare = TRUE); renv::restore()'
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck, any::withr

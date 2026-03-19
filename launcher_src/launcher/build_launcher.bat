@@ -41,23 +41,23 @@ echo --- CONFIGURING ---
     -DCMAKE_MAKE_PROGRAM="%MAKE%" ^
     -DCMAKE_SH="CMAKE_SH-NOTFOUND"
 
-if errorlevel 1 (
-    echo CMake failed. Listing directory for debugging:
+if %ERRORLEVEL% neq 0 (
+    echo CMake selection/configuration failed.
     dir .. /s
-    exit /b 1
+    exit /b %ERRORLEVEL%
 )
 
 echo --- BUILDING ---
 "%CMAKE%" --build . --config Release --verbose
-if errorlevel 1 (
-    echo Build failed.
-    exit /b 1
+if %ERRORLEVEL% neq 0 (
+    echo Build step failed.
+    exit /b %ERRORLEVEL%
 )
 
 echo Build SUCCESS!
 if not exist "..\..\inst\bin" mkdir "..\..\inst\bin"
 copy /y rdesk-launcher.exe "..\..\inst\bin\rdesk-launcher.exe"
-if errorlevel 1 (
-    echo Copy to inst\bin failed
-    exit /b 1
+if %ERRORLEVEL% neq 0 (
+    echo Copy to inst\bin failed.
+    exit /b %ERRORLEVEL%
 )
