@@ -13,15 +13,16 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release'
-          use-public-rspm: true
+          use-public-rspm: false
 
       - name: Set CRAN mirror
         run: |
           echo "options(repos = c(CRAN = 'https://cloud.r-project.org'))" >> ~/.Rprofile
 
-      - name: Install waldo from source if binary fails
+      - name: Pre-install critical dependencies
         run: |
           Rscript -e 'if (!requireNamespace("waldo", quietly = TRUE)) tryCatch({ install.packages("waldo") }, error = function(e) { install.packages("waldo", type = "source") })'
+          Rscript -e 'if (!requireNamespace("askpass", quietly = TRUE)) install.packages("askpass")'
 
       - name: Install R packages from lockfile
         run: |

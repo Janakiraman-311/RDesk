@@ -28,7 +28,7 @@ jobs:
       - name: Sync dependencies from lockfile
         run: |
           Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")'
-          Rscript -e 'renv::init(bare = TRUE); renv::restore()'
+          Rscript -e 'renv::restore()'
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
