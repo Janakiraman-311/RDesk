@@ -26,7 +26,7 @@ jobs:
 
       - name: Build App
         run: |
-          R CMD INSTALL .
+          Rscript -e "install.packages('.', repos = NULL, type = 'source')"
           Rscript -e "options(rdesk.async_backend = 'callr'); library(RDesk); fn <- RDesk::async(function(p) list(result = p$x * 2)); attr_env <- attr(fn, 'rdesk_msg_type_env'); if (!is.null(attr_env)) attr_env$type <- 'test'; cat('async() wrapper created successfully\n')"
           Rscript -e "RDesk::build_app(app_dir = 'inst/apps/mtcars_dashboard', app_name = 'CarsAnalyser', portable_r_method = 'installer')"
 
