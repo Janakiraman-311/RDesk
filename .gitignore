@@ -3,6 +3,9 @@
 .RData
 .Ruserdata
 .r-lib/
+renv/library/
+renv/staging/
+renv/sandbox/
 .Rproj.user/
 .Rapp.history
 .Rproj.user

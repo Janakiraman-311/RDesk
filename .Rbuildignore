@@ -9,6 +9,11 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.agents$
+^\.r-lib($|/)
+^renv$
+^renv\.lock$
+^\.Rprofile$
+^inst/bin($|/)
 ^inst/include$
 ^dist.*$
 ^build_.*$

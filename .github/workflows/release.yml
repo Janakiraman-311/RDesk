@@ -21,6 +21,16 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
 
+      - name: Restore renv environment
+        env:
+          RENV_CONFIG_AUTOLOADER_ENABLED: false
+        run: |
+          if (file.exists("renv.lock")) {
+            install.packages("renv")
+            renv::restore(prompt = FALSE)
+          }
+        shell: Rscript {0}
+
       - name: Install Rtools
         run: |
           choco install rtools --version=4.5.6768 -y --allow-downgrade

@@ -99,6 +99,12 @@ build_app <- function(app_dir,
   # ---- Step 2: Copy RDesk binaries -----------------------------------------
   message("[RDesk] Step 2/6 - copying launcher binaries...")
   bin_src   <- system.file("bin", package = "RDesk")
+  if (bin_src == "") {
+    bin_src <- file.path(getwd(), "inst", "bin")
+  }
+  if (!dir.exists(bin_src)) {
+    stop("[build_app] Could not locate launcher binaries under installed package or source tree.")
+  }
   bin_stage <- file.path(stage_root, "bin")
   dir.create(bin_stage)
   rdesk_copy_dir(bin_src, bin_stage)
@@ -152,6 +158,10 @@ build_app <- function(app_dir,
     }
     rdesk_copy_dir(installed_rdesk, file.path(pkg_lib, "RDesk"))
   }
+
+  # ---- Step 4b: Snapshot package versions into bundle ---------------------
+  message("[RDesk] Step 4b/6 - snapshotting package versions...")
+  rdesk_snapshot_bundle(pkg_lib, stage_root)
   
   # ---- Step 5: Build the launcher stub ------------------------------------
   message("[RDesk] Step 5/6 - building launcher stub...")
@@ -687,4 +697,80 @@ rdesk_find_gpp <- function() {
   if (length(found) == 0)
     stop("[build_app] g++ not found. Install Rtools45 from https://cran.r-project.org/bin/windows/Rtools/")
   found[1]
+}
+
+#' Write an renv-compatible lockfile into the bundle for reproducibility
+#'
+#' @param lib_dir Path to the bundle's package library
+#' @param stage_root Path to the bundle staging directory
+#' @keywords internal
+rdesk_snapshot_bundle <- function(lib_dir, stage_root) {
+  if (!requireNamespace("renv", quietly = TRUE)) {
+    message("[RDesk]   renv not available -- skipping lockfile generation.")
+    message("[RDesk]   Install renv for reproducible builds: install.packages('renv')")
+    return(invisible(NULL))
+  }
+
+  tryCatch({
+    pkgs <- utils::installed.packages(lib.loc = lib_dir)
+
+    if (nrow(pkgs) == 0) {
+      message("[RDesk]   No packages found in bundle library -- skipping snapshot.")
+      return(invisible(NULL))
+    }
+
+    lock_entries <- lapply(seq_len(nrow(pkgs)), function(i) {
+      pkg <- pkgs[i, ]
+      name <- pkg[["Package"]]
+      list(
+        Package = name,
+        Version = pkg[["Version"]],
+        Source = "Repository",
+        Repository = "CRAN"
+      )
+    })
+    names(lock_entries) <- pkgs[, "Package"]
+
+    lockfile <- list(
+      R = list(
+        Version = paste0(R.version$major, ".", R.version$minor),
+        Repositories = list(
+          list(Name = "CRAN", URL = "https://cloud.r-project.org")
+        )
+      ),
+      Packages = lock_entries
+    )
+
+    lock_path <- file.path(stage_root, "renv.lock")
+    jsonlite::write_json(lockfile, lock_path, pretty = TRUE, auto_unbox = TRUE)
+    message("[RDesk]   Bundle lockfile written: renv.lock (", nrow(pkgs), " packages)")
+
+    restore_script <- c(
+      "# Run this script to restore the exact package environment",
+      "# used to build this application.",
+      "#",
+      "# Requirements: R and renv installed locally.",
+      "# Usage: source(\"restore_env.R\")",
+      "",
+      "if (!requireNamespace(\"renv\", quietly = TRUE)) {",
+      "  install.packages(\"renv\")",
+      "}",
+      "",
+      "cat(\"Restoring bundle environment from renv.lock...\\n\")",
+      "renv::restore(",
+      "  lockfile = \"renv.lock\",",
+      "  library  = \"packages/library\",",
+      "  prompt   = FALSE",
+      ")",
+      "cat(\"Done. Environment restored successfully.\\n\")"
+    )
+    restore_path <- file.path(stage_root, "restore_env.R")
+    writeLines(restore_script, restore_path)
+    message("[RDesk]   Restore helper written: restore_env.R")
+
+  }, error = function(e) {
+    warning("[RDesk] Could not generate bundle lockfile: ", e$message)
+  })
+
+  invisible(NULL)
 }

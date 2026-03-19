@@ -1,3 +1,20 @@
+# RDesk 1.0.1 (2026-03-19)
+
+## New features
+
+* renv integration -- the RDesk development environment is now lockable
+  via `renv.lock` for reproducible builds across machines and contributors.
+* `build_app()` now writes an `renv.lock` file and `restore_env.R` helper
+  into every distributable bundle so package versions can be inspected and
+  restored later.
+
+## Bug fixes
+
+* Added `broom` to `Suggests` for demo-app and check-time dependency
+  completeness.
+* Updated GitHub Actions workflows to restore a locked renv environment
+  before checks and bundled-app builds when a project lockfile is present.
+
 # RDesk 0.9.0 (2026-03-19)
 
 ## Breaking changes

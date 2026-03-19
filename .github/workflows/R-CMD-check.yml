@@ -17,6 +17,16 @@ jobs:
           r-version: 'release'
           use-public-rspm: true
 
+      - name: Setup R dependencies with renv
+        env:
+          RENV_CONFIG_AUTOLOADER_ENABLED: false
+        run: |
+          if (file.exists("renv.lock")) {
+            if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
+            renv::restore(prompt = FALSE)
+          }
+        shell: Rscript {0}
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck, any::withr

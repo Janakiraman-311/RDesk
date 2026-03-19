@@ -33,6 +33,8 @@ Suggests:
     knitr,
     rmarkdown,
     devtools,
+    renv,
+    broom,
     ggplot2,
     dplyr
 VignetteBuilder: knitr

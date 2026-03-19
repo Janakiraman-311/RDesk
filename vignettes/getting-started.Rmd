@@ -140,6 +140,12 @@ RDesk::build_app(
 )
 ```
 
+If your team uses `renv`, commit `renv.lock` in the project root.
+RDesk's GitHub Actions workflows restore from that lockfile before
+checks and bundle builds, and `build_app()` writes a bundle-level
+`renv.lock` plus `restore_env.R` helper into each distributable when
+`renv` is available on the build machine.
+
 ## 4. Key Concepts
 
 ### Native IPC

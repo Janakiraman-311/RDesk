@@ -115,6 +115,13 @@ RDesk::build_app(
 )
 ```
 
+For reproducible team builds, this repo now supports `renv`. If the
+project root contains `renv.lock`, GitHub Actions restores that locked
+environment before running checks or bundled-app builds. Each bundle
+created with `build_app()` also writes its own `renv.lock` and a
+`restore_env.R` helper into the distributable root when `renv` is
+available on the build machine.
+
 ## Async in one line
 
 ```r
@@ -142,6 +149,8 @@ Every push to main triggers automated validation and build.
 Version tags trigger a draft release with the installer attached.
 The bundled-app workflows use `portable_r_method = "installer"` so CI
 does not depend on a standalone 7-Zip installation.
+When `renv.lock` is present, CI restores the locked project library
+before package checks and bundle creation.
 
 ```bash
 git tag v1.0.0
