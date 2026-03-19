@@ -19,19 +19,17 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::devtools
+          extra-packages: any::rcmdcheck
 
+      - uses: r-lib/actions/setup-rtools@v2
 
-      - name: Install RTools
-        run: |
-          choco install rtools --version=4.4.6459 -y --allow-downgrade
-          echo "C:\rtools44\usr\bin" >> $GITHUB_PATH
-          echo "C:\rtools44\mingw64\bin" >> $GITHUB_PATH
+      - name: Install Inno Setup
+        run: choco install innosetup -y
 
       - name: Build App and Installer
         run: |
-          Rscript -e 'devtools::install(".", quiet = TRUE)'
-          Rscript -e 'RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser", build_installer = TRUE)'
+          R CMD INSTALL .
+          Rscript -e 'RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser", build_installer = TRUE, portable_r_method = "installer")'
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

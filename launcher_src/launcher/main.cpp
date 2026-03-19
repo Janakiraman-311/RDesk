@@ -22,6 +22,9 @@ static const UINT WM_TRAYICON = WM_USER + 1;
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <chrono>
+#include <algorithm>
+#include <cctype>
 #include <map>
 #include <functional>
 #include <sstream>
@@ -74,11 +77,23 @@ static std::atomic<bool>  g_quit{false};
 static webview::webview*  g_webview = nullptr;
 static ICoreWebView2*     g_core_webview = nullptr;
 static std::mutex         g_out_mutex;
+static std::mutex         g_webview_mutex;
 
 static void write_stdout(const std::string& line) {
     std::lock_guard<std::mutex> lk(g_out_mutex);
     std::cout << line << "\n";
     std::cout.flush();
+}
+
+static void dispatch_to_webview(const std::function<void()>& fn) {
+    std::lock_guard<std::mutex> lk(g_webview_mutex);
+    if (g_quit.load() || g_webview == nullptr) return;
+
+    g_webview->dispatch([fn]() {
+        std::lock_guard<std::mutex> lk(g_webview_mutex);
+        if (g_quit.load() || g_webview == nullptr) return;
+        fn();
+    });
 }
 
 // ── menu support (Windows only) ──────────────────────────────────────────────
@@ -90,6 +105,34 @@ static UINT  g_menu_id_counter = 1000;
 static HWND  g_hwnd = nullptr;
 static NOTIFYICONDATAW g_nid = {};
 static bool  g_tray_active = false;
+static bool  g_notify_icon_added = false;
+
+static void ensure_notify_icon(bool visible) {
+    if (!g_hwnd) return;
+
+    g_nid.cbSize = sizeof(g_nid);
+    g_nid.hWnd = g_hwnd;
+    g_nid.uID = 1001;
+    g_nid.uCallbackMessage = WM_TRAYICON;
+    g_nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    g_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+    if (wcslen(g_nid.szTip) == 0) {
+        wcsncpy_s(g_nid.szTip, L"RDesk App", 127);
+    }
+
+    if (!g_notify_icon_added) {
+        if (Shell_NotifyIconW(NIM_ADD, &g_nid)) {
+            g_notify_icon_added = true;
+        } else {
+            return;
+        }
+    }
+
+    g_nid.uFlags = NIF_STATE | NIF_ICON | NIF_TIP;
+    g_nid.dwState = visible ? 0 : NIS_HIDDEN;
+    g_nid.dwStateMask = NIS_HIDDEN;
+    Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+}
 
 static void apply_menu(const std::string& payload_json) {
     if (!g_hwnd) return;
@@ -129,7 +172,10 @@ static void apply_menu(const std::string& payload_json) {
         // Skip malformed menu JSON
     }
 
-    SetMenu(g_hwnd, bar);
+    if (!SetMenu(g_hwnd, bar)) {
+        DestroyMenu(bar);
+        return;
+    }
     DrawMenuBar(g_hwnd);
     if (g_hmenu_bar) DestroyMenu(g_hmenu_bar);
     g_hmenu_bar = bar;
@@ -171,7 +217,7 @@ static std::string save_file_dialog(const std::string& title,
                                      const std::string& default_ext) {
     wchar_t buf[32768] = {0};
     if (!default_name.empty()) {
-        std::wstring wdn(default_name.begin(), default_name.end());
+        std::wstring wdn = widen(default_name);
         wcsncpy_s(buf, wdn.c_str(), 32767);
     }
     OPENFILENAMEW ofn = {};
@@ -201,66 +247,75 @@ static std::string save_file_dialog(const std::string& title,
 }
 
 static void show_notification(const std::string& title, const std::string& body) {
-    // Windows balloon notification via Shell_NotifyIcon
-    NOTIFYICONDATAW nid = {};
-    nid.cbSize      = sizeof(nid);
-    nid.uFlags      = NIF_INFO;
-    nid.dwInfoFlags = NIIF_INFO;
-    nid.uTimeout    = 4000;
+    if (!g_hwnd) return;
+
+    ensure_notify_icon(g_tray_active);
+    if (!g_notify_icon_added) return;
 
     std::wstring wtitle = widen(title);
     std::wstring wbody  = widen(body);
-    wcsncpy_s(nid.szInfoTitle, wtitle.c_str(), 63);
-    wcsncpy_s(nid.szInfo,      wbody.c_str(),  255);
+    g_nid.uFlags = NIF_INFO | NIF_ICON | NIF_TIP | NIF_STATE;
+    g_nid.dwState = g_tray_active ? 0 : NIS_HIDDEN;
+    g_nid.dwStateMask = NIS_HIDDEN;
+    g_nid.dwInfoFlags = NIIF_INFO;
+    g_nid.uTimeout    = 4000;
+    wcsncpy_s(g_nid.szInfoTitle, wtitle.c_str(), 63);
+    wcsncpy_s(g_nid.szInfo,      wbody.c_str(), 255);
 
-    // We need a valid HWND for Shell_NotifyIcon
-    nid.hWnd = g_hwnd;
-    nid.uID  = 1;
-
-    // Add icon first, then modify
-    nid.uFlags |= NIF_ICON | NIF_TIP;
-    nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    wcsncpy_s(nid.szTip, L"RDesk App", 63);
-    Shell_NotifyIconW(NIM_ADD,    &nid);
-    Shell_NotifyIconW(NIM_MODIFY, &nid);
-    // Remove after showing
-    std::thread([nid]() mutable {
-        Sleep(5000);
-        Shell_NotifyIconW(NIM_DELETE, &nid);
-    }).detach();
+    Shell_NotifyIconW(NIM_MODIFY, &g_nid);
 }
 
  
 static void set_system_tray(const std::string& label, const std::string& icon_path) {
     if (!g_hwnd) return;
- 
-    if (!g_tray_active) {
-        g_nid.cbSize = sizeof(g_nid);
-        g_nid.hWnd = g_hwnd;
-        g_nid.uID = 1001;
-        g_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
-        g_nid.uCallbackMessage = WM_TRAYICON;
-        g_nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION); // TODO: Load from icon_path
-        g_tray_active = true;
-    }
- 
+
     std::wstring wlabel = widen(label);
     wcsncpy_s(g_nid.szTip, wlabel.c_str(), 127);
- 
-    if (g_tray_active) {
-        Shell_NotifyIconW(NIM_ADD, &g_nid);
-        Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+
+    ensure_notify_icon(true);
+    if (!g_notify_icon_added) return;
+
+    g_tray_active = true;
+    g_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_STATE;
+    g_nid.dwState = 0;
+    g_nid.dwStateMask = NIS_HIDDEN;
+
+    if (!icon_path.empty()) {
+        // TODO: Load custom tray icons from icon_path.
     }
+
+    Shell_NotifyIconW(NIM_MODIFY, &g_nid);
 }
  
 static void remove_system_tray() {
-    if (g_tray_active) {
+    g_tray_active = false;
+    if (g_notify_icon_added) {
         Shell_NotifyIconW(NIM_DELETE, &g_nid);
-        g_tray_active = false;
+        g_notify_icon_added = false;
     }
 }
  
 #endif // _WIN32
+
+static int parse_dimension_arg(const std::vector<std::string>& args, size_t index, int fallback) {
+    if (args.size() <= index || args[index].empty()) return fallback;
+
+    const std::string& value = args[index];
+    size_t start = (value[0] == '+' || value[0] == '-') ? 1 : 0;
+    if (start == value.size()) return fallback;
+
+    if (!std::all_of(value.begin() + static_cast<std::ptrdiff_t>(start), value.end(),
+            [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
+        return fallback;
+    }
+
+    try {
+        int parsed = std::stoi(value);
+        return parsed > 0 ? parsed : fallback;
+    } catch (...) {
+        return fallback;
+    }
+}
 
 // ── stdin command processor ──────────────────────────────────────────────────
 static void process_command(const std::string& line) {
@@ -276,15 +331,20 @@ static void process_command(const std::string& line) {
 
     if (cmd == "QUIT") {
         g_quit.store(true);
-        if (g_webview) g_webview->terminate();
+        webview::webview* wv = nullptr;
+        {
+            std::lock_guard<std::mutex> lk(g_webview_mutex);
+            wv = g_webview;
+        }
+        if (wv) wv->terminate();
         return;
     }
 
     if (cmd == "SET_TITLE") {
         std::string title = j["payload"].value("title", "");
-        if (g_webview && !title.empty()) {
-            g_webview->dispatch([title]() {
-                if (g_webview) g_webview->set_title(title);
+        if (!title.empty()) {
+            dispatch_to_webview([title]() {
+                g_webview->set_title(title);
             });
         }
         return;
@@ -294,7 +354,7 @@ static void process_command(const std::string& line) {
     if (cmd == "SET_MENU") {
         if (j.contains("payload")) {
             std::string payload_str = j["payload"].dump();
-            g_webview->dispatch([payload_str]() {
+            dispatch_to_webview([payload_str]() {
                 apply_menu(payload_str);
             });
         }
@@ -346,8 +406,9 @@ static void process_command(const std::string& line) {
     }
 
     if (cmd == "NOTIFY") {
-        std::string title = j.value("title", "");
-        std::string body  = j.value("body", "");
+        json pl = j.value("payload", json::object());
+        std::string title = pl.value("title", "");
+        std::string body  = pl.value("body", "");
         show_notification(title, body);
         return;
     }
@@ -355,14 +416,14 @@ static void process_command(const std::string& line) {
     if (cmd == "SET_TRAY") {
         std::string label = j["payload"].value("label", "");
         std::string icon  = j["payload"].value("icon", "");
-        g_webview->dispatch([label, icon]() {
+        dispatch_to_webview([label, icon]() {
             set_system_tray(label, icon);
         });
         return;
     }
  
     if (cmd == "REMOVE_TRAY") {
-        g_webview->dispatch([]() {
+        dispatch_to_webview([]() {
             remove_system_tray();
         });
         return;
@@ -380,11 +441,14 @@ static void process_command(const std::string& line) {
                 payload_str = j["payload"].dump();
             }
 
-            if (g_webview && !payload_str.empty()) {
-                g_webview->dispatch([payload_str]() {
-                    if (g_core_webview) {
+            if (!payload_str.empty()) {
+                dispatch_to_webview([payload_str]() {
+                    ICoreWebView2* core = g_core_webview;
+                    if (core) core->AddRef();
+                    if (core) {
                         std::wstring wpayload = widen(payload_str);
-                        g_core_webview->PostWebMessageAsString(wpayload.c_str());
+                        core->PostWebMessageAsString(wpayload.c_str());
+                        core->Release();
                     }
                 });
             }
@@ -404,7 +468,12 @@ static void stdin_reader() {
     }
     // stdin closed — terminate window
     g_quit.store(true);
-    if (g_webview) g_webview->terminate();
+    webview::webview* wv = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(g_webview_mutex);
+        wv = g_webview;
+    }
+    if (wv) wv->terminate();
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
@@ -435,13 +504,16 @@ int main(int argc, char* argv[]) {
 
     std::string url    = args[0];
     std::string title  = args.size() > 1 ? args[1] : "RDesk App";
-    int         width  = args.size() > 2 ? std::stoi(args[2]) : 1200;
-    int         height = args.size() > 3 ? std::stoi(args[3]) : 800;
+    int         width  = parse_dimension_arg(args, 2, 1200);
+    int         height = parse_dimension_arg(args, 3, 800);
     std::string www    = args.size() > 4 ? args[4] : "";
 
     try {
         webview::webview w(false, nullptr);
-        g_webview = &w;
+        {
+            std::lock_guard<std::mutex> lk(g_webview_mutex);
+            g_webview = &w;
+        }
 
 #ifdef _WIN32
         // Get the underlying HWND so we can attach Win32 menus
@@ -537,12 +609,25 @@ int main(int argc, char* argv[]) {
 
         w.run();
 
+        g_quit.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
         write_stdout("CLOSED");
-        g_webview = nullptr;
-
-        if (g_core_webview) {
-            g_core_webview->Release();
+        ICoreWebView2* core = nullptr;
+        {
+            std::lock_guard<std::mutex> lk(g_webview_mutex);
+            g_webview = nullptr;
+            core = g_core_webview;
             g_core_webview = nullptr;
+        }
+
+        if (g_notify_icon_added) {
+            Shell_NotifyIconW(NIM_DELETE, &g_nid);
+            g_notify_icon_added = false;
+            g_tray_active = false;
+        }
+
+        if (core) {
+            core->Release();
         }
 
     } catch (const std::exception& e) {

@@ -46,9 +46,13 @@ rdesk_stop_daemons <- function() {
 #' @param args A list of arguments to pass to the task.
 #' @param on_done Callback function(result) called when the task finishes successfully.
 #' @param on_error Callback function(error) called if the task fails.
+#' @param timeout_sec Optional timeout in seconds. If exceeded, the job is
+#'   cancelled and \code{on_error()} receives a timeout error.
+#' @param app_id Optional App ID used to associate a job with a specific app.
 #' @return Invisible job ID.
 #' @export
-rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL) {
+rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL,
+                        timeout_sec = NULL, app_id = NULL) {
   # Generate a unique job ID
   job_id  <- paste0("job_", digest::digest(runif(1), algo = "crc32"))
   backend <- getOption("rdesk.async_backend", "callr")
@@ -66,7 +70,9 @@ rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL) {
       backend  = "mirai",
       on_done  = on_done,
       on_error = on_error,
-      started  = Sys.time()
+      started  = Sys.time(),
+      timeout_sec = timeout_sec,
+      app_id = app_id
     )
   } else {
     # callr fallback — on-demand process spawning
@@ -77,7 +83,9 @@ rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL) {
       backend  = "callr",
       on_done  = on_done,
       on_error = on_error,
-      started  = Sys.time()
+      started  = Sys.time(),
+      timeout_sec = timeout_sec,
+      app_id = app_id
     )
   }
   
@@ -103,6 +111,19 @@ rdesk_poll_jobs <- function() {
     }
     
     job <- entry[["job"]]
+    timeout_sec <- entry[["timeout_sec"]]
+
+    if (!is.null(timeout_sec) &&
+        difftime(Sys.time(), entry[["started"]], units = "secs") > timeout_sec) {
+      rdesk_cancel_job(id)
+      if (is.function(entry[["on_error"]])) {
+        tryCatch(
+          entry[["on_error"]](simpleError(paste0("Job timed out after ", timeout_sec, " seconds"))),
+          error = function(e) warning("[RDesk] on_error handler failed: ", e$message)
+        )
+      }
+      next
+    }
 
     # Check completion based on backend API
     is_done <- if (backend == "mirai") {
@@ -134,15 +155,15 @@ rdesk_poll_jobs <- function() {
       }
     } else {
       # callr path
-      err <- tryCatch(job$get_result(), error = function(e) e)
-      if (inherits(err, "error")) {
+      result <- tryCatch(job$get_result(), error = function(e) e)
+      if (inherits(result, "error")) {
         if (is.function(entry[["on_error"]])) {
-          tryCatch(entry[["on_error"]](err),
+          tryCatch(entry[["on_error"]](result),
             error = function(e) warning("[RDesk] on_error handler failed: ", e$message))
         }
       } else {
         if (is.function(entry[["on_done"]])) {
-          tryCatch(entry[["on_done"]](err),
+          tryCatch(entry[["on_done"]](result),
             error = function(e) warning("[RDesk] on_done handler failed: ", e$message))
         }
       }
@@ -163,7 +184,9 @@ rdesk_cancel_job <- function(job_id) {
     if (backend == "mirai") {
       # mirai has no direct 'kill' for tasks already in a persistent daemon.
       # We simply remove from the registry so the callback never fires.
-      # The daemon will recycle automatically after completion.
+      # The daemon keeps running until completion, so cancellation here only
+      # suppresses callbacks and UI follow-up.
+      warning("[RDesk] Cancellation requested for a mirai job. The running task cannot be interrupted; only callbacks are suppressed.")
       rm(list = job_id, envir = .rdesk_jobs)
     } else {
       # callr path: kill the process
@@ -184,6 +207,36 @@ rdesk_cancel_job <- function(job_id) {
 #' @export
 rdesk_jobs_pending <- function() {
   length(ls(.rdesk_jobs, pattern = "^job_"))
+}
+
+#' List currently pending background jobs
+#'
+#' @return A data.frame with job ID, started time, backend, and app ID.
+#' @export
+rdesk_jobs_list <- function() {
+  job_ids <- ls(.rdesk_jobs, pattern = "^job_")
+  if (length(job_ids) == 0) {
+    return(data.frame(
+      job_id = character(0),
+      started = as.POSIXct(character(0)),
+      backend = character(0),
+      app_id = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  rows <- lapply(job_ids, function(id) {
+    entry <- .rdesk_jobs[[id]]
+    data.frame(
+      job_id = id,
+      started = as.POSIXct(entry[["started"]], origin = "1970-01-01"),
+      backend = if (is.null(entry[["backend"]])) NA_character_ else entry[["backend"]],
+      app_id = if (is.null(entry[["app_id"]])) NA_character_ else entry[["app_id"]],
+      stringsAsFactors = FALSE
+    )
+  })
+
+  do.call(rbind, rows)
 }
 
 #' Wrap a message handler to run asynchronously with zero configuration
@@ -236,7 +289,7 @@ async <- function(fn,
   loaded_pkgs <- tryCatch({
     loaded <- search()
     pkg_names <- gsub("^package:", "", grep("^package:", loaded, value = TRUE))
-    setdiff(pkg_names, base_pkgs)
+    unique(c(setdiff(pkg_names, base_pkgs), "RDesk"))
   }, error = function(e) character(0))
 
   # Store the message type for result routing
@@ -250,7 +303,10 @@ async <- function(fn,
     app_obj <- app
     if (is.null(app_obj)) {
       app_ids <- ls(.rdesk_apps)
-      if (length(app_ids) > 0) app_obj <- .rdesk_apps[[app_ids[1]]]
+      if (length(app_ids) > 0) {
+        warning("[RDesk] async(): app should be supplied explicitly in multi-window contexts; falling back to the first registered app.")
+        app_obj <- .rdesk_apps[[app_ids[1]]]
+      }
     }
     if (is.null(app_obj)) {
       warning("[RDesk] async(): could not resolve app reference")
@@ -293,7 +349,8 @@ async <- function(fn,
           paste0(error_message, conditionMessage(err)),
           type = "error"
         )
-      }
+      },
+      app_id = app_obj$.__enclos_env__$private$.id
     )
 
     # Show loading overlay

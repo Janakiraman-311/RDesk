@@ -10,13 +10,25 @@ NULL
 #' @return A list representing the standard JSON envelope
 #' @keywords internal
 rdesk_message <- function(type, payload = list(), version = getOption("rdesk.ipc_version", "1.0")) {
-  list(
-    id = paste0("msg_", digest::digest(runif(1), algo = "crc32")),
+  msg <- list(
+    id = paste0("msg_", format(Sys.time(), "%s%OS3"), "_", sample.int(9999, 1)),
     type = type,
     version = version,
     payload = payload,
     timestamp = as.numeric(Sys.time())
   )
+
+  msg_json <- jsonlite::toJSON(msg, auto_unbox = TRUE, null = "null")
+  msg_size <- nchar(msg_json, type = "bytes")
+  if (msg_size > 1e6) {
+    warning(
+      "[RDesk] Large IPC payload (",
+      round(msg_size / 1e6, 1),
+      " MB). Consider chunking."
+    )
+  }
+
+  msg
 }
 
 #' Parse and validate an incoming RDesk IPC message
@@ -29,6 +41,9 @@ rdesk_parse_message <- function(raw_json) {
                   error = function(e) NULL)
   
   if (is.null(msg)) return(NULL)
+
+  # Launcher/native events have their own schema
+  if (!is.null(msg$event)) return(msg)
   
   # Structural validation
   required <- c("type", "payload")

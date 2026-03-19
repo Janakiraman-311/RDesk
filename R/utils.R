@@ -8,9 +8,29 @@ rdesk_is_bundle <- function() {
   Sys.getenv("R_BUNDLE_APP") == "1"
 }
 
+#' Sanitize an app name for filesystem-safe bundled log paths
+#' @keywords internal
+rdesk_sanitize_log_component <- function(x) {
+  x <- gsub("[^[:alnum:]_.-]+", "_", x, perl = TRUE)
+  x <- trimws(x)
+  if (!nzchar(x)) "RDeskApp" else x
+}
+
+#' Resolve the bundled log directory for an app
+#' @keywords internal
+rdesk_log_dir <- function(app_name = Sys.getenv("R_APP_NAME", "RDeskApp")) {
+  base_dir <- Sys.getenv("LOCALAPPDATA")
+  if (!nzchar(base_dir)) {
+    base_dir <- Sys.getenv("TEMP", "C:/Temp")
+  }
+  file.path(base_dir, "RDesk", rdesk_sanitize_log_component(app_name))
+}
+
 #' Resolve the www directory for an app
 #'
 #' @param www_dir User-provided path to www directory (character)
+#'   Passing an explicit absolute path is the most reliable option and skips
+#'   the best-effort call-stack search.
 #' @return Normalized absolute path to a valid www directory
 #' @keywords internal
 rdesk_resolve_www <- function(www_dir) {
@@ -34,14 +54,20 @@ rdesk_resolve_www <- function(www_dir) {
       src_js <- file.path(getwd(), "inst", "www", "rdesk.js")
     }
     
-    if (file.exists(src_js)) {
+    should_copy <- file.exists(src_js) && (
+      !file.exists(target_js) ||
+        !identical(unname(tools::md5sum(src_js)), unname(tools::md5sum(target_js)))
+    )
+
+    if (should_copy) {
       file.copy(src_js, target_js, overwrite = TRUE)
     }
     return(path)
   }
 
-  # 3. TRIPLE-LOCK SEARCH FOR SOURCE SCRIPT
-  # We climb the stack to find where the call came from
+  # 3. Best-effort search for the calling script.
+  # This relies on source() implementation details and is intentionally a fallback
+  # when the caller did not provide an explicit path.
   frames <- sys.frames()
   calls <- sys.calls()
   
@@ -85,15 +111,19 @@ rdesk_resolve_www <- function(www_dir) {
     app_p <- file.path(apps_root, www_dir, "www")
     if (dir.exists(app_p)) return(app_p)
     
-    # Recursive search for any folder named 'www' that has an index.html
+    # Recursive search for any folder named 'www' that has an index.html.
+    # Refuse to guess if there is more than one candidate.
     all_wwws <- list.dirs(apps_root, recursive = TRUE)
     all_wwws <- all_wwws[basename(all_wwws) == "www"]
-    for (w in all_wwws) {
-       if (file.exists(file.path(w, "index.html"))) {
-          # If we have multiple, we might pick the wrong one, 
-          # but usually during dev there is only one "active" one being sourced.
-          return(w)
-       }
+    all_wwws <- all_wwws[file.exists(file.path(all_wwws, "index.html"))]
+    if (length(all_wwws) == 1) {
+      return(all_wwws)
+    }
+    if (length(all_wwws) > 1) {
+      stop("[RDesk] Multiple candidate www directories were found under inst/apps.\n",
+           "Input provided: ", www_dir, "\n",
+           "Candidates:\n  - ", paste(normalizePath(all_wwws), collapse = "\n  - "), "\n",
+           "Tip: Pass an explicit absolute path to the correct www directory.")
     }
   }
 

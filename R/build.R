@@ -10,6 +10,13 @@
 #' @param r_version R version to bundle e.g. "4.4.2". Defaults to current R version.
 #' @param include_packages Character vector of extra CRAN packages to bundle.
 #'   RDesk's own dependencies are always included automatically.
+#' @param portable_r_method How to provision the bundled R runtime when
+#'   `runtime_dir` is not supplied. `"extract_only"` requires standalone 7-Zip
+#'   and never launches the R installer. `"installer"` allows the legacy silent
+#'   installer path explicitly.
+#' @param runtime_dir Optional path to an existing portable R runtime root
+#'   containing `bin/`. When supplied, RDesk copies this runtime directly and
+#'   skips the download/extract step.
 #' @param overwrite If TRUE, overwrite existing output. Default FALSE.
 #' @param build_installer If TRUE, also build a Windows installer (.exe) using InnoSetup.
 #' @param publisher Documentation for the application publisher (used in installer).
@@ -26,6 +33,8 @@ build_app <- function(app_dir,
                       version  = NULL,
                       r_version = NULL,
                       include_packages = character(0),
+                      portable_r_method = c("extract_only", "installer"),
+                      runtime_dir = NULL,
                       overwrite = FALSE,
                       build_installer = FALSE,
                       publisher = "RDesk User",
@@ -35,7 +44,12 @@ build_app <- function(app_dir,
                       prune_runtime = TRUE) {
 
   options(timeout = max(1200, getOption("timeout")))
+  portable_r_method <- match.arg(portable_r_method)
   app_dir <- normalizePath(app_dir, mustWork = TRUE)
+  user_runtime_dir <- runtime_dir
+  if (!is.null(user_runtime_dir)) {
+    user_runtime_dir <- normalizePath(path.expand(user_runtime_dir), mustWork = TRUE)
+  }
 
   # Auto-detect metadata from DESCRIPTION if possible
   desc_path <- file.path(app_dir, "DESCRIPTION")
@@ -55,16 +69,23 @@ build_app <- function(app_dir,
   if (is.null(version))  version  <- "1.0.0"
 
   # ---- Pre-flight Validation -----------------------------------------------
-  rdesk_validate_build_inputs(app_dir, include_packages, build_installer)
+  rdesk_validate_build_inputs(
+    app_dir = app_dir,
+    extra_pkgs = include_packages,
+    build_installer = build_installer,
+    portable_r_method = portable_r_method,
+    runtime_dir = user_runtime_dir
+  )
 
   if (is.null(r_version))
-    r_version <- paste(R.version$major, R.version$minor, sep = ".")
+    r_version <- paste0(R.version$major, ".", R.version$minor)
 
   # ---- Staging directory ----------------------------------------------------
   dist_name  <- paste0(app_name, "-", version, "-windows")
   stage_root <- file.path(tempdir(), dist_name)
   if (dir.exists(stage_root)) unlink(stage_root, recursive = TRUE)
   dir.create(stage_root, recursive = TRUE)
+  on.exit(unlink(stage_root, recursive = TRUE, force = TRUE), add = TRUE)
 
   message("[RDesk] Building: ", dist_name)
   message("[RDesk] Staging in: ", stage_root)
@@ -83,10 +104,23 @@ build_app <- function(app_dir,
   rdesk_copy_dir(bin_src, bin_stage)
 
   # ---- Step 3: Download and extract portable R -----------------------------
-  message("[RDesk] Step 3/6 - downloading portable R ", r_version, "...")
-  runtime_dir <- file.path(stage_root, "runtime", "R")
-  dir.create(runtime_dir, recursive = TRUE)
-  rdesk_fetch_portable_r(r_version, runtime_dir, prune = prune_runtime)
+  stage_runtime_dir <- file.path(stage_root, "runtime", "R")
+  dir.create(stage_runtime_dir, recursive = TRUE)
+  if (!is.null(user_runtime_dir)) {
+    message("[RDesk] Step 3/6 - copying provided portable R runtime...")
+    rdesk_copy_dir(user_runtime_dir, stage_runtime_dir)
+    if (prune_runtime) {
+      rdesk_prune_runtime(stage_runtime_dir)
+    }
+  } else {
+    message("[RDesk] Step 3/6 - provisioning portable R ", r_version, "...")
+    rdesk_fetch_portable_r(
+      r_version = r_version,
+      dest_dir = stage_runtime_dir,
+      prune = prune_runtime,
+      method = portable_r_method
+    )
+  }
 
   # ---- Step 4: Bundle packages ---------------------------------------------
   message("[RDesk] Step 4/6 - bundling R packages...")
@@ -99,19 +133,25 @@ build_app <- function(app_dir,
 
   rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
 
-  # CRITICAL: Install the local RDesk package properly so it's a "valid package"
+  # Install RDesk separately from the local source tree or the installed package.
   message("[RDesk]   Bundling local RDesk package...")
-  rdesk_src <- getwd()
-  # Build a binary version of RDesk for the current session's platform (Windows)
-  # This ensures all Meta/ and other files are created correctly.
-  if (!requireNamespace("devtools", quietly = TRUE)) {
-    stop("[build_app] devtools is required to build the local package.")
+  rdesk_src <- normalizePath(getwd(), mustWork = FALSE)
+  if (file.exists(file.path(rdesk_src, "DESCRIPTION"))) {
+    utils::install.packages(
+      rdesk_src,
+      lib = pkg_lib,
+      repos = NULL,
+      type = "source",
+      dependencies = FALSE,
+      quiet = TRUE
+    )
+  } else {
+    installed_rdesk <- system.file(package = "RDesk")
+    if (!nzchar(installed_rdesk)) {
+      stop("[build_app] Could not locate the local RDesk package to bundle.")
+    }
+    rdesk_copy_dir(installed_rdesk, file.path(pkg_lib, "RDesk"))
   }
-  rdesk_bin_zip <- devtools::build(path = rdesk_src, binary = TRUE)
-  on.exit(unlink(rdesk_bin_zip), add = TRUE)
-  
-  # Use zip::unzip to bypass "in use" locks of install.packages()
-  zip::unzip(rdesk_bin_zip, exdir = pkg_lib)
   
   # ---- Step 5: Build the launcher stub ------------------------------------
   message("[RDesk] Step 5/6 - building launcher stub...")
@@ -137,7 +177,6 @@ build_app <- function(app_dir,
   old_wd <- setwd(dirname(stage_root))
   on.exit(setwd(old_wd), add = TRUE)
   zip::zip(zip_path, files = basename(stage_root), recurse = TRUE)
-  setwd(old_wd)
 
   size_mb <- round(file.info(zip_path)$size / 1024^2, 1)
   message("[RDesk] Done! ", zip_path, " (", size_mb, " MB)")
@@ -164,7 +203,12 @@ invisible(zip_path)
 
 #' Validate build inputs before starting the process
 #' @keywords internal
-rdesk_validate_build_inputs <- function(app_dir, extra_pkgs, build_installer = FALSE) {
+rdesk_validate_build_inputs <- function(app_dir,
+                                        extra_pkgs,
+                                        build_installer = FALSE,
+                                        portable_r_method = c("extract_only", "installer"),
+                                        runtime_dir = NULL) {
+  portable_r_method <- match.arg(portable_r_method)
   message("[RDesk] Pre-flight validation...")
   
   # 1. Essential files
@@ -193,6 +237,21 @@ rdesk_validate_build_inputs <- function(app_dir, extra_pkgs, build_installer = F
          "Error: ", e$message)
   })
 
+  # 3b. Portable R provisioning strategy
+  if (!is.null(runtime_dir)) {
+    if (!dir.exists(file.path(runtime_dir, "bin"))) {
+      stop("[Validation Failed] runtime_dir must point to an R runtime root containing bin/.\n",
+           "Provided path: ", runtime_dir)
+    }
+  } else if (portable_r_method == "extract_only") {
+    tryCatch({
+      rdesk_find_7zip()
+    }, error = function(e) {
+      stop("[Validation Failed] portable_r_method='extract_only' requires standalone 7-Zip.\n",
+           "Error: ", e$message)
+    })
+  }
+
   # 4. InnoSetup check
   if (build_installer) {
     iscc <- rdesk_find_iscc()
@@ -215,8 +274,17 @@ rdesk_validate_build_inputs <- function(app_dir, extra_pkgs, build_installer = F
 #' @param to Destination directory
 #' @keywords internal
 rdesk_copy_dir <- function(from, to) {
-  files <- list.files(from, recursive = TRUE, full.names = TRUE)
+  dirs <- list.dirs(from, recursive = TRUE, full.names = TRUE)
+  for (d in dirs) {
+    rel <- substring(d, nchar(from) + 2)
+    if (nzchar(rel)) {
+      dir.create(file.path(to, rel), recursive = TRUE, showWarnings = FALSE)
+    }
+  }
+
+  files <- list.files(from, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE)
   for (f in files) {
+    if (dir.exists(f)) next
     rel  <- substring(f, nchar(from) + 2)
     dest <- file.path(to, rel)
     dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
@@ -228,7 +296,11 @@ rdesk_copy_dir <- function(from, to) {
 #' Uses the official CRAN Windows binary installer, extracted via 7-Zip
 #' @param prune If TRUE, call rdesk_prune_runtime() after installation.
 #' @keywords internal
-rdesk_fetch_portable_r <- function(r_version, dest_dir, prune = TRUE) {
+rdesk_fetch_portable_r <- function(r_version,
+                                   dest_dir,
+                                   prune = TRUE,
+                                   method = c("extract_only", "installer")) {
+  method <- match.arg(method)
   # Use Cloud mirror for better reliability
   # Note: Latest version is in /base/, older versions move to /base/old/
   url <- paste0("https://cloud.r-project.org/bin/windows/base/R-", r_version, "-win.exe")
@@ -255,27 +327,52 @@ rdesk_fetch_portable_r <- function(r_version, dest_dir, prune = TRUE) {
     message("[RDesk]   Using cached R installer: ", tmp_exe)
   }
 
-  sevenzip <- rdesk_find_7zip()
-
-  message("[RDesk]   Installing R runtime (this takes ~60 seconds)...")
+  message("[RDesk]   Preparing R runtime (this takes ~60 seconds)...")
   tmp_extract <- file.path(tempdir(), paste0("R-", r_version, "-extract"))
   if (dir.exists(tmp_extract)) unlink(tmp_extract, recursive = TRUE)
   dir.create(tmp_extract, recursive = TRUE)
 
-  # Run official installer in silent mode to "extract"
-  # /SILENT : no UI
-  # /DIR    : target directory
-  # /COMPONENTS : minimum needed for Rscript to work
-  install_cmd <- sprintf('"%s" /SILENT /DIR="%s" /COMPONENTS="main,x64"',
-                         normalizePath(tmp_exe),
-                         normalizePath(tmp_extract))
-  
-  message("[RDesk]   Running: ", install_cmd)
-  ret <- system(install_cmd, wait = TRUE, show.output.on.console = FALSE)
-  
-  if (ret != 0) stop("[build_app] Silent installation of R failed.")
+  if (method == "extract_only") {
+    message("[RDesk]   Extracting R runtime with standalone 7-Zip...")
+    sevenzip <- rdesk_find_7zip()
+    ret <- tryCatch(
+      system2(
+        sevenzip,
+        args = c(
+          "x",
+          "-y",
+          paste0("-o", normalizePath(tmp_extract, winslash = "\\", mustWork = FALSE)),
+          normalizePath(tmp_exe, winslash = "\\", mustWork = TRUE)
+        ),
+        stdout = FALSE,
+        stderr = FALSE
+      ),
+      error = function(e) e
+    )
+    if (!identical(ret, 0L)) {
+      stop(
+        "[build_app] Failed to extract the R installer with standalone 7-Zip.\n",
+        "Install the official Windows 7-Zip application and ensure `7z.exe` or `7za.exe` is on PATH,\n",
+        "or available under `C:/Program Files/7-Zip/`."
+      )
+    }
+  } else {
+    message("[RDesk]   Expanding R runtime via explicit installer mode...")
+    install_cmd <- sprintf('"%s" /SILENT /DIR="%s" /COMPONENTS="main,x64"',
+                           normalizePath(tmp_exe),
+                           normalizePath(tmp_extract))
+    ret <- system(install_cmd, wait = TRUE, show.output.on.console = FALSE)
+    if (!identical(ret, 0L)) {
+      stop("[build_app] Silent installation of R failed in portable_r_method='installer' mode.")
+    }
+  }
 
-  rdesk_copy_dir(tmp_extract, dest_dir)
+  r_root <- rdesk_find_r_dir(tmp_extract)
+  if (is.null(r_root)) {
+    stop("[build_app] Could not locate the extracted R runtime.")
+  }
+
+  rdesk_copy_dir(r_root, dest_dir)
   
   if (prune) {
     rdesk_prune_runtime(dest_dir)
@@ -317,18 +414,18 @@ rdesk_find_7zip <- function() {
   candidates <- c(
     Sys.which("7z"),
     Sys.which("7za"),
+    Sys.which("7zr"),
     "C:/Program Files/7-Zip/7z.exe",
+    "C:/Program Files/7-Zip/7za.exe",
     "C:/Program Files (x86)/7-Zip/7z.exe",
-    file.path(Sys.getenv("RTOOLS45_HOME", "C:/rtools45"), "usr/lib/p7zip/7z.exe"),
-    file.path(Sys.getenv("RTOOLS44_HOME", "C:/rtools44"), "usr/lib/p7zip/7z.exe"),
-    file.path(Sys.getenv("RTOOLS45_HOME", "C:/rtools45"), "usr/bin/7z.exe"),
-    file.path(Sys.getenv("RTOOLS44_HOME", "C:/rtools44"), "usr/bin/7z.exe")
+    "C:/Program Files (x86)/7-Zip/7za.exe"
   )
   found <- candidates[nchar(candidates) > 0 & file.exists(candidates)]
+  found <- found[!grepl("rtools", found, ignore.case = TRUE)]
   if (length(found) == 0)
-    stop("[build_app] 7-Zip not found.\n",
-         "Install from https://7-zip.org or add 7z.exe to PATH.\n",
-         "On Rtools: pacman -S p7zip")
+    stop("[build_app] Standalone 7-Zip not found.\n",
+         "Install the official Windows 7-Zip application from https://7-zip.org\n",
+         "and make sure `7z.exe` or `7za.exe` is on PATH or under Program Files.")
   found[1]
 }
 
@@ -377,20 +474,26 @@ rdesk_install_packages_to <- function(pkgs, lib_dir, r_version) {
   )
 
   all_deps <- rdesk_resolve_deps(pkgs, avail)
+  all_deps <- setdiff(all_deps, "RDesk")
   message("[RDesk]   Installing ", length(all_deps), " packages into bundle...")
+  if (length(all_deps) > 0) {
+    message("[RDesk]   Packages: ", paste(all_deps, collapse = ", "))
+  }
 
   # Construct the exact URL for the target R version's binary repository
   # e.g. https://cloud.r-project.org/bin/windows/contrib/4.4/
   target_repos <- sprintf("https://cloud.r-project.org/bin/windows/contrib/%s", minor)
 
-  utils::install.packages(
-    all_deps,
-    lib      = lib_dir,
-    contriburl = target_repos,
-    type     = "win.binary",
-    quiet    = TRUE,
-    dependencies = FALSE
-  )
+  if (length(all_deps) > 0) {
+    utils::install.packages(
+      all_deps,
+      lib      = lib_dir,
+      contriburl = target_repos,
+      type     = "win.binary",
+      quiet    = FALSE,
+      dependencies = FALSE
+    )
+  }
 
   installed <- list.dirs(lib_dir, recursive = FALSE, full.names = FALSE)
   message("[RDesk]   Installed: ", paste(installed, collapse = ", "))
@@ -406,10 +509,7 @@ rdesk_resolve_deps <- function(pkgs, avail) {
   while (length(queue) > 0) {
     pkg   <- queue[1]
     queue <- queue[-1]
-    if (pkg %in% resolved || pkg %in% base_pkgs || pkg == "RDesk") {
-        if (pkg == "RDesk") resolved <- c(resolved, pkg) # Ensure RDesk is in the list
-        next
-    }
+    if (pkg %in% resolved || pkg %in% base_pkgs || pkg == "RDesk") next
     resolved <- c(resolved, pkg)
 
     if (!is.null(avail) && pkg %in% rownames(avail)) {

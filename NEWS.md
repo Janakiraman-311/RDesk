@@ -27,6 +27,22 @@
 
 ## Bug fixes
 
+* Fixed bundled dialog, tray, notify, and IPC command handling in
+  `App.R` so packaged apps no longer try to write to a null window
+  process handle.
+* Hardened launcher shutdown, notification handling, request IDs,
+  menu/tray updates, and save-dialog Unicode handling across the
+  native C++ launcher and `window.R`.
+* Fixed bundled stub logging and stdout handling so packaged apps
+  preserve IPC while still writing crash diagnostics.
+* Fixed scaffolded apps and demo apps so bundled mode no longer sinks
+  stdout, app paths resolve more reliably, and generated tests/plots
+  use safer defaults.
+* Fixed `build_app()` package bundling, temp cleanup, empty-directory
+  copies, and added explicit portable-R strategies via
+  `portable_r_method` and `runtime_dir`.
+* Fixed GitHub Actions bundled-app workflows to use explicit installer
+  runtime provisioning and current setup actions.
 * Fixed COM reference count leak in C++ launcher on shutdown.
 * Replaced hardcoded personal paths with dynamic environment
   variable lookups in build.R.

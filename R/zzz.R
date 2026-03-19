@@ -1,6 +1,4 @@
 #' @importFrom base64enc base64encode
-#' @importFrom dplyr %>%
-#' @importFrom ggplot2 ggplot
 NULL
 
 # R/zzz.R
@@ -21,8 +19,8 @@ NULL
   }
 
   # Ensure clean job registry on load to prevent stale state across sessions
-  if (exists(".rdesk_jobs")) rm(list = ls(envir = .rdesk_jobs), envir = .rdesk_jobs)
-  if (exists(".rdesk_apps")) rm(list = ls(envir = .rdesk_apps), envir = .rdesk_apps)
+  rm(list = ls(envir = .rdesk_jobs), envir = .rdesk_jobs)
+  rm(list = ls(envir = .rdesk_apps), envir = .rdesk_apps)
 }
 
 .onAttach <- function(libname, pkgname) {

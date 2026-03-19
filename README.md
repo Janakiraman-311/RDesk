@@ -93,6 +93,28 @@ RDesk::build_app(
 # No R installation required on the target machine.
 ```
 
+If you already have a usable R runtime on the build machine, you can
+skip the portable-R download step:
+
+```r
+RDesk::build_app(
+  app_dir     = "C:/Projects/MyDashboard",
+  app_name    = "MyDashboard",
+  runtime_dir = "C:/Program Files/R/R-4.5.1"
+)
+```
+
+If you want CI or an advanced local setup to opt into the legacy
+installer-based runtime expansion explicitly, use:
+
+```r
+RDesk::build_app(
+  app_dir            = "C:/Projects/MyDashboard",
+  app_name           = "MyDashboard",
+  portable_r_method  = "installer"
+)
+```
+
 ## Async in one line
 
 ```r
@@ -118,6 +140,8 @@ RDesk/
 
 Every push to main triggers automated validation and build.
 Version tags trigger a draft release with the installer attached.
+The bundled-app workflows use `portable_r_method = "installer"` so CI
+does not depend on a standalone 7-Zip installation.
 
 ```bash
 git tag v1.0.0

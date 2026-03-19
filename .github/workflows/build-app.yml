@@ -16,21 +16,15 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::devtools, any::rcmdcheck
+          extra-packages: any::rcmdcheck
 
-
-
-      - name: Install RTools
-        run: |
-          choco install rtools --version=4.4.6459 -y --allow-downgrade
-          echo "C:\rtools44\usr\bin" >> $GITHUB_PATH
-          echo "C:\rtools44\mingw64\bin" >> $GITHUB_PATH
+      - uses: r-lib/actions/setup-rtools@v2
 
       - name: Build App
         run: |
-          Rscript -e "devtools::install('.', quiet = TRUE)"
+          R CMD INSTALL .
           Rscript -e "options(rdesk.async_backend = 'callr'); library(RDesk); fn <- RDesk::async(function(p) list(result = p$x * 2)); attr_env <- attr(fn, 'rdesk_msg_type_env'); if (!is.null(attr_env)) attr_env$type <- 'test'; cat('async() wrapper created successfully\n')"
-          Rscript -e "RDesk::build_app(app_dir = 'inst/apps/mtcars_dashboard', app_name = 'CarsAnalyser')"
+          Rscript -e "RDesk::build_app(app_dir = 'inst/apps/mtcars_dashboard', app_name = 'CarsAnalyser', portable_r_method = 'installer')"
 
       - name: Upload Artifact
         if: always()

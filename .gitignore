@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+.r-lib/
 .Rproj.user/
 .Rapp.history
 .Rproj.user

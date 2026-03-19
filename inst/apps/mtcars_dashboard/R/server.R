@@ -54,12 +54,16 @@ init_handlers <- function(app, env) {
   app$on_message("run_model", async(function(payload) {
     # Full linear model
     model  <- lm(mpg ~ wt + cyl + hp, data = mtcars)
-    result <- broom::tidy(model, conf.int = TRUE)
+    model_summary <- summary(model)
+    result <- as.data.frame(model_summary$coefficients)
+    result$term <- rownames(result)
+    rownames(result) <- NULL
+    names(result) <- c("estimate", "std.error", "statistic", "p.value", "term")
     
     # Result for UI
     list(
       coefficients = result,
-      r_squared    = round(summary(model)$r.squared, 3),
+      r_squared    = round(model_summary$r.squared, 3),
       formula      = "mpg ~ wt + cyl + hp"
     )
   }, app = app, loading_message = "Fitting model..."))

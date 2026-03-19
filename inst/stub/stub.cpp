@@ -2,6 +2,38 @@
 #include <windows.h>
 #include <string>
 #include <filesystem>
+#include <vector>
+#include <cwctype>
+
+static std::filesystem::path find_rscript(const std::filesystem::path& base) {
+    const std::vector<std::filesystem::path> candidates = {
+        base / "runtime" / "R" / "bin" / "x64" / "Rscript.exe",
+        base / "runtime" / "R" / "bin" / "arm64" / "Rscript.exe",
+        base / "runtime" / "R" / "bin" / "i386" / "Rscript.exe"
+    };
+
+    for (const auto& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) return candidate;
+    }
+
+    return {};
+}
+
+static std::wstring sanitize_log_component(const std::wstring& value) {
+    std::wstring result;
+    result.reserve(value.size());
+
+    for (wchar_t ch : value) {
+        if (std::iswalnum(ch) || ch == L'-' || ch == L'_' || ch == L'.') {
+            result.push_back(ch);
+        } else {
+            result.push_back(L'_');
+        }
+    }
+
+    if (result.empty()) return L"RDeskApp";
+    return result;
+}
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // Find our own directory
@@ -10,13 +42,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     std::filesystem::path base = std::filesystem::path(self_path).parent_path();
 
     // Paths relative to the zip root
-    auto rscript = base / "runtime" / "R" / "bin" / "x64" / "Rscript.exe";
+    auto rscript = find_rscript(base);
     auto app_r   = base / "app" / "app.R";
     auto lib_dir = base / "packages" / "library";
 
-    if (!std::filesystem::exists(rscript)) {
+    if (rscript.empty()) {
         MessageBoxW(nullptr,
-            L"R runtime not found.\nExpected: runtime\\R\\bin\\x64\\Rscript.exe",
+            L"R runtime not found.\nExpected one of:\n"
+            L"runtime\\R\\bin\\x64\\Rscript.exe\n"
+            L"runtime\\R\\bin\\arm64\\Rscript.exe\n"
+            L"runtime\\R\\bin\\i386\\Rscript.exe",
             L"RDesk — Launch Error", MB_ICONERROR);
         return 1;
     }
@@ -40,20 +75,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     _wputenv(L"R_BUNDLE_APP=1");
     _wputenv(L"R_APP_NAME={{APP_NAME}}");
 
+    const std::wstring app_name = L"{{APP_NAME}}";
+    const std::wstring safe_log_name = sanitize_log_component(app_name);
+
     // LOGGING SETUP
     std::wstring log_dir_str;
     const wchar_t* local_appdata = _wgetenv(L"LOCALAPPDATA");
     if (local_appdata) {
-        log_dir_str = std::wstring(local_appdata) + L"\\RDesk\\" + L"{{APP_NAME}}";
+        log_dir_str = std::wstring(local_appdata) + L"\\RDesk\\" + safe_log_name;
     } else {
         const wchar_t* temp_dir = _wgetenv(L"TEMP");
-        log_dir_str = std::wstring(temp_dir ? temp_dir : L"C:\\Temp") + L"\\RDesk\\" + L"{{APP_NAME}}";
+        log_dir_str = std::wstring(temp_dir ? temp_dir : L"C:\\Temp") + L"\\RDesk\\" + safe_log_name;
     }
 
     std::filesystem::path log_dir = log_dir_str;
     std::filesystem::create_directories(log_dir);
     
-    std::wstring log_name = L"{{APP_NAME}}_crash.log";
+    std::wstring log_name = safe_log_name + L"_crash.log";
     std::filesystem::path log_path = log_dir / log_name;
 
     SECURITY_ATTRIBUTES saAttr;
@@ -63,9 +101,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     HANDLE hLogFile = CreateFileW(log_path.wstring().c_str(),
                                   FILE_APPEND_DATA,
-                                  FILE_SHARE_READ,
+                                  FILE_SHARE_READ | FILE_SHARE_WRITE,
                                   &saAttr,
-                                  CREATE_ALWAYS,
+                                  OPEN_ALWAYS,
                                   FILE_ATTRIBUTE_NORMAL,
                                   nullptr);
 
@@ -74,8 +112,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     si.cb = sizeof(si);
     
     if (hLogFile != INVALID_HANDLE_VALUE) {
+        SetFilePointer(hLogFile, 0, nullptr, FILE_END);
+        si.hStdInput  = GetStdHandle(STD_INPUT_HANDLE);
+        si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
         si.hStdError = hLogFile;
-        si.hStdOutput = hLogFile;
         si.dwFlags |= STARTF_USESTDHANDLES;
     }
 
@@ -84,7 +124,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             nullptr, nullptr, TRUE, // TRUE to inherit handles
             CREATE_NO_WINDOW,
             nullptr,
-            base.wstring().c_str(),
+            (base / "app").wstring().c_str(),
             &si, &pi)) {
         if (hLogFile != INVALID_HANDLE_VALUE) CloseHandle(hLogFile);
         MessageBoxW(nullptr, (L"Failed to start Rscript.exe\nCommand: " + cmd).c_str(),

@@ -4,12 +4,11 @@
 #' @param path Directory where the project will be created
 #' @export
 rdesk_create_app <- function(app_name, path = ".") {
-  # Normalize path
+  path <- path.expand(path)
   if (path == ".") {
-     target_dir <- file.path(getwd(), app_name)
-  } else {
-     target_dir <- file.path(path, app_name)
+    path <- getwd()
   }
+  target_dir <- file.path(path, app_name)
   
   if (dir.exists(target_dir)) {
     stop("[RDesk] Directory already exists: ", target_dir)
@@ -37,12 +36,11 @@ rdesk_create_app <- function(app_name, path = ".") {
     "if (nzchar(Sys.getenv('R_BUNDLE_APP'))) {",
     "  # Logging for bundled apps",
     "  app_name <- Sys.getenv('R_APP_NAME', 'RDeskApp')",
-    "  log_dir <- file.path(Sys.getenv('LOCALAPPDATA'), 'RDesk', app_name)",
+    "  log_dir <- RDesk:::rdesk_log_dir(app_name)",
     "  if (!dir.exists(log_dir)) dir.create(log_dir, recursive = TRUE)",
     "  log_file <- file.path(log_dir, 'rdesk_startup.log')",
     "  sink_conn <- file(log_file, open = 'wt')",
     "  sink(sink_conn, type = 'message')",
-    "  sink(sink_conn, type = 'output')",
     "}",
     "",
     "tryCatch({",
@@ -56,7 +54,8 @@ rdesk_create_app <- function(app_name, path = ".") {
     "}, error = function(e) {",
     "  if (nzchar(Sys.getenv('R_BUNDLE_APP'))) {",
     "    cat(sprintf('\\n[%s] CRITICAL ERROR:\\n%s\\n', Sys.time(), e$message))",
-    "    sink(); sink()",
+    "    if (sink.number(type = 'message') > 0) sink(type = 'message')",
+    "    if (exists('sink_conn')) close(sink_conn)",
     "  }",
     "  stop(e)",
     "})"
@@ -94,9 +93,13 @@ rdesk_create_app <- function(app_name, path = ".") {
   # 4. R/plots.R
   writeLines(c(
     "# Visualization logic",
-    "library(ggplot2)",
     "render_sample_plot <- function() {",
-    "  ggplot(mtcars, aes(wt, mpg)) + geom_point() + theme_minimal()",
+    "  if (!requireNamespace('ggplot2', quietly = TRUE)) {",
+    "    stop('Package \"ggplot2\" is required for render_sample_plot().')",
+    "  }",
+    "  ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) +",
+    "    ggplot2::geom_point() +",
+    "    ggplot2::theme_minimal()",
     "}"
   ), file.path(target_dir, "R", "plots.R"))
   
@@ -170,6 +173,8 @@ rdesk_create_app <- function(app_name, path = ".") {
   
   # 9. tests/test-data.R
   writeLines(c(
+    "library(testthat)",
+    "",
     "test_that('Data preparation works', {",
     "  expect_type(prepare_initial_data(), 'list')",
     "})"

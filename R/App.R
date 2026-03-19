@@ -46,7 +46,11 @@ App <- R6::R6Class("App",
       private$.www    <- rdesk_resolve_www(www)
       private$.icon   <- icon
       private$.router <- rdesk_make_router()
-      private$.id     <- as.character(as.numeric(Sys.time()) * 1000)
+      private$.id     <- paste0("app_", digest::digest(list(
+        Sys.time(),
+        proc.time(),
+        runif(1)
+      ), algo = "crc32"))
 
       # System handler for UI-initiated job cancellation
       private$.router$register("__cancel_job__", function(payload) {
@@ -95,19 +99,16 @@ App <- R6::R6Class("App",
       msg_envelope <- rdesk_message(type, payload)
       msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
 
-      if (rdesk_is_bundle()) {
-        # Bundled mode: write directly to stdout (launcher reads this)
-        cat(msg_json, "\n")
+      if (!is.null(private$.window_proc) && private$.window_proc$is_alive()) {
+        # Use internal command SEND_MSG to bridge to PostWebMessage
+        rdesk_send_cmd(private$.window_proc, "SEND_MSG", payload = msg_json)
+      } else if (rdesk_is_bundle()) {
+        # Legacy fallback if a bundled app is ever hosted by an external launcher
+        cat(msg_json, "\n", sep = "")
         flush(stdout())
       } else {
-        # Dev mode: write to the launcher process's stdin
-        if (!is.null(private$.window_proc) && private$.window_proc$is_alive()) {
-          # Use internal command SEND_MSG to bridge to PostWebMessage
-          rdesk_send_cmd(private$.window_proc, "SEND_MSG", payload = msg_json)
-        } else {
-          # Queue message if launcher not yet ready
-          private$.send_queue[[length(private$.send_queue) + 1]] <- msg_envelope
-        }
+        # Queue message if launcher not yet ready
+        private$.send_queue[[length(private$.send_queue) + 1]] <- msg_envelope
       }
       invisible(self)
     },
@@ -127,12 +128,7 @@ App <- R6::R6Class("App",
       # Convert R named list to JSON array the launcher understands
       menu_json <- private$.build_menu_json(items)
       
-      if (rdesk_is_bundle()) {
-        cat(jsonlite::toJSON(list(cmd = "SET_MENU", payload = menu_json), auto_unbox = TRUE), "\n")
-        flush(stdout())
-      } else {
-        rdesk_send_cmd(private$.window_proc, "SET_MENU", payload = menu_json)
-      }
+      private$.send_launcher_cmd("SET_MENU", payload = menu_json, queue_if_unavailable = TRUE)
       
       private$.menu_callbacks <- items
       invisible(self)
@@ -145,9 +141,11 @@ App <- R6::R6Class("App",
     dialog_open = function(title = "Open File", filters = NULL) {
       filter_str <- private$.build_filter_str(filters)
       req_id     <- rdesk_req_id()
-      rdesk_send_cmd(private$.window_proc, "DIALOG_OPEN",
-                     payload = list(title = title, filters = filter_str),
-                     id      = req_id)
+      private$.send_launcher_cmd(
+        "DIALOG_OPEN",
+        payload = list(title = title, filters = filter_str),
+        id = req_id
+      )
       private$.wait_dialog_result(req_id)
     },
  
@@ -168,12 +166,14 @@ App <- R6::R6Class("App",
       }
  
       req_id     <- rdesk_req_id()
-      rdesk_send_cmd(private$.window_proc, "DIALOG_SAVE",
-                     payload = list(title        = title,
-                                    default_name = default_name,
-                                    filters      = filter_str,
-                                    default_ext  = def_ext),
-                     id      = req_id)
+      private$.send_launcher_cmd(
+        "DIALOG_SAVE",
+        payload = list(title        = title,
+                       default_name = default_name,
+                       filters      = filter_str,
+                       default_ext  = def_ext),
+        id = req_id
+      )
       private$.wait_dialog_result(req_id)
     },
  
@@ -182,8 +182,11 @@ App <- R6::R6Class("App",
     #' @param body Notification body text
     #' @return The App instance (invisible)
     notify = function(title, body = "") {
-      rdesk_send_cmd(private$.window_proc, "NOTIFY",
-                     payload = list(title = title, body = body))
+      private$.send_launcher_cmd(
+        "NOTIFY",
+        payload = list(title = title, body = body),
+        queue_if_unavailable = TRUE
+      )
       invisible(self)
     },
 
@@ -242,8 +245,11 @@ App <- R6::R6Class("App",
     #' @return The App instance (invisible)
     set_tray = function(label = "RDesk App", icon = NULL, on_click = NULL) {
       private$.tray_callback <- on_click
-      rdesk_send_cmd(private$.window_proc, "SET_TRAY",
-                     payload = list(label = label, icon = icon))
+      private$.send_launcher_cmd(
+        "SET_TRAY",
+        payload = list(label = label, icon = icon),
+        queue_if_unavailable = TRUE
+      )
       invisible(self)
     },
  
@@ -251,7 +257,14 @@ App <- R6::R6Class("App",
     #' @return The App instance (invisible)
     remove_tray = function() {
       private$.tray_callback <- NULL
-      rdesk_send_cmd(private$.window_proc, "REMOVE_TRAY")
+      private$.send_launcher_cmd("REMOVE_TRAY", queue_if_unavailable = TRUE)
+      invisible(self)
+    },
+
+    #' @description Service this app's pending native events
+    #' @return The App instance (invisible)
+    service = function() {
+      private$.poll_events()
       invisible(self)
     },
  
@@ -274,53 +287,10 @@ App <- R6::R6Class("App",
         return(invisible(self))
       }
       private$.running <- TRUE
-
-      if (rdesk_is_bundle()) {
-        # BUNDLED MODE: R is the child process.
+      if (getOption("rdesk.async_backend", "callr") == "mirai") {
         rdesk_start_daemons()  # Pre-warm worker pool
-        
-        if (!is.null(private$.ready_fn)) {
-          tryCatch(private$.ready_fn(), error = function(e) warning("[RDesk] on_ready error: ", e$message))
-        }
-
-        # Initialize non-blocking stdin
-        con <- processx::conn_create_fd(0L, encoding = "")
-
-        # Main non-blocking loop
-        repeat {
-          # 1. Poll any background jobs
-          rdesk_poll_jobs()
-
-          # 2. Read next message from launcher (non-blocking)
-          line <- tryCatch(
-            processx::conn_read_lines(con, n = 1, timeout = 10),
-            error = function(e) character(0)
-          )
-
-          if (length(line) == 0) {
-             # No message yet, check if stdin is actually closed
-             if (processx::conn_is_closed(con)) break
-             
-             # If not closed, check if running and continue
-             if (!private$.running) break
-             next
-          }
-
-          # 3. Process the message
-          msg <- rdesk_parse_message(line)
-          if (!is.null(msg)) {
-             if (!is.null(msg$type)) {
-               private$.router$dispatch(msg$type, msg$payload)
-             } else if (!is.null(msg$event)) {
-               private$.handle_launcher_event(msg)
-             }
-          }
-          if (!private$.running) break
-        }
-        return(invisible(self))
       }
 
-      # DEV MODE: R is the parent process.
       url <- "https://app.rdesk/index.html" 
 
       private$.window_proc <- rdesk_open_window(
@@ -332,11 +302,8 @@ App <- R6::R6Class("App",
       )
 
       # Flush queued messages
-      for (msg_envelope in private$.send_queue) {
-        msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
-        rdesk_send_cmd(private$.window_proc, "SEND_MSG", payload = msg_json)
-      }
-      private$.send_queue <- list()
+      private$.flush_send_queue()
+      private$.flush_command_queue()
 
       if (!is.null(private$.ready_fn)) {
         tryCatch(private$.ready_fn(), error = function(e) warning("[RDesk] on_ready error: ", e$message))
@@ -370,18 +337,100 @@ App <- R6::R6Class("App",
     .window_proc = NULL,
     .router      = NULL,
     .send_queue  = list(),
+    .command_queue = list(),
     .menu_callbacks  = list(),   # Stores the action ID -> function mapping
     .pending_dialogs = list(),  # req_id -> result or NULL
     .tray_callback = NULL,      # Function(button)
+    .bundle_con = NULL,         # Non-blocking stdin connection in hosted bundle mode
  
     .cleanup = function() {
-      rdesk_stop_daemons()  # Shut down worker pool cleanly
-      if (!rdesk_is_bundle()) {
-        # Dev mode: Close window
+      if (getOption("rdesk.async_backend", "callr") == "mirai") {
+        rdesk_stop_daemons()  # Shut down worker pool cleanly
+      }
+      if (!is.null(private$.window_proc)) {
         rdesk_close_window(private$.window_proc)
         private$.window_proc <- NULL
       }
+      private$.bundle_con <- NULL
       private$.running <- FALSE
+    },
+
+    .send_launcher_cmd = function(cmd, payload = list(), id = NULL, queue_if_unavailable = FALSE) {
+      if (!is.null(private$.window_proc) && private$.window_proc$is_alive()) {
+        rdesk_send_cmd(private$.window_proc, cmd, payload = payload, id = id)
+        return(invisible(TRUE))
+      }
+
+      msg <- list(cmd = cmd, payload = payload)
+      if (!is.null(id)) msg$id <- id
+
+      if (rdesk_is_bundle()) {
+        cat(jsonlite::toJSON(msg, auto_unbox = TRUE, null = "null"), "\n", sep = "")
+        flush(stdout())
+        return(invisible(TRUE))
+      }
+
+      if (isTRUE(queue_if_unavailable)) {
+        private$.command_queue[[length(private$.command_queue) + 1]] <- msg
+        return(invisible(TRUE))
+      }
+
+      stop("[RDesk] Launcher is not available for command: ", cmd)
+    },
+
+    .flush_send_queue = function() {
+      if (length(private$.send_queue) == 0) return(invisible(NULL))
+      for (msg_envelope in private$.send_queue) {
+        msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
+        if (!is.null(private$.window_proc) && private$.window_proc$is_alive()) {
+          rdesk_send_cmd(private$.window_proc, "SEND_MSG", payload = msg_json)
+        } else if (rdesk_is_bundle()) {
+          cat(msg_json, "\n", sep = "")
+          flush(stdout())
+        }
+      }
+      private$.send_queue <- list()
+      invisible(NULL)
+    },
+
+    .flush_command_queue = function() {
+      if (length(private$.command_queue) == 0) return(invisible(NULL))
+      pending <- private$.command_queue
+      private$.command_queue <- list()
+      for (cmd_msg in pending) {
+        private$.send_launcher_cmd(
+          cmd = cmd_msg$cmd,
+          payload = if (is.null(cmd_msg$payload)) list() else cmd_msg$payload,
+          id = cmd_msg$id
+        )
+      }
+      invisible(NULL)
+    },
+
+    .ensure_bundle_conn = function() {
+      if (is.null(private$.bundle_con)) {
+        private$.bundle_con <- processx::conn_create_fd(0L, encoding = "")
+      }
+      private$.bundle_con
+    },
+
+    .poll_bundle_input = function() {
+      if (!rdesk_is_bundle()) return(invisible(NULL))
+      con <- private$.ensure_bundle_conn()
+      lines <- tryCatch(
+        processx::conn_read_lines(con, n = 100, timeout = 0),
+        error = function(e) character(0)
+      )
+      if (length(lines) == 0) return(invisible(NULL))
+
+      for (line in lines) {
+        msg <- rdesk_parse_message(line)
+        if (!is.null(msg)) {
+          if (!is.null(msg$event)) private$.handle_launcher_event(msg)
+          else private$.router$dispatch(msg$type, msg$payload)
+        }
+      }
+      invisible(NULL)
     },
  
     .build_menu_json = function(items) {
@@ -427,21 +476,11 @@ App <- R6::R6Class("App",
       private$.pending_dialogs[[req_id]] <- NULL
       deadline <- Sys.time() + timeout_sec
       while (Sys.time() < deadline) {
-        if (rdesk_is_bundle()) {
-           # Process stdin to find the dialog result
-           line <- readLines(stdin(), 1)
-           if (length(line) > 0) {
-             msg <- rdesk_parse_message(line)
-             if (!is.null(msg)) {
-               if (!is.null(msg$event)) private$.handle_launcher_event(msg)
-               else private$.router$dispatch(msg$type, msg$payload)
-             }
-           }
-        } else {
-          if (!is.null(private$.window_proc)) {
-            events <- rdesk_read_events(private$.window_proc)
-            for (evt in events) private$.handle_launcher_event(evt)
-          }
+        if (!is.null(private$.window_proc) && private$.window_proc$is_alive()) {
+          events <- rdesk_read_events(private$.window_proc)
+          for (evt in events) private$.handle_launcher_event(evt)
+        } else if (rdesk_is_bundle()) {
+          private$.poll_bundle_input()
         }
         
         result <- private$.pending_dialogs[[req_id]]
@@ -507,6 +546,6 @@ rdesk_service <- function() {
   app_ids <- ls(.rdesk_apps)
   for (id in app_ids) {
     app <- .rdesk_apps[[id]]
-    app$.__enclos_env__$private$.poll_events()
+    app$service()
   }
 }

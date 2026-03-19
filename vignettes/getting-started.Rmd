@@ -118,6 +118,28 @@ RDesk::build_app(
 
 The resulting `dist/MyCoolApp.zip` can be unzipped and run on any Windows machine—no R installation required by the end-user!
 
+If the build machine already has an R runtime you want to reuse, skip the portable-R download step entirely:
+
+```r
+RDesk::build_app(
+  app_dir     = "my_app",
+  out_dir     = "dist",
+  app_name    = "MyCoolApp",
+  runtime_dir = "C:/Program Files/R/R-4.5.1"
+)
+```
+
+If you want to allow the legacy silent-installer provisioning path explicitly, opt into it with:
+
+```r
+RDesk::build_app(
+  app_dir           = "my_app",
+  out_dir           = "dist",
+  app_name          = "MyCoolApp",
+  portable_r_method = "installer"
+)
+```
+
 ## 4. Key Concepts
 
 ### Native IPC

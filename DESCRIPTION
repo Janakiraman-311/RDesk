@@ -22,8 +22,6 @@ Imports:
     callr,
     mirai (>= 1.0.0),
     base64enc,
-    ggplot2,
-    dplyr,
     zip,
     stats,
     utils,
@@ -34,6 +32,8 @@ Suggests:
     fs,
     knitr,
     rmarkdown,
-    devtools
+    devtools,
+    ggplot2,
+    dplyr
 VignetteBuilder: knitr
 Config/testthat/edition: 3

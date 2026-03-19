@@ -1,0 +1,6 @@
+Package: TSCreator
+Title: TS Domain Creator Demo App
+Version: 1.0.0
+RDeskVersion: 1.0.0
+Depends: haven, Hmisc, dplyr
+Description: Demo RDesk app for generating TS domain XPT exports.

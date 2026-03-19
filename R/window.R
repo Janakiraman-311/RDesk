@@ -1,6 +1,15 @@
 # R/window.R
 # Bridge to the standalone native window process
 
+.rdesk_window_buffers <- new.env(parent = emptyenv())
+.rdesk_req_id_next <- local({
+  n <- 0L
+  function() {
+    n <<- n + 1L
+    paste0("req_", n)
+  }
+})
+
 #' @keywords internal
 rdesk_launcher_path <- function() {
   # Check if we are in development mode or installed
@@ -39,13 +48,26 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
   )
 
   # Wait for READY signal from launcher stdout
-  deadline <- Sys.time() + 10
+  deadline <- Sys.time() + getOption("rdesk.launcher_timeout", 10)
   ready <- FALSE
+  buffered <- character(0)
   while (Sys.time() < deadline) {
-    line <- proc$read_output_lines()
-    if (length(line) > 0 && any(trimws(line) == "READY")) {
-      ready <- TRUE
-      break
+    lines <- proc$read_output_lines()
+    if (length(lines) > 0) {
+      trimmed <- trimws(lines)
+      ready_idx <- match("READY", trimmed, nomatch = 0L)
+      if (ready_idx > 0) {
+        if (ready_idx > 1) {
+          buffered <- c(buffered, lines[seq_len(ready_idx - 1L)])
+        }
+        trailing <- lines[seq.int(ready_idx + 1L, length(lines))]
+        if (length(trailing) > 0) {
+          buffered <- c(buffered, trailing)
+        }
+        ready <- TRUE
+        break
+      }
+      buffered <- c(buffered, lines)
     }
     if (!proc$is_alive()) break
     Sys.sleep(0.05)
@@ -57,6 +79,7 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
     stop("[RDesk] Launcher failed to start correctly: ", err)
   }
 
+  .rdesk_window_buffers[[as.character(proc$get_pid())]] <- buffered
   proc
 }
 
@@ -68,8 +91,10 @@ rdesk_close_window <- function(proc) {
   if (is.null(proc) || !proc$is_alive()) return()
   # Send QUIT command via stdin
   rdesk_send_cmd(proc, "QUIT")
-  proc$wait(timeout = 2000)
+  # QUIT should be fast; this short wait is only a safety net before forcing a kill.
+  proc$wait(timeout = 500)
   if (proc$is_alive()) proc$kill()
+  rm(list = as.character(proc$get_pid()), envir = .rdesk_window_buffers, inherits = FALSE)
 }
 
 # ---- Command sender ----------------------------------------------------------
@@ -95,9 +120,7 @@ rdesk_send_cmd <- function(proc, cmd, payload = list(), id = NULL) {
 #' @return A character string ID
 #' @keywords internal
 rdesk_req_id <- function() {
-  # Use double precision for calculation, then cast to integer to avoid overflow
-  id_num <- (as.numeric(Sys.time()) * 1000) %% 1e9
-  paste0("req_", as.integer(id_num))
+  .rdesk_req_id_next()
 }
 
 # ---- Stdout event reader -----------------------------------------------------
@@ -109,9 +132,20 @@ rdesk_req_id <- function() {
 #' @keywords internal
 rdesk_read_events <- function(proc) {
   if (is.null(proc) || !proc$is_alive()) return(list())
-  lines  <- proc$read_output_lines()
+  key <- as.character(proc$get_pid())
+  buffered <- if (exists(key, envir = .rdesk_window_buffers, inherits = FALSE)) {
+    .rdesk_window_buffers[[key]]
+  } else {
+    character(0)
+  }
+  if (exists(key, envir = .rdesk_window_buffers, inherits = FALSE)) {
+    rm(list = key, envir = .rdesk_window_buffers, inherits = FALSE)
+  }
+
+  lines  <- c(buffered, proc$read_output_lines())
   events <- list()
   for (line in lines) {
+    if (length(line) == 0 || is.na(line)) next
     line <- trimws(line)
     if (nchar(line) == 0 || line == "READY" || line == "CLOSED") next
     tryCatch({
