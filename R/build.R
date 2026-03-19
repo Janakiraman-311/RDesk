@@ -405,15 +405,25 @@ rdesk_build_stub <- function(stub_cpp, out_exe, app_name) {
 
   # Perform template replacement for APP_NAME
   lines <- readLines(tmp_cpp)
-  lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE)
-  writeLines(lines, tmp_cpp)
+  # Header paths
+  inc_path <- system.file("include", package = "RDesk")
+  if (inc_path == "") inc_path <- file.path(getwd(), "inst/include")
   
+  # Source path for internal headers (e.g. webview.h)
+  src_inc <- dirname(normalizePath(stub_cpp, mustWork = TRUE))
+  # WebView2 SDK path
+  sdk_inc <- file.path(src_inc, "webview2_sdk", "build", "native", "include")
+
   message("[RDesk]   Compiling launcher stub...")
   
   ret <- system2(gpp,
     args = c("-std=c++17", "-O2", "-mwindows",
+             "-I", shQuote(inc_path),
+             "-I", shQuote(src_inc),
+             "-I", shQuote(sdk_inc),
              shQuote(tmp_cpp),
              "-o", shQuote(out_exe),
+             "-lole32", "-lcomctl32", "-loleaut32", "-luuid", "-lshlwapi", "-lversion",
              "-lstdc++fs"),
     stdout = FALSE, stderr = FALSE)
 
@@ -421,6 +431,9 @@ rdesk_build_stub <- function(stub_cpp, out_exe, app_name) {
     # If compilation failed, try to capture the error for the user
     err_out <- system2(gpp,
       args = c("-std=c++17", "-O2", "-mwindows",
+               "-I", shQuote(inc_path),
+               "-I", shQuote(src_inc),
+               "-I", shQuote(sdk_inc),
                shQuote(tmp_cpp),
                "-o", shQuote(out_exe),
                "-lstdc++fs"),

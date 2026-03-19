@@ -26,19 +26,11 @@ static const UINT WM_TRAYICON = WM_USER + 1;
 #include <functional>
 #include <sstream>
 #include <vector>
+#include <nlohmann/json.hpp>
 
-// ── tiny JSON helpers (no external dep) ─────────────────────────────────────
-static std::string json_str(const std::string& s) {
-    std::string out = "\"";
-    for (char c : s) {
-        if (c == '"')  out += "\\\"";
-        else if (c == '\\') out += "\\\\";
-        else if (c == '\n') out += "\\n";
-        else if (c == '\r') out += "\\r";
-        else out += c;
-    }
-    return out + "\"";
-}
+using json = nlohmann::json;
+
+
 
 static std::wstring widen(const std::string& s) {
     if (s.empty()) return L"";
@@ -75,10 +67,7 @@ public:
     }
 };
 
-// Use webview's built-in JSON parser for robust handling
-static std::string json_get(const std::string& json, const std::string& key) {
-    return webview::json_parse(json, key, 0);
-}
+
 
 // ── global state ─────────────────────────────────────────────────────────────
 static std::atomic<bool>  g_quit{false};
@@ -102,31 +91,6 @@ static HWND  g_hwnd = nullptr;
 static NOTIFYICONDATAW g_nid = {};
 static bool  g_tray_active = false;
 
-static HMENU build_submenu(const std::string& items_json) {
-    HMENU sub = CreatePopupMenu();
-    // items_json is a JSON array: [{"label":"X","id":"y"}, {"label":"---"}, ...]
-    // Simple parser: find each {"label": ... } block
-    size_t pos = 0;
-    while ((pos = items_json.find('{', pos)) != std::string::npos) {
-        auto end = items_json.find('}', pos);
-        if (end == std::string::npos) break;
-        std::string item = items_json.substr(pos, end - pos + 1);
-        std::string label = json_get(item, "label");
-        std::string id    = json_get(item, "id");
-
-        if (label == "---") {
-            AppendMenuW(sub, MF_SEPARATOR, 0, nullptr);
-        } else if (!label.empty()) {
-            UINT item_id = g_menu_id_counter++;
-            std::wstring wlabel = widen(label);
-            AppendMenuW(sub, MF_STRING, item_id, wlabel.c_str());
-            if (!id.empty()) g_menu_actions[item_id] = id;
-        }
-        pos = end + 1;
-    }
-    return sub;
-}
-
 static void apply_menu(const std::string& payload_json) {
     if (!g_hwnd) return;
     g_menu_actions.clear();
@@ -134,37 +98,35 @@ static void apply_menu(const std::string& payload_json) {
 
     HMENU bar = CreateMenu();
 
-    // payload_json is array of top-level: [{"label":"File","items":[...]}, ...]
-    size_t pos = 0;
-    // Find each top-level object
-    int depth = 0;
-    size_t obj_start = std::string::npos;
-    for (size_t i = 0; i < payload_json.size(); ++i) {
-        if (payload_json[i] == '{') {
-            if (depth == 0) obj_start = i;
-            ++depth;
-        } else if (payload_json[i] == '}') {
-            --depth;
-            if (depth == 0 && obj_start != std::string::npos) {
-                std::string obj = payload_json.substr(obj_start, i - obj_start + 1);
-                std::string top_label = json_get(obj, "label");
+    try {
+        auto j = json::parse(payload_json);
+        if (j.is_array()) {
+            for (auto& top : j) {
+                std::string label = top.value("label", "");
+                HMENU sub = CreatePopupMenu();
+                
+                if (top.contains("items") && top["items"].is_array()) {
+                    for (auto& item : top["items"]) {
+                        std::string item_label = item.value("label", "");
+                        std::string item_id    = item.value("id", "");
 
-                // Extract items array
-                auto items_start = obj.find("\"items\":[");
-                std::string items_json;
-                if (items_start != std::string::npos) {
-                    items_start += 9; // skip "items":[
-                    auto items_end = obj.rfind(']');
-                    if (items_end != std::string::npos)
-                        items_json = obj.substr(items_start, items_end - items_start);
+                        if (item_label == "---") {
+                            AppendMenuW(sub, MF_SEPARATOR, 0, nullptr);
+                        } else if (!item_label.empty()) {
+                            UINT win_id = g_menu_id_counter++;
+                            std::wstring wlabel = widen(item_label);
+                            AppendMenuW(sub, MF_STRING, win_id, wlabel.c_str());
+                            if (!item_id.empty()) g_menu_actions[win_id] = item_id;
+                        }
+                    }
                 }
-
-                HMENU sub = build_submenu(items_json);
-                std::wstring wlabel = widen(top_label);
+                
+                std::wstring wlabel = widen(label);
                 AppendMenuW(bar, MF_POPUP, (UINT_PTR)sub, wlabel.c_str());
-                obj_start = std::string::npos;
             }
         }
+    } catch (const json::exception&) {
+        // Skip malformed menu JSON
     }
 
     SetMenu(g_hwnd, bar);
@@ -302,8 +264,15 @@ static void remove_system_tray() {
 
 // ── stdin command processor ──────────────────────────────────────────────────
 static void process_command(const std::string& line) {
-    std::string cmd = json_get(line, "cmd");
-    std::string id  = json_get(line, "id");
+    json j;
+    try {
+        j = json::parse(line);
+    } catch (const json::exception&) {
+        return; // skip malformed lines
+    }
+
+    std::string cmd = j.value("cmd", "");
+    std::string id  = j.value("id", "");
 
     if (cmd == "QUIT") {
         g_quit.store(true);
@@ -312,7 +281,7 @@ static void process_command(const std::string& line) {
     }
 
     if (cmd == "SET_TITLE") {
-        std::string title = json_get(json_get(line, "payload"), "title");
+        std::string title = j["payload"].value("title", "");
         if (g_webview && !title.empty()) {
             g_webview->dispatch([title]() {
                 if (g_webview) g_webview->set_title(title);
@@ -323,72 +292,69 @@ static void process_command(const std::string& line) {
 
 #ifdef _WIN32
     if (cmd == "SET_MENU") {
-        // payload is the array of top-level menu items
-        auto payload_start = line.find("\"payload\":");
-        if (payload_start != std::string::npos) {
-            payload_start += 10;
-            std::string payload = line.substr(payload_start);
-            // Remove trailing }
-            auto last = payload.rfind('}');
-            if (last != std::string::npos) payload = payload.substr(0, last);
-            // Dispatch to UI thread (required for Win32 menu operations)
-            g_webview->dispatch([payload]() {
-                apply_menu(payload);
+        if (j.contains("payload")) {
+            std::string payload_str = j["payload"].dump();
+            g_webview->dispatch([payload_str]() {
+                apply_menu(payload_str);
             });
         }
         return;
     }
 
     if (cmd == "DIALOG_OPEN") {
-        std::string payload = json_get(line, "payload");
-        if (payload.empty()) payload = line; // Fallback
-        std::string title   = json_get(payload, "title");
-        std::string filter  = json_get(payload, "filters");
-        if (filter.empty()) filter = "All Files|*.*|";
+        json pl = j.value("payload", json::object());
+        std::string title   = pl.value("title", "");
+        std::string filter  = pl.value("filters", "All Files|*.*|");
 
         std::thread([id, title, filter]() {
             std::string path = open_file_dialog(title, filter);
+            json out;
             if (!path.empty()) {
-                write_stdout("{\"event\":\"DIALOG_RESULT\",\"id\":" + json_str(id) +
-                             ",\"path\":" + json_str(path) + "}");
+                out["event"] = "DIALOG_RESULT";
+                out["id"]    = id;
+                out["path"]  = path;
             } else {
-                write_stdout("{\"event\":\"DIALOG_CANCEL\",\"id\":" + json_str(id) + "}");
+                out["event"] = "DIALOG_CANCEL";
+                out["id"]    = id;
             }
+            write_stdout(out.dump());
         }).detach();
         return;
     }
 
     if (cmd == "DIALOG_SAVE") {
-        std::string payload = json_get(line, "payload");
-        if (payload.empty()) payload = line;
-        std::string title   = json_get(payload, "title");
-        std::string defname = json_get(payload, "default_name");
-        std::string filter  = json_get(payload, "filters");
-        std::string defext  = json_get(payload, "default_ext");
-        if (filter.empty()) filter = "All Files|*.*|";
+        json pl = j.value("payload", json::object());
+        std::string title   = pl.value("title", "");
+        std::string defname = pl.value("default_name", "");
+        std::string filter  = pl.value("filters", "All Files|*.*|");
+        std::string defext  = pl.value("default_ext", "");
 
         std::thread([id, title, defname, filter, defext]() {
             std::string path = save_file_dialog(title, defname, filter, defext);
+            json out;
             if (!path.empty()) {
-                write_stdout("{\"event\":\"DIALOG_RESULT\",\"id\":" + json_str(id) +
-                             ",\"path\":" + json_str(path) + "}");
+                out["event"] = "DIALOG_RESULT";
+                out["id"]    = id;
+                out["path"]  = path;
             } else {
-                write_stdout("{\"event\":\"DIALOG_CANCEL\",\"id\":" + json_str(id) + "}");
+                out["event"] = "DIALOG_CANCEL";
+                out["id"]    = id;
             }
+            write_stdout(out.dump());
         }).detach();
         return;
     }
 
     if (cmd == "NOTIFY") {
-        std::string title = json_get(line, "title");
-        std::string body  = json_get(line, "body");
+        std::string title = j.value("title", "");
+        std::string body  = j.value("body", "");
         show_notification(title, body);
         return;
     }
  
     if (cmd == "SET_TRAY") {
-        std::string label = json_get(json_get(line, "payload"), "label");
-        std::string icon  = json_get(json_get(line, "payload"), "icon");
+        std::string label = j["payload"].value("label", "");
+        std::string icon  = j["payload"].value("icon", "");
         g_webview->dispatch([label, icon]() {
             set_system_tray(label, icon);
         });
@@ -402,14 +368,26 @@ static void process_command(const std::string& line) {
         return;
     }
     if (cmd == "SEND_MSG") {
-        std::string payload = json_get(line, "payload");
-        if (g_webview && !payload.empty()) {
-            g_webview->dispatch([payload]() {
-                if (g_core_webview) {
-                    std::wstring wpayload = widen(payload);
-                    g_core_webview->PostWebMessageAsString(wpayload.c_str());
-                }
-            });
+        if (j.contains("payload")) {
+            // We need the RAW JSON string for the payload to pass to PostWebMessageAsString
+            // If the payload was already a string in original line, nlohmann might have escaped it.
+            // But RDesk sends the entire message envelope as JSON, and payload is an object or escaped JSON string.
+            // If payload is an object, dump it. If it's a string, use it.
+            std::string payload_str;
+            if (j["payload"].is_string()) {
+                payload_str = j["payload"].get<std::string>();
+            } else {
+                payload_str = j["payload"].dump();
+            }
+
+            if (g_webview && !payload_str.empty()) {
+                g_webview->dispatch([payload_str]() {
+                    if (g_core_webview) {
+                        std::wstring wpayload = widen(payload_str);
+                        g_core_webview->PostWebMessageAsString(wpayload.c_str());
+                    }
+                });
+            }
         }
         return;
     }
@@ -532,13 +510,17 @@ int main(int argc, char* argv[]) {
                         UINT id = LOWORD(wp);
                         auto it = g_menu_actions.find(id);
                         if (it != g_menu_actions.end()) {
-                            write_stdout("{\"event\":\"MENU_CLICK\",\"id\":" +
-                                         json_str(it->second) + "}");
+                            json out;
+                            out["event"] = "MENU_CLICK";
+                            out["id"]    = it->second;
+                            write_stdout(out.dump());
                         }
                     } else if (msg == WM_TRAYICON) {
                         if (lp == WM_LBUTTONUP || lp == WM_RBUTTONUP) {
-                            std::string button = (lp == WM_LBUTTONUP) ? "left" : "right";
-                            write_stdout("{\"event\":\"TRAY_CLICK\",\"button\":" + json_str(button) + "}");
+                            json out;
+                            out["event"]  = "TRAY_CLICK";
+                            out["button"] = (lp == WM_LBUTTONUP) ? "left" : "right";
+                            write_stdout(out.dump());
                             
                             // Bring window to front on left click if visible
                             if (lp == WM_LBUTTONUP) {

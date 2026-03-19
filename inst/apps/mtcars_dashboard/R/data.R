@@ -7,6 +7,7 @@ init_data <- function(env) {
   env$x_var    <- "wt"
   env$y_var    <- "mpg"
   env$cyl_filter <- c(4, 6, 8)
+  env$plot_type  <- "scatter"
 }
 
 apply_filters <- function(env) {
@@ -21,4 +22,16 @@ kpis <- function(df) {
     mean_hp  = round(mean(df$hp, na.rm = TRUE),  1),
     mean_wt  = round(mean(df$wt, na.rm = TRUE) * 1000, 0)  # lbs
   )
+}
+
+summary_stats <- function(df) {
+  df %>%
+    dplyr::group_by(cyl) %>%
+    dplyr::summarise(
+      count    = dplyr::n(),
+      avg_mpg  = round(mean(mpg, na.rm = TRUE), 1),
+      avg_hp   = round(mean(hp, na.rm = TRUE), 1),
+      avg_wt   = round(mean(wt, na.rm = TRUE), 2),
+      .groups  = "drop"
+    )
 }

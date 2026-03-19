@@ -1,0 +1,147 @@
+---
+title: "Getting Started with RDesk"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with RDesk}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+RDesk is a framework for building **native Windows desktop applications** using R for the logic and HTML/JS/CSS for the user interface. Unlike Shiny, RDesk apps run as standalone executables with zero-port IPC, native menus, and system tray integration.
+
+## 1. Installation
+
+RDesk requires **Windows 10 or later**, **Rtools44** (or 45), and the **Microsoft WebView2 Runtime** (installed by default on most modern Windows systems).
+
+```r
+# Install from GitHub
+# devtools::install_github("Janakiraman-311/RDesk")
+library(RDesk)
+```
+
+## 2. Your First App
+
+An RDesk app consists of two main parts:
+1. An `app.R` file (R logic)
+2. A `www/` directory (HTML/JS/CSS)
+
+### Create the Structure
+
+```r
+dir.create("my_app/www", recursive = TRUE)
+```
+
+### The R Backend (`app.R`)
+
+In `app.R`, you define how R responds to messages from the UI:
+
+```r
+library(RDesk)
+
+# Create the app object
+app <- App$new(
+  title  = "My First RDesk App",
+  width  = 800,
+  height = 600
+)
+
+# Handle the 'ready' event from JS
+app$on_message("ready", function(msg) {
+  app$toast("Welcome to RDesk!", type = "success")
+})
+
+# Handle custom triggers
+app$on_message("calculate", function(msg) {
+  result <- msg$val * 2
+  app$send("result_data", list(value = result))
+})
+
+# Run the app
+app$run()
+```
+
+### The UI (`www/index.html`)
+
+The UI communicates with R using the global `rdesk` object:
+
+```html
+<!DOCTYPE html>
+<html>
+<body>
+  <h1>RDesk Hello World</h1>
+  <input type="number" id="val" value="10">
+  <button onclick="calculate()">Double it!</button>
+  <h2 id="result">---</h2>
+
+  <script src="/rdesk.js"></script>
+  <script>
+    function calculate() {
+      const v = document.getElementById('val').value;
+      rdesk.send('calculate', { val: parseFloat(v) });
+    }
+
+    rdesk.on('result_data', function(payload) {
+      document.getElementById('result').innerText = payload.value;
+    });
+
+    rdesk.ready(() => rdesk.send('ready', {}));
+  </script>
+</body>
+</html>
+```
+
+## 3. Running and Building
+
+To test your app during development:
+
+```r
+# Run directly from source
+# Rscript app.R
+```
+
+To build a **standalone portable bundle** (a ZIP file containing R, your app, and a launcher):
+
+```r
+RDesk::build_app(
+  app_dir  = "my_app",
+  out_dir  = "dist",
+  app_name = "MyCoolApp"
+)
+```
+
+The resulting `dist/MyCoolApp.zip` can be unzipped and run on any Windows machine—no R installation required by the end-user!
+
+## 4. Key Concepts
+
+### Native IPC
+Zero ports, zero firewall issues. Communication happens over standard input/output using a high-speed JSON protocol.
+
+### Async Processing
+Use the `async()` wrapper to run heavy R tasks without freezing the UI:
+
+```r
+app$on_message("heavy_task", async(function(msg) {
+  Sys.sleep(2) # Simulate work
+  list(status = "Done")
+}, app = app))
+```
+
+### Native Menus & Trays
+RDesk gives you full control over the Windows shell:
+
+```r
+app$on_ready(function() {
+  app$set_menu(list(
+    File = list(
+      "Exit" = app$quit
+    )
+  ))
+})
+```
