@@ -21,9 +21,10 @@ jobs:
         run: |
           echo "options(repos = c(CRAN = 'https://cloud.r-project.org'))" >> ~/.Rprofile
 
-      - name: Install waldo from source if binary fails
+      - name: Pre-install critical dependencies
         run: |
           Rscript -e 'if (!requireNamespace("waldo", quietly = TRUE)) tryCatch({ install.packages("waldo") }, error = function(e) { install.packages("waldo", type = "source") })'
+          Rscript -e 'if (!requireNamespace("askpass", quietly = TRUE)) install.packages("askpass")'
 
       - name: Sync dependencies from lockfile
         run: |
