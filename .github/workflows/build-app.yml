@@ -29,7 +29,7 @@ jobs:
         run: |
           cmd /c launcher_src\launcher\build_launcher.bat
           New-Item -ItemType Directory -Force -Path inst\bin | Out-Null
-          Copy-Item launcher_src\launcher\webview2_sdk\build\native\x64\WebView2Loader.dll inst\bin\WebView2Loader.dll -Force
+          Copy-Item launcher_src\launcher\webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll inst\bin\WebView2Loader.dll -Force
 
       - name: Build App
         run: |
