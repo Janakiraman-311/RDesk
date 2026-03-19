@@ -5,7 +5,10 @@
 \title{Download and extract a portable R installation
 Uses the official CRAN Windows binary installer, extracted via 7-Zip}
 \usage{
-rdesk_fetch_portable_r(r_version, dest_dir)
+rdesk_fetch_portable_r(r_version, dest_dir, prune = TRUE)
+}
+\arguments{
+\item{prune}{If TRUE, call rdesk_prune_runtime() after installation.}
 }
 \description{
 Download and extract a portable R installation

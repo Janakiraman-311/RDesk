@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TS Domain Creator</title>
+    <script src="rdesk.js"></script>
+    <style>
+        /* Modern Design System - Zero External Dependencies */
+        :root {
+            --primary: #0f172a;
+            --accent: #2563eb;
+            --bg: #f8fafc;
+            --glass: rgba(255, 255, 255, 0.85);
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        * { box-sizing: border-box; }
+        body { 
+            background: var(--bg); 
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 2.5rem;
+            padding-bottom: 1rem;
+        }
+
+        h1 { margin: 0; font-size: 2.25rem; font-weight: 800; color: var(--primary); }
+        .subtitle { color: var(--text-muted); margin-top: 0.25rem; font-weight: 500; }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s;
+        }
+
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; }
+        
+        input[type="text"], input[type="date"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s, ring 0.2s;
+        }
+
+        input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            cursor: pointer;
+        }
+
+        input[type="checkbox"] { width: 1.25rem; height: 1.25rem; cursor: pointer; }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.3);
+        }
+
+        .btn:hover { background: #1e293b; transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+
+        .btn-link {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            padding: 0.25rem 0;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; display: block; }
+        .status.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; display: block; }
+        .status.info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; display: block; }
+
+        .hidden { display: none; }
+        
+        pre {
+            background: #f1f5f9;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: ui-monospace, monospace;
+            font-size: 0.8125rem;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        th {
+            background: #f8fafc;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            border-bottom: 2px solid var(--border);
+        }
+
+        td { padding: 1rem; border-bottom: 1px solid var(--border); }
+        tr:last-child td { border-bottom: none; }
+
+        .animate-fade { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div class="container animate-fade">
+        <header>
+            <h1>Simplified TS Domain Creator</h1>
+            <div class="subtitle">Native Desktop Conversion Example</div>
+        </header>
+
+        <div class="layout">
+            <!-- Sidebar -->
+            <aside>
+                <div class="card">
+                    <div class="form-group">
+                        <label>Study ID</label>
+                        <input type="text" id="studyID" placeholder="e.g., XYZ123">
+                    </div>
+
+                    <div class="checkbox-group" onclick="document.getElementById('useDate').click()">
+                        <input type="checkbox" id="useDate" onchange="toggleDate()">
+                        <label style="margin:0; cursor:pointer;">Would you like to enter a date?</label>
+                    </div>
+
+                    <div id="dateContainer" class="form-group hidden">
+                        <label style="color: #dc2626;">Update the study specific date:</label>
+                        <input type="date" id="studyDate">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Export Directory</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="text" id="directoryPath" value="C:/Test" style="background: #f1f5f9;">
+                        </div>
+                        <button onclick="pickFolder()" class="btn-link">Select Folder...</button>
+                    </div>
+
+                    <button onclick="handleExport()" class="btn">Export to XPT</button>
+
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main>
+                <div id="fileInfoCard" class="card hidden" style="margin-bottom: 2rem;">
+                    <h2 style="margin-top:0; font-size: 1.25rem;">File Information</h2>
+                    <pre id="fileInfo"></pre>
+                </div>
+
+                <div class="card" style="min-height: 400px;">
+                    <h2 style="margin-top:0; font-size: 1.25rem;">File Table Content</h2>
+                    <div id="tableContainer">
+                        <p style="color: var(--text-muted); font-style: italic;">No data exported yet.</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        function toggleDate() {
+            const container = document.getElementById('dateContainer');
+            container.classList.toggle('hidden', !document.getElementById('useDate').checked);
+        }
+
+        function pickFolder() {
+            rdesk.send('pick_folder');
+        }
+
+        function handleExport() {
+            const payload = {
+                studyID: document.getElementById('studyID').value,
+                useDate: document.getElementById('useDate').checked,
+                studyDate: document.getElementById('studyDate').value,
+                directoryPath: document.getElementById('directoryPath').value
+            };
+            
+            rdesk.send('export', payload);
+        }
+
+        rdesk.on('update_folder', (data) => {
+            document.getElementById('directoryPath').value = data.path;
+        });
+
+
+        rdesk.on('results', (data) => {
+            document.getElementById('fileInfoCard').classList.remove('hidden');
+            document.getElementById('fileInfo').innerText = data.info;
+
+            const container = document.getElementById('tableContainer');
+            if (data.table_html) {
+                container.innerHTML = data.table_html;
+            }
+        });
+    </script>
+</body>
+</html>

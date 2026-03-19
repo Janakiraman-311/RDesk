@@ -16,7 +16,8 @@ build_app(
   publisher = "RDesk User",
   website = "https://github.com/Janakiraman-311/RDesk",
   license_file = NULL,
-  icon_file = NULL
+  icon_file = NULL,
+  prune_runtime = TRUE
 )
 }
 \arguments{
@@ -44,6 +45,9 @@ RDesk's own dependencies are always included automatically.}
 \item{license_file}{Path to a license file (.txt or .rtf) to include in the installer.}
 
 \item{icon_file}{Path to an .ico file for the installer and application shortcut.}
+
+\item{prune_runtime}{If TRUE, remove unnecessary files (Tcl/Tk, docs, tests) from
+the bundled R runtime to reduce size (~15-20MB saving). Default TRUE.}
 }
 \value{
 Path to the created zip file, invisibly.

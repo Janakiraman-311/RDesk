@@ -1,0 +1,24 @@
+Package: RDesk
+Title: Native Desktop App Framework for R
+Version: 1.0.0
+Authors@R: person("Janakiraman", "G", email = "janakiraman@example.com", role = c("aut", "cre"))
+Description: A framework for building native R desktop applications.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+URL: https://github.com/Janakiraman-311/RDesk
+BugReports: https://github.com/Janakiraman-311/RDesk/issues
+SystemRequirements: Windows 10 or later, Rtools44
+        (https://cran.r-project.org/bin/windows/Rtools/), Microsoft
+        WebView2 Runtime
+        (https://developer.microsoft.com/microsoft-edge/webview2/)
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports: R6, jsonlite, digest, processx, callr, mirai (>= 1.0.0),
+        base64enc, ggplot2, dplyr, zip, stats, utils, parallel
+Suggests: testthat (>= 3.0.0), withr, fs, knitr, rmarkdown, devtools
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Author: Janakiraman G [aut, cre]
+Maintainer: Janakiraman G <janakiraman@example.com>
+Built: R 4.5.1; ; 2026-03-19 05:29:54 UTC; windows

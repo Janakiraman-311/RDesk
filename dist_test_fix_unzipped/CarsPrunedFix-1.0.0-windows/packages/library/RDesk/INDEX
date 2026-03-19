@@ -1,0 +1,12 @@
+App                     RDesk Application
+async                   Wrap a message handler to run asynchronously
+                        with zero configuration
+build_app               Build a self-contained distributable from an
+                        RDesk application
+rdesk_async             Run a task in the background
+rdesk_cancel_job        Cancel a running background job
+rdesk_create_app        Create a new RDesk application project
+rdesk_is_bundle         Check if the app is running in a bundled
+                        (standalone) environment
+rdesk_jobs_pending      Check if any background jobs are pending
+rdesk_service           Service all active RDesk applications

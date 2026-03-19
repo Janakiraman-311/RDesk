@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motor Trend Cars Analyser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-r">R</span>
+      <span class="logo-desk">Desk</span>
+    </div>
+    <p class="sidebar-sub">Showcase 1.0.0</p>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" id="nav-explorer" onclick="switchSection('explorer')">
+        <span class="nav-icon">📊</span> Explorer
+      </a>
+      <a href="#" class="nav-item" id="nav-models" onclick="switchSection('models')">
+        <span class="nav-icon">📈</span> Models
+      </a>
+      <a href="#" class="nav-item" id="nav-export" onclick="switchSection('export')">
+        <span class="nav-icon">💾</span> Export Data
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span class="status-text">R Worker Connected</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Explorer Section -->
+    <section id="section-explorer" class="app-section active">
+      <header class="section-header">
+        <h1>Data Explorer</h1>
+        <div class="header-actions">
+          <div class="toggle-group">
+            <button class="toggle-btn active" onclick="togglePlot('scatter', this)">Scatter</button>
+            <button class="toggle-btn" onclick="togglePlot('boxplot', this)">Boxplot</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-label">Sample Size</div>
+          <div class="kpi-value" id="kpi-n">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg MPG</div>
+          <div class="kpi-value" id="kpi-mpg">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg Horsepower</div>
+          <div class="kpi-value" id="kpi-hp">—</div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card chart-card">
+          <div class="card-header">Vehicle Performance Visualizer</div>
+          <div class="chart-container">
+            <div id="chart-loading" class="loading-overlay">Rendering...</div>
+            <img id="chart-img" class="chart-img" style="display:none">
+          </div>
+        </div>
+        
+        <div class="card summary-card">
+          <div class="card-header">Quick Summary (by Cylinder)</div>
+          <div class="table-wrap">
+            <table id="summary-table">
+              <thead>
+                <tr>
+                  <th>Cyl</th><th>Count</th><th>Avg MPG</th><th>Avg HP</th>
+                </tr>
+              </thead>
+              <tbody id="summary-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Models Section -->
+    <section id="section-models" class="app-section">
+      <header class="section-header">
+        <h1>Statistical Models</h1>
+      </header>
+
+      <div class="card model-setup-card">
+        <div class="model-formula">
+          <code>mpg ~ wt + cyl + hp</code>
+        </div>
+        <p class="model-desc">Predict fuel economy using weight, cylinders, and horsepower.</p>
+        <button class="btn-primary" onclick="runAnalysis()">Run Linear Regression</button>
+      </div>
+
+      <div id="model-results" style="display:none">
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">R-Squared</div>
+            <div class="kpi-value" id="model-r2">—</div>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="card-header">Model Coefficients (broom::tidy)</div>
+          <div class="table-wrap">
+            <table id="coeffs-table">
+              <thead>
+                <tr>
+                  <th>Term</th><th>Estimate</th><th>Std Error</th><th>P-Value</th>
+                </tr>
+              </thead>
+              <tbody id="coeffs-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Export Section -->
+    <section id="section-export" class="app-section">
+      <header class="section-header">
+        <h1>Export Data</h1>
+      </header>
+
+      <div class="export-hero">
+        <div class="export-icon">💾</div>
+        <h2>Ready to export?</h2>
+        <p>Save your filtered dataset to a local CSV file for use in other tools.</p>
+        <button class="btn-primary btn-large" onclick="rdesk.send('export_csv', {})">
+          Save as CSV...
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/rdesk.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

@@ -296,8 +296,7 @@ rdesk_prune_runtime <- function(runtime_dir) {
     "share/locale",  # Translations — ~3MB
     "library/tcltk", # Tcl/Tk R package
     "library/KernSmooth",  # rarely needed
-    "library/spatial",     # rarely needed
-    "library/nlme"         # only if not in app deps
+    "library/spatial"      # rarely needed
   )
   
   message("[RDesk]   Optimizing R runtime size...")
@@ -440,6 +439,9 @@ rdesk_build_stub <- function(stub_cpp, out_exe, app_name) {
 
   # Perform template replacement for APP_NAME
   lines <- readLines(tmp_cpp)
+  lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE)
+  writeLines(lines, tmp_cpp)
+
   # Header paths
   inc_path <- system.file("include", package = "RDesk")
   if (inc_path == "") inc_path <- file.path(getwd(), "inst/include")
