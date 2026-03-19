@@ -9,6 +9,10 @@ on:
 jobs:
   R-CMD-check:
     runs-on: windows-latest
+    env:
+      RENV_PATHS_LIBRARY: renv/library
+      RENV_CONFIG_AUTOLOADER_ENABLED: false
+
     steps:
       - uses: actions/checkout@v4
 
@@ -17,29 +21,27 @@ jobs:
           r-version: 'release'
           use-public-rspm: true
 
-      - name: Set CRAN mirror
-        run: |
-          echo "options(repos = c(CRAN = 'https://cloud.r-project.org'))" >> ~/.Rprofile
+      - name: Cache renv packages
+        uses: actions/cache@v4
+        with:
+          path: renv/library
+          key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
+          restore-keys: renv-${{ runner.os }}-
 
-      - name: Pre-install critical dependencies
+      - name: Restore renv environment
         run: |
-          Rscript -e 'if (!requireNamespace("waldo", quietly = TRUE)) tryCatch({ install.packages("waldo") }, error = function(e) { install.packages("waldo", type = "source") })'
-          Rscript -e 'if (!requireNamespace("askpass", quietly = TRUE)) install.packages("askpass")'
-
-      - name: Sync dependencies from lockfile
-        run: |
-          Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")'
-          Rscript -e 'renv::restore()'
+          if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
+          renv::restore(prompt = FALSE, clean = FALSE)
+        shell: Rscript {0}
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck, any::withr
-          pak-version: repo
 
       - uses: r-lib/actions/check-r-package@v2
         with:
-          args: 'c("--no-manual", "--as-cran")'
-          error-on: '"warning"'
+          args: '["--no-manual", "--as-cran"]'
+          error-on: "warning"
 
       - name: Upload check results
         if: failure()

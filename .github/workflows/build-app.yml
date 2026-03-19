@@ -7,33 +7,34 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      RENV_PATHS_LIBRARY: renv/library
+      RENV_CONFIG_AUTOLOADER_ENABLED: false
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release'
-          use-public-rspm: false
+          use-public-rspm: true
 
-      - name: Set CRAN mirror
+      - name: Cache renv packages
+        uses: actions/cache@v4
+        with:
+          path: renv/library
+          key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
+          restore-keys: renv-${{ runner.os }}-
+
+      - name: Restore renv environment
         run: |
-          echo "options(repos = c(CRAN = 'https://cloud.r-project.org'))" >> ~/.Rprofile
-
-      - name: Pre-install critical dependencies
-        run: |
-          Rscript -e 'if (!requireNamespace("waldo", quietly = TRUE)) tryCatch({ install.packages("waldo") }, error = function(e) { install.packages("waldo", type = "source") })'
-          Rscript -e 'if (!requireNamespace("askpass", quietly = TRUE)) install.packages("askpass")'
-
-      - name: Install R packages from lockfile
-        run: |
-          Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")'
-          Rscript -e 'renv::restore()'
-
+          if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
+          renv::restore(prompt = FALSE, clean = FALSE)
+        shell: Rscript {0}
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck, any::callr, any::mirai
-          pak-version: repo
+          extra-packages: any::devtools, any::rcmdcheck
 
       - name: Install Rtools
         run: |
@@ -54,7 +55,7 @@ jobs:
           g++ --version
           gcc --version
           cmake --version
-          
+
       - name: Prepare WebView2 SDK
         run: |
           [xml]$nuspec = Get-Content launcher_src\launcher\webview2_sdk\Microsoft.Web.WebView2.nuspec
@@ -64,8 +65,8 @@ jobs:
           Invoke-WebRequest "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/$wvVersion" -OutFile $zip
           if (Test-Path $extract) { Remove-Item -Recurse -Force $extract }
           Expand-Archive -Path $zip -DestinationPath $extract -Force
-          Copy-Item "$extract\\build" launcher_src\launcher\webview2_sdk\build -Recurse -Force
-          Copy-Item "$extract\\runtimes" launcher_src\launcher\webview2_sdk\runtimes -Recurse -Force
+          Copy-Item "$extract\build" launcher_src\launcher\webview2_sdk\build -Recurse -Force
+          Copy-Item "$extract\runtimes" launcher_src\launcher\webview2_sdk\runtimes -Recurse -Force
 
       - name: Build launcher assets
         run: |
@@ -73,10 +74,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Launcher build failed." }
           Copy-Item launcher_src\launcher\webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll inst\bin\WebView2Loader.dll -Force
 
+      - name: Verify async stack
+        run: |
+          Rscript -e "
+            options(rdesk.async_backend = 'callr')
+            install.packages('.', repos = NULL, type = 'source', quiet = TRUE)
+            library(RDesk)
+            stopifnot(requireNamespace('callr'), requireNamespace('mirai'))
+            fn <- RDesk::async(function(p) list(result = p[['x']] * 2))
+            cat('async() wrapper created successfully\n')
+          "
+
       - name: Build App
         run: |
-          Rscript -e "install.packages('.', repos = NULL, type = 'source')"
-          Rscript -e "options(rdesk.async_backend = 'callr'); library(RDesk); fn <- RDesk::async(function(p) list(result = p$x * 2)); attr_env <- attr(fn, 'rdesk_msg_type_env'); if (!is.null(attr_env)) attr_env$type <- 'test'; cat('async() wrapper created successfully\n')"
           Rscript -e "RDesk::build_app(app_dir = 'inst/apps/mtcars_dashboard', app_name = 'CarsAnalyser', portable_r_method = 'installer')"
 
       - name: Upload Artifact
