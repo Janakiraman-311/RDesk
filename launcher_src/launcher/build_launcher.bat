@@ -14,11 +14,19 @@ g++ --version
 gcc --version
 
 set "CMAKE=cmake"
-set "GXX=%RTOOLS_BIN%\g++.exe"
-set "GCC=%RTOOLS_BIN%\gcc.exe"
-set "MAKE=%RTOOLS_BIN%\mingw32-make.exe"
+if not exist "%RTOOLS_BIN%\g++.exe" (
+    echo RTOOLS_BIN not found at %RTOOLS_BIN%, checking PATH...
+    for /f "delims=" %%i in ('where g++.exe') do set "GXX=%%i"
+    for /f "delims=" %%i in ('where gcc.exe') do set "GCC=%%i"
+    for /f "delims=" %%i in ('where mingw32-make.exe') do set "MAKE=%%i"
+) else (
+    set "GXX=%RTOOLS_BIN%\g++.exe"
+    set "GCC=%RTOOLS_BIN%\gcc.exe"
+    set "MAKE=%RTOOLS_BIN%\mingw32-make.exe"
+)
 
 if not exist "%MAKE%" set "MAKE=%RTOOLS_USR%\make.exe"
+if not exist "%MAKE%" for /f "delims=" %%i in ('where make.exe') do set "MAKE=%%i"
 
 echo USING CMAKE: %CMAKE%
 echo USING GXX: %GXX%

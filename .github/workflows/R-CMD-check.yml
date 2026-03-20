@@ -41,10 +41,18 @@ jobs:
         with:
           extra-packages: any::rcmdcheck, any::withr
 
-      - uses: r-lib/actions/check-r-package@v2
-        with:
-          args: "--no-manual --as-cran"
-          error-on: "warning"
+      - name: Run R-CMD-check
+        run: |
+          if (!requireNamespace("rcmdcheck", quietly = TRUE)) install.packages("rcmdcheck")
+          res <- rcmdcheck::rcmdcheck(
+            args = c("--no-manual", "--as-cran"),
+            error_on = "warning",
+            check_dir = "check"
+          )
+          if (length(res$errors) > 0 || length(res$warnings) > 0) {
+            stop("Check failed with errors or warnings")
+          }
+        shell: Rscript {0}
 
       - name: Upload check results
         if: failure()
