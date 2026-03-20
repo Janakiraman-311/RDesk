@@ -105,8 +105,22 @@ jobs:
 
       - name: Build App and Installer
         run: |
-          Rscript -e 'install.packages(".", repos = NULL, type = "source")'
-          Rscript -e 'RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser", build_installer = TRUE, portable_r_method = "installer")'
+          Rscript -e '
+            source("renv/activate.R")
+            install.packages(".", repos = NULL, type = "source")
+            RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser", build_installer = TRUE, portable_r_method = "installer")
+          '
+
+      - name: Verify async stack
+        run: |
+          Rscript -e '
+            source("renv/activate.R")
+            options(rdesk.async_backend = "callr")
+            library(RDesk)
+            stopifnot(requireNamespace("callr"), requireNamespace("mirai"))
+            fn <- RDesk::async(function(p) list(result = p[["x"]] * 2))
+            cat("async() wrapper created successfully\n")
+          '
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

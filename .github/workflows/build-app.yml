@@ -100,18 +100,22 @@ jobs:
 
       - name: Verify async stack
         run: |
-          Rscript -e "
-            options(rdesk.async_backend = 'callr')
-            install.packages('.', repos = NULL, type = 'source', quiet = TRUE)
+          Rscript -e '
+            source("renv/activate.R")
+            options(rdesk.async_backend = "callr")
+            devtools::install(pkg = ".", upgrade = "never", quick = TRUE)
             library(RDesk)
-            stopifnot(requireNamespace('callr'), requireNamespace('mirai'))
-            fn <- RDesk::async(function(p) list(result = p[['x']] * 2))
-            cat('async() wrapper created successfully\n')
-          "
+            stopifnot(requireNamespace("callr"), requireNamespace("mirai"))
+            fn <- RDesk::async(function(p) list(result = p[["x"]] * 2))
+            cat("async() wrapper created successfully\n")
+          '
 
       - name: Build App
         run: |
-          Rscript -e "RDesk::build_app(app_dir = 'inst/apps/mtcars_dashboard', app_name = 'CarsAnalyser', portable_r_method = 'installer')"
+          Rscript -e '
+            source("renv/activate.R")
+            RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser", portable_r_method = "installer")
+          '
 
       - name: Upload Artifact
         if: always()
