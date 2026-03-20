@@ -64,6 +64,10 @@ if %ERRORLEVEL% neq 0 (
 
 echo Build SUCCESS!
 if not exist "..\..\inst\bin" mkdir "..\..\inst\bin"
+if not exist rdesk-launcher.exe (
+    echo FAILURE: rdesk-launcher.exe was not produced.
+    exit /b 1
+)
 copy /y rdesk-launcher.exe "..\..\inst\bin\rdesk-launcher.exe"
 if %ERRORLEVEL% neq 0 (
     echo Copy to inst\bin failed.
