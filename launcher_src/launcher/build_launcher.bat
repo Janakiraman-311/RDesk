@@ -1,20 +1,28 @@
 @echo off
-REM ── Resolve tools from PATH first (CI sets GITHUB_PATH before this runs)
-REM    Fall back to common Rtools install locations only if not on PATH.
+REM ── Map Rtools to R: drive to avoid \r escape character issues (e.g. C:\rtools45)
+set "RTOOLS_ORIG=C:\rtools45"
+if not exist "%RTOOLS_ORIG%" set "RTOOLS_ORIG=C:\rtools44"
+if exist "%RTOOLS_ORIG%" (
+    subst R: /d >nul 2>&1
+    subst R: "%RTOOLS_ORIG%"
+    set "RTOOLS_BIN=R:\x86_64-w64-mingw32.static.posix\bin"
+    set "RTOOLS_USR=R:\usr\bin"
+)
 
 where cmake >nul 2>&1
 if %errorlevel% equ 0 (
     set "CMAKE=cmake"
 ) else (
-    REM Try Rtools45 then Rtools44 hardcoded locations as last resort
-    if exist "C:\rtools45\x86_64-w64-mingw32.static.posix\bin\cmake.exe" (
-        set "CMAKE=C:\rtools45\x86_64-w64-mingw32.static.posix\bin\cmake.exe"
-        set "PATH=C:\rtools45\x86_64-w64-mingw32.static.posix\bin;C:\rtools45\usr\bin;%PATH%"
-    ) else if exist "C:\rtools44\x86_64-w64-mingw32.static.posix\bin\cmake.exe" (
-        set "CMAKE=C:\rtools44\x86_64-w64-mingw32.static.posix\bin\cmake.exe"
-        set "PATH=C:\rtools44\x86_64-w64-mingw32.static.posix\bin;C:\rtools44\usr\bin;%PATH%"
+    if defined RTOOLS_BIN (
+        if exist "%RTOOLS_BIN%\cmake.exe" (
+            set "CMAKE=%RTOOLS_BIN%\cmake.exe"
+            set "PATH=%RTOOLS_BIN%;%RTOOLS_USR%;%PATH%"
+        ) else (
+            echo ERROR: cmake not found on PATH or in Rtools.
+            exit /b 1
+        )
     ) else (
-        echo ERROR: cmake not found on PATH or in common Rtools locations.
+        echo ERROR: cmake not found and Rtools not detected.
         exit /b 1
     )
 )
@@ -43,7 +51,7 @@ echo Using g++   : found on PATH
 echo Using make  : %MAKE_CMD%
 
 REM ── Ensure inst\bin exists so the copy at the end succeeds
-if not exist "%~dp0..\..\..\inst\bin" mkdir "%~dp0..\..\..\inst\bin"
+if not exist "%~dp0..\..\inst\bin" mkdir "%~dp0..\..\inst\bin"
 
 REM ── Go to script directory and set up build folder
 cd /d "%~dp0"
@@ -55,6 +63,11 @@ REM ── Detect g++ path for explicit CMake compiler flag
 for /f "delims=" %%i in ('where g++') do set "GXX_PATH=%%i"
 for /f "delims=" %%i in ('where gcc') do set "GCC_PATH=%%i"
 for /f "delims=" %%i in ('where %MAKE_CMD%') do set "MAKE_PATH=%%i"
+
+REM ── Convert backslashes to forward slashes for CMake robustness
+set "GXX_PATH=%GXX_PATH:\=/%"
+set "GCC_PATH=%GCC_PATH:\=/%"
+set "MAKE_PATH=%MAKE_PATH:\=/%"
 
 "%CMAKE%" .. -G "MinGW Makefiles" ^
     -DCMAKE_BUILD_TYPE=Release ^
@@ -76,7 +89,7 @@ if errorlevel 1 (
 
 echo Build SUCCESS!
 if exist rdesk-launcher.exe (
-    copy /y rdesk-launcher.exe "..\..\..\inst\bin\rdesk-launcher.exe"
+    copy /y rdesk-launcher.exe "%~dp0..\..\inst\bin\rdesk-launcher.exe"
     echo Copied rdesk-launcher.exe to inst\bin\
 ) else (
     echo ERROR: rdesk-launcher.exe not found after build
