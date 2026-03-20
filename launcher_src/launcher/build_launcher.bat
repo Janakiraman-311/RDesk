@@ -1,74 +1,51 @@
 @echo off
 setlocal enabledelayedexpansion
 
-echo [DIAG] Current Directory: %CD%
-echo [DIAG] Script Directory: %~dp0
-
-REM ── Map Rtools to R: drive if possible (optional fallback)
+REM --- 1. Tools Mapping (RTools 4.5/4.4) ---
 set "RTOOLS_ORIG=C:\rtools45"
 if not exist "%RTOOLS_ORIG%" set "RTOOLS_ORIG=C:\rtools44"
+
 if exist "%RTOOLS_ORIG%" (
     subst R: /d >nul 2>&1
-    subst R: "%RTOOLS_ORIG%" >diag_subst.txt 2>&1
+    subst R: "%RTOOLS_ORIG%"
     if !ERRORLEVEL! equ 0 (
-        echo [DIAG] Successfully mapped R: to %RTOOLS_ORIG%
         set "PATH=R:\x86_64-w64-mingw32.static.posix\bin;R:\usr\bin;!PATH!"
-    ) else (
-        echo [DIAG] subst R: failed. Using original path.
-        type diag_subst.txt
     )
 )
 
-echo [DIAG] PATH: !PATH!
+REM --- 2. Resource Path Setup ---
+set "SCRIPT_DIR=%~dp0"
+set "INST_BIN=%SCRIPT_DIR%..\..\inst\bin"
 
-where g++ >diag_where.txt 2>&1
-if !ERRORLEVEL! equ 0 (
-    echo [DIAG] Found g++ at:
-    type diag_where.txt
-) else (
-    echo [DIAG] g++ NOT FOUND on PATH
-)
+if not exist "%INST_BIN%" mkdir "%INST_BIN%"
+cd /d "%SCRIPT_DIR%"
 
-g++ --version >diag_ver.txt 2>&1
-if !ERRORLEVEL! equ 0 (
-    echo [DIAG] g++ version:
-    type diag_ver.txt
-)
+REM --- 3. Direct G++ Compilation ---
+echo Building RDesk Launcher...
 
-REM ── Ensure inst\bin exists
-if not exist "%~dp0..\..\inst\bin" (
-    echo [DIAG] Creating inst\bin...
-    mkdir "%~dp0..\..\inst\bin"
-)
-
-REM ── Go to script directory
-cd /d "%~dp0"
-
-echo [DIAG] Starting compilation...
-
-REM ── Direct compilation with all output redirected to log
-g++ -O2 -static -mwindows -o rdesk-launcher.exe main.cpp ^
+g++ -O3 -std=c++17 -static -mwindows -o rdesk-launcher.exe main.cpp ^
     -Iwebview ^
     -I../../inst/include ^
     -Iwebview2_sdk/build/native/include ^
-    -lole32 -lshell32 -lshlwapi -luser32 -lversion -lcomdlg32 -loleaut32 -luuid ^
-    >build_log.txt 2>&1
+    -lole32 -lshell32 -lshlwapi -luser32 -lversion -lcomdlg32 -loleaut32 -luuid
 
-set "COMPILE_ERR=!ERRORLEVEL!"
-
-if !COMPILE_ERR! neq 0 (
-    echo [ERROR] Compilation FAILED with exit code !COMPILE_ERR!
-    echo [ERROR] --- LOG START ---
-    type build_log.txt
-    echo [ERROR] --- LOG END ---
-    exit /b !COMPILE_ERR!
-)
-
-echo [DIAG] Build SUCCESS!
-if exist rdesk-launcher.exe (
-    copy /y rdesk-launcher.exe "%~dp0..\..\inst\bin\rdesk-launcher.exe"
-    echo [DIAG] Copied rdesk-launcher.exe to inst\bin\
-) else (
-    echo [ERROR] rdesk-launcher.exe not found after build
+if !ERRORLEVEL! neq 0 (
+    echo [ERROR] Compilation failed.
+    subst R: /d >nul 2>&1
     exit /b 1
 )
+
+REM --- 4. Asset Staging ---
+if exist rdesk-launcher.exe (
+    copy /y rdesk-launcher.exe "%INST_BIN%\rdesk-launcher.exe" >nul
+)
+
+if not exist "%INST_BIN%\WebView2Loader.dll" (
+    if exist "webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll" (
+        copy /y "webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll" "%INST_BIN%\WebView2Loader.dll" >nul
+    )
+)
+
+echo Build SUCCESS.
+subst R: /d >nul 2>&1
+exit /b 0
