@@ -103,7 +103,7 @@ jobs:
         run: |
           source("renv/activate.R")
           options(rdesk.async_backend = "callr")
-          devtools::install(pkg = ".", upgrade = "never", quick = TRUE)
+          devtools::install(pkg = ".", upgrade = FALSE, quick = TRUE)
           library(RDesk)
           stopifnot(requireNamespace("callr"), requireNamespace("mirai"))
           fn <- RDesk::async(function(p) list(result = p[["x"]] * 2))
