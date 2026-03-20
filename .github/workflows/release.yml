@@ -42,11 +42,17 @@ jobs:
         with:
           extra-packages: any::devtools, any::rcmdcheck, any::callr, any::mirai
 
-      - name: Install Rtools
+      - name: Install and Map Rtools
         run: |
           choco install rtools --version=4.5.6768 -y --allow-downgrade
-          echo "C:\rtools45\usr\bin" >> $GITHUB_PATH
-          echo "C:\rtools45\x86_64-w64-mingw32.static.posix\bin" >> $GITHUB_PATH
+          $rtools = Get-ChildItem -Path C:\ -Filter "rtools*" -Directory | Select-Object -First 1
+          if ($rtools) {
+            echo "Found Rtools at $($rtools.FullName)"
+            echo "$($rtools.FullName)\usr\bin" >> $GITHUB_PATH
+            echo "$($rtools.FullName)\x86_64-w64-mingw32.static.posix\bin" >> $GITHUB_PATH
+          } else {
+            throw "Rtools 4.5 not found in C:\"
+          }
 
       - name: Ensure CMake is available
         run: |
