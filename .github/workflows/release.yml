@@ -81,10 +81,24 @@ jobs:
           Copy-Item "$extract\runtimes" launcher_src\launcher\webview2_sdk\runtimes -Recurse -Force
 
       - name: Build launcher assets
+        shell: pwsh
         run: |
-          cmd /c launcher_src\launcher\build_launcher.bat
-          if ($LASTEXITCODE -ne 0) { throw "Launcher build failed." }
-          Copy-Item launcher_src\launcher\webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll inst\bin\WebView2Loader.dll -Force
+          cd launcher_src\launcher
+          if (!(Test-Path ..\..\inst\bin)) { New-Item -ItemType Directory -Path ..\..\inst\bin -Force }
+          
+          # Direct compilation via g++ (already on GITHUB_PATH from Step 7)
+          echo "Compiling launcher..."
+          g++ -std=c++17 -O2 -static -mwindows -o rdesk-launcher.exe main.cpp `
+              -Iwebview `
+              -I../../inst/include `
+              -Iwebview2_sdk/build/native/include `
+              -lole32 -lshell32 -lshlwapi -luser32 -lversion -lcomdlg32 -loleaut32 -luuid
+          
+          if ($LASTEXITCODE -ne 0) { throw "G++ compilation failed with exit code $LASTEXITCODE" }
+          
+          echo "Copying assets to inst/bin..."
+          Copy-Item rdesk-launcher.exe ..\..\inst\bin\rdesk-launcher.exe -Force
+          Copy-Item webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll ..\..\inst\bin\WebView2Loader.dll -Force
 
       - name: Install Inno Setup
         run: choco install innosetup -y
