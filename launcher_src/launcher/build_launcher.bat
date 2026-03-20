@@ -1,75 +1,84 @@
-@echo on
-set "RTOOLS_BIN=C:\rtools45\x86_64-w64-mingw32.static.posix\bin"
-set "RTOOLS_USR=C:\rtools45\usr\bin"
-if not exist "%RTOOLS_BIN%" (
-    set "RTOOLS_BIN=C:\rtools44\x86_64-w64-mingw32.static.posix\bin"
-    set "RTOOLS_USR=C:\rtools44\usr\bin"
-)
-set "PATH=%RTOOLS_BIN%;%RTOOLS_USR%;%PATH%"
+@echo off
+REM ── Resolve tools from PATH first (CI sets GITHUB_PATH before this runs)
+REM    Fall back to common Rtools install locations only if not on PATH.
 
-echo --- DIAGNOSTICS ---
-echo PATH: %PATH%
-cmake --version
-g++ --version
-gcc --version
-
-set "CMAKE=cmake"
-if not exist "%RTOOLS_BIN%\g++.exe" (
-    echo RTOOLS_BIN not found at %RTOOLS_BIN%, checking PATH...
-    for /f "delims=" %%i in ('where g++.exe') do set "GXX=%%i"
-    for /f "delims=" %%i in ('where gcc.exe') do set "GCC=%%i"
-    for /f "delims=" %%i in ('where mingw32-make.exe') do set "MAKE=%%i"
+where cmake >nul 2>&1
+if %errorlevel% equ 0 (
+    set "CMAKE=cmake"
 ) else (
-    set "GXX=%RTOOLS_BIN%\g++.exe"
-    set "GCC=%RTOOLS_BIN%\gcc.exe"
-    set "MAKE=%RTOOLS_BIN%\mingw32-make.exe"
+    REM Try Rtools45 then Rtools44 hardcoded locations as last resort
+    if exist "C:\rtools45\x86_64-w64-mingw32.static.posix\bin\cmake.exe" (
+        set "CMAKE=C:\rtools45\x86_64-w64-mingw32.static.posix\bin\cmake.exe"
+        set "PATH=C:\rtools45\x86_64-w64-mingw32.static.posix\bin;C:\rtools45\usr\bin;%PATH%"
+    ) else if exist "C:\rtools44\x86_64-w64-mingw32.static.posix\bin\cmake.exe" (
+        set "CMAKE=C:\rtools44\x86_64-w64-mingw32.static.posix\bin\cmake.exe"
+        set "PATH=C:\rtools44\x86_64-w64-mingw32.static.posix\bin;C:\rtools44\usr\bin;%PATH%"
+    ) else (
+        echo ERROR: cmake not found on PATH or in common Rtools locations.
+        exit /b 1
+    )
 )
 
-if not exist "%MAKE%" set "MAKE=%RTOOLS_USR%\make.exe"
-if not exist "%MAKE%" for /f "delims=" %%i in ('where make.exe') do set "MAKE=%%i"
+where g++ >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERROR: g++ not found on PATH. Ensure Rtools bin directory is on PATH.
+    exit /b 1
+)
 
-echo USING CMAKE: %CMAKE%
-echo USING GXX: %GXX%
-echo USING GCC: %GCC%
-echo USING MAKE: %MAKE%
+where make >nul 2>&1
+if %errorlevel% neq 0 (
+    where mingw32-make >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo ERROR: make/mingw32-make not found on PATH.
+        exit /b 1
+    )
+    REM Use mingw32-make alias
+    set "MAKE_CMD=mingw32-make"
+) else (
+    set "MAKE_CMD=make"
+)
 
-REM Go to script directory
+echo Using cmake : %CMAKE%
+echo Using g++   : found on PATH
+echo Using make  : %MAKE_CMD%
+
+REM ── Ensure inst\bin exists so the copy at the end succeeds
+if not exist "%~dp0..\..\..\inst\bin" mkdir "%~dp0..\..\..\inst\bin"
+
+REM ── Go to script directory and set up build folder
 cd /d "%~dp0"
-echo CURRENT DIR: %CD%
-
 if exist build rmdir /s /q build
 mkdir build
 cd build
 
-echo --- CONFIGURING ---
+REM ── Detect g++ path for explicit CMake compiler flag
+for /f "delims=" %%i in ('where g++') do set "GXX_PATH=%%i"
+for /f "delims=" %%i in ('where gcc') do set "GCC_PATH=%%i"
+for /f "delims=" %%i in ('where %MAKE_CMD%') do set "MAKE_PATH=%%i"
+
 "%CMAKE%" .. -G "MinGW Makefiles" ^
     -DCMAKE_BUILD_TYPE=Release ^
-    -DCMAKE_CXX_COMPILER="%GXX%" ^
-    -DCMAKE_C_COMPILER="%GCC%" ^
-    -DCMAKE_MAKE_PROGRAM="%MAKE%" ^
+    -DCMAKE_CXX_COMPILER="%GXX_PATH%" ^
+    -DCMAKE_C_COMPILER="%GCC_PATH%" ^
+    -DCMAKE_MAKE_PROGRAM="%MAKE_PATH%" ^
     -DCMAKE_SH="CMAKE_SH-NOTFOUND"
 
-if %ERRORLEVEL% neq 0 (
-    echo CMake selection/configuration failed.
-    dir .. /s
-    exit /b %ERRORLEVEL%
+if errorlevel 1 (
+    echo CMake configure failed
+    exit /b 1
 )
 
-echo --- BUILDING ---
-"%CMAKE%" --build . --config Release --verbose
-if %ERRORLEVEL% neq 0 (
-    echo Build step failed.
-    exit /b %ERRORLEVEL%
+"%CMAKE%" --build . --config Release
+if errorlevel 1 (
+    echo Build failed
+    exit /b 1
 )
 
 echo Build SUCCESS!
-if not exist "..\..\inst\bin" mkdir "..\..\inst\bin"
-if not exist rdesk-launcher.exe (
-    echo FAILURE: rdesk-launcher.exe was not produced.
+if exist rdesk-launcher.exe (
+    copy /y rdesk-launcher.exe "..\..\..\inst\bin\rdesk-launcher.exe"
+    echo Copied rdesk-launcher.exe to inst\bin\
+) else (
+    echo ERROR: rdesk-launcher.exe not found after build
     exit /b 1
-)
-copy /y rdesk-launcher.exe "..\..\inst\bin\rdesk-launcher.exe"
-if %ERRORLEVEL% neq 0 (
-    echo Copy to inst\bin failed.
-    exit /b %ERRORLEVEL%
 )
