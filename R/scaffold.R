@@ -253,20 +253,21 @@ rdesk_scaffold_files <- function(app_dir, name, data_source,
 #' @keywords internal
 rdesk_write_template <- function(template_name, dest_path, vars, variant = NULL) {
   # Look for variant-specific template first, fall back to base template
-  template_dir <- system.file("templates/scaffold", package = "RDesk")
+  template_dir <- system.file("templates/app_skeleton", package = "RDesk")
   if (!nzchar(template_dir)) {
-    template_dir <- file.path(find.package("RDesk"), "inst", "templates", "scaffold")
+    # Fallback for dev mode
+    template_dir <- file.path(find.package("RDesk"), "inst", "templates", "app_skeleton")
   }
 
   candidates <- c(
-    if (!is.null(variant))
+    if (!is.null(variant) && nzchar(variant))
       file.path(template_dir, paste0(template_name, ".", variant)),
     file.path(template_dir, template_name)
   )
 
   template_path <- candidates[file.exists(candidates)][1]
   if (is.na(template_path)) {
-    # One more try - maybe no variant extension?
+    # One more try - default to the non-variant file if it exists
     template_path <- file.path(template_dir, template_name)
   }
 

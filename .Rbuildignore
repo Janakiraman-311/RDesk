@@ -29,4 +29,4 @@
 ^RDesk_TS_CREATOR_EXPLAINED\.md$
 ^CONTRIBUTING\.md$
 ^backup$
-^temp_scaffold$
+^temp_.*$
