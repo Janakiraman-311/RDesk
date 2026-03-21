@@ -38,7 +38,7 @@
 #'           publisher = "My Company")
 #' }
 #' @export
-build_app <- function(app_dir,
+build_app <- function(app_dir = ".",
                       out_dir  = "dist",
                       app_name = NULL,
                       version  = NULL,

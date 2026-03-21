@@ -181,11 +181,11 @@ rdesk_scaffold_success_msg <- function(name, app_dir, data_source, viz_type, use
   cat("  - Native Win32 menu (File, Help)\n")
   cat("  - Loading overlay already wired up\n")
   cat("\n[RDesk] Run it now:\n")
-  cat(sprintf("  setwd(\"%s\")\n", app_dir))
+  cat(sprintf("  setwd(%s)\n", shQuote(normalizePath(app_dir))))
   cat("  source(\"app.R\")\n\n")
   cat("[RDesk] Build a distributable when ready:\n")
-  cat(sprintf("  RDesk::build_app(app_dir = \"%s\", app_name = \"%s\")\n\n",
-              app_dir, name))
+  cat(sprintf("  RDesk::build_app(app_dir = %s, app_name = %s)\n\n",
+              shQuote(normalizePath(app_dir)), shQuote(name)))
 }
 
 
