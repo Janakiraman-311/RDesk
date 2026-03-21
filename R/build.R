@@ -335,7 +335,7 @@ rdesk_fetch_portable_r <- function(r_version,
   if (!file.exists(tmp_exe)) {
     message("[RDesk]   Downloading R installer (~80MB)...")
     success <- tryCatch({
-      utils::download.file(url, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl")
+      suppressWarnings(utils::download.file(url, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl"))
       TRUE
     }, error = function(e) {
       # Fallback 1: Try R-4.4.2 (a very stable, widely available version) if 4.5.1 fails
@@ -343,14 +343,14 @@ rdesk_fetch_portable_r <- function(r_version,
         message("[RDesk]   R 4.5.x not found on mirror. Falling back to stable R 4.4.2...")
         url_fallback <- "https://cloud.r-project.org/bin/windows/base/old/4.4.2/R-4.4.2-win.exe"
         tryCatch({
-           utils::download.file(url_fallback, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl")
+           suppressWarnings(utils::download.file(url_fallback, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl"))
            TRUE
         }, error = function(e2) FALSE)
       } else {
         url_alt <- paste0("https://cloud.r-project.org/bin/windows/base/old/", r_version, "/R-", r_version, "-win.exe")
         message("[RDesk]   Retrying from: ", url_alt)
         tryCatch({
-          utils::download.file(url_alt, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl")
+          suppressWarnings(utils::download.file(url_alt, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl"))
           TRUE
         }, error = function(e2) FALSE)
       }
