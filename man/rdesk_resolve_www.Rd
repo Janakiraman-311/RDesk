@@ -7,7 +7,9 @@
 rdesk_resolve_www(www_dir)
 }
 \arguments{
-\item{www_dir}{User-provided path to www directory (character)}
+\item{www_dir}{User-provided path to www directory (character)
+Passing an explicit absolute path is the most reliable option and skips
+the best-effort call-stack search.}
 }
 \value{
 Normalized absolute path to a valid www directory

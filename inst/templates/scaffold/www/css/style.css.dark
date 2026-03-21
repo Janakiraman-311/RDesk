@@ -1,0 +1,95 @@
+/* {{APP_NAME}} — Dark Theme */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  background: #0f172a;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+.app-header {
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  padding: 14px 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.app-header h1 { font-size: 18px; font-weight: 600; color: #f8fafc; }
+.app-subtitle   { font-size: 12px; color: #94a3b8; }
+
+.app-main { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+.controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #1e293b;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+}
+
+button {
+  padding: 8px 18px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+button:hover { background: #2563eb; }
+
+.status-label { font-size: 12px; color: #94a3b8; font-style: italic; }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 900px) {
+  .dashboard-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.chart-section, .table-section {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.chart-img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  background: #0f172a;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  background: #334155;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #475569;
+  color: #f1f5f9;
+}
+
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #334155;
+}
+
+tr:hover td { background: #1e293b; }

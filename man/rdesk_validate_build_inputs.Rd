@@ -13,16 +13,15 @@ rdesk_validate_build_inputs(
 )
 }
 \arguments{
-\item{app_dir}{App directory to validate.}
+\item{app_dir}{Path to app directory.}
 
-\item{extra_pkgs}{Extra packages requested for bundling.}
+\item{extra_pkgs}{Character vector of packages.}
 
-\item{build_installer}{Whether installer prerequisites should be validated.}
+\item{build_installer}{Logical.}
 
-\item{portable_r_method}{Runtime provisioning method used when
-\code{runtime_dir} is not supplied.}
+\item{portable_r_method}{Method for R portability.}
 
-\item{runtime_dir}{Optional existing runtime directory to validate.}
+\item{runtime_dir}{Path to pre-existing runtime.}
 }
 \description{
 Validate build inputs before starting the process

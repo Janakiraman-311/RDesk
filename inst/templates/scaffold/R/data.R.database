@@ -1,0 +1,16 @@
+# {{APP_NAME}} - data loading
+# Data source: Database via DBI
+
+init_data <- function() {
+  # Placeholder for DBI connection
+  # con <- DBI::dbConnect(RSQLite::SQLite(), "data/app_database.db")
+  # on.exit(DBI::dbDisconnect(con))
+  # DBI::dbGetQuery(con, "SELECT * FROM my_table")
+  
+  # For the scaffold demo, return a dummy table
+  data.frame(
+    id = 1:3,
+    status = c("Connected", "Ready", "Syncing"),
+    last_check = as.character(Sys.time())
+  )
+}

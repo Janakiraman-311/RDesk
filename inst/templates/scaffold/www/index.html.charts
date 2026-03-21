@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{APP_TITLE}}</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>{{APP_TITLE}}</h1>
+    <span class="app-subtitle">Built with RDesk</span>
+  </header>
+
+  <main class="app-main">
+    <section class="controls-bar">
+      <button id="btn-refresh" onclick="rdesk.send('get_data', {})">
+        Refresh Data
+      </button>
+      <span id="status-label" class="status-label">Ready</span>
+    </section>
+
+    <section class="chart-section">
+      <img id="main-chart" class="chart-img" alt="Chart loading..." />
+    </section>
+  </main>
+
+  <script src="js/rdesk.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

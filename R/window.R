@@ -13,13 +13,20 @@
 #' @keywords internal
 rdesk_launcher_path <- function() {
   # Check if we are in development mode or installed
+  # Source-built launcher is in bin/ after install
   path <- system.file("bin", "rdesk-launcher.exe", package = "RDesk")
   if (path == "") {
-    # Fallback for dev: check inst/bin
+    # Fallback for dev: check inst/bin (built by Makevars or build scripts)
     path <- file.path(getwd(), "inst", "bin", "rdesk-launcher.exe")
   }
+  
   if (!file.exists(path)) {
-    stop("[RDesk] Native launcher not found at: ", path, ". Did you run src/launcher/build.ps1?")
+    # Check src/ for development convenience if not yet copied to inst/bin
+    alt_path <- file.path(getwd(), "src", "rdesk-launcher.exe")
+    if (file.exists(alt_path)) return(alt_path)
+
+    stop("[RDesk] Native launcher not found at: ", path, 
+         "\nTip: If installing from source, ensure Rtools is installed and Makevars.win executed.")
   }
   path
 }

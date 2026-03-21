@@ -1,0 +1,9 @@
+# {{APP_NAME}} - data loading
+# Data source: built-in R dataset (mtcars)
+
+init_data <- function() {
+  df <- mtcars
+  df$model <- rownames(df)
+  rownames(df) <- NULL
+  df
+}

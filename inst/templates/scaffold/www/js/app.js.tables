@@ -1,0 +1,46 @@
+// {{APP_NAME}} - UI logic (Tables variant)
+
+rdesk.on("data_ready", function(data) {
+  renderTable(data.rows, data.cols);
+  updateStatus("Data loaded - " + data.rows.length + " rows");
+});
+
+rdesk.on("get_data_result", function(data) {
+  renderTable(data.rows, data.cols);
+  updateStatus("Refreshed - " + data.rows.length + " rows");
+});
+
+rdesk.on("filter_result", function(result) {
+  renderTable(result.data.rows, result.data.cols);
+  updateStatus("Showing " + result.count + " rows");
+});
+
+rdesk.on("__loading__", function(state) {
+  updateStatus(state.active ? (state.message || "Working...") : "Ready");
+});
+
+function renderTable(rows, cols) {
+  var head = document.getElementById("table-head");
+  var body = document.getElementById("table-body");
+  if (!head || !body || !rows || rows.length === 0) return;
+
+  head.innerHTML = "<tr>" + cols.slice(0, 8).map(function(c) {
+    return "<th>" + c + "</th>";
+  }).join("") + "</tr>";
+
+  body.innerHTML = rows.slice(0, 50).map(function(row) {
+    return "<tr>" + cols.slice(0, 8).map(function(c) {
+      return "<td>" + (row[c] !== undefined ? row[c] : "") + "</td>";
+    }).join("") + "</tr>";
+  }).join("");
+}
+
+function updateStatus(msg) {
+  var el = document.getElementById("status-label");
+  if (el) el.textContent = msg;
+}
+
+// Request data on load
+rdesk.ready(function() {
+  rdesk.send("get_data", {});
+});

@@ -1,0 +1,22 @@
+# RDesk Makevars.win
+# Compiles the native Win32/WebView2 launcher from source
+CXX_STD = CXX17
+
+PKG_CPPFLAGS = -I. -I../inst/include -Iwebview2_sdk/build/native/include -DUNICODE -D_UNICODE
+PKG_LIBS = -Lwebview2_sdk/build/native/x64 -lWebView2LoaderStatic -lole32 -lshell32 -lshlwapi -luser32 -lgdi32 -lversion -luuid -lcomdlg32
+
+OBJECTS = dummy.o
+
+# The default target is 'all'
+# We build our launcher AND the standard R shared library
+all: $(SHLIB) rdesk-launcher.exe
+
+rdesk-launcher.exe: launcher.cpp
+	mkdir -p ../inst/bin
+	$(CXX) $(PKG_CPPFLAGS) launcher.cpp $(PKG_LIBS) -o ../inst/bin/rdesk-launcher.exe -mwindows
+
+# $(SHLIB) is built automatically from OBJECTS or by using the default R rules.
+# Since we have dummy.cpp, R will build dummy.o and then $(SHLIB) from it.
+
+clean:
+	rm -f *.o *.dll *.exe ../inst/bin/rdesk-launcher.exe

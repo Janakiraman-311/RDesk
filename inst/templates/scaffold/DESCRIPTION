@@ -1,0 +1,5 @@
+AppName: {{APP_NAME}}
+Version: 1.0.0
+Date: {{DATE}}
+RDeskVersion: {{RDESK_VER}}
+DataSource: {{DATA_SOURCE}}

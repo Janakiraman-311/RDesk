@@ -2,20 +2,24 @@
 % Please edit documentation in R/App.R
 \name{App}
 \alias{App}
-\title{RDesk Application}
+\title{Create and launch a native desktop application window from R.}
 \description{
-Create and launch a native desktop application window from R.
 Provides bidirectional native pipe communication between R and the UI.
 }
 \examples{
 \dontrun{
-app <- App$new(title = "My App", width = 1200, height = 800)
+app <- App$new(title = "Car Visualizer", width = 1200, height = 800)
+
 app$on_ready(function() {
-  app$load_ui("www/index.html")
+  message("App is ready!")
 })
-app$on_message("ping", function(msg) {
-  app$send("pong", list(ts = Sys.time()))
+
+# Handle messages from UI
+app$on_message("get_data", function(payload) {
+  list(cars = mtcars[1:5, ])
 })
+
+# Start the app
 app$run()
 }
 }
@@ -37,6 +41,7 @@ app$run()
 \item \href{#method-App-toast}{\code{App$toast()}}
 \item \href{#method-App-set_tray}{\code{App$set_tray()}}
 \item \href{#method-App-remove_tray}{\code{App$remove_tray()}}
+\item \href{#method-App-service}{\code{App$service()}}
 \item \href{#method-App-quit}{\code{App$quit()}}
 \item \href{#method-App-run}{\code{App$run()}}
 \item \href{#method-App-clone}{\code{App$clone()}}
@@ -48,13 +53,7 @@ app$run()
 \subsection{Method \code{new()}}{
 Create a new RDesk application
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{App$new(
-  title = "RDesk App",
-  width = 1200L,
-  height = 800L,
-  www = NULL,
-  icon = NULL
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{App$new(title, width = 1200L, height = 800L, www = NULL, icon = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -357,6 +356,19 @@ The App instance (invisible)
 Remove the system tray icon
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$remove_tray()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-service"></a>}}
+\if{latex}{\out{\hypertarget{method-App-service}{}}}
+\subsection{Method \code{service()}}{
+Service this app's pending native events
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$service()}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{

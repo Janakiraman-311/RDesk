@@ -14,7 +14,7 @@ async(
 }
 \arguments{
 \item{fn}{A function(payload) that performs the computation and returns
-a list to send back to the UI. Must be self-contained — do not
+a list to send back to the UI. Must be self-contained - do not
 reference variables from the parent environment directly.}
 
 \item{app}{The App instance. If NULL (default), attempts to resolve

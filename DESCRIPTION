@@ -1,14 +1,26 @@
 Package: RDesk
 Title: Native Desktop App Framework for R
 Version: 1.0.0
-Authors@R: person("Janakiraman", "G", email = "janakiraman@example.com", role = c("aut", "cre"))
-Description: A framework for building native R desktop applications.
+Authors@R: 
+    person("Janakiraman", "G",
+           email = "janakiraman.bt@gmail.com",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-6050-2318"))
+Description: A comprehensive framework for building native Windows desktop 
+    applications using R and WebView2. RDesk provides a robust R6-based 
+    event loop, asynchronous background task management via mirai/callr, 
+    and a native Win32 message bridge for seamless R-to-UI communication 
+    without listening ports or network overhead. It allows R developers 
+    to create professional, standalone desktop tools with modern web-based 
+    user interfaces while maintaining a pure R backend.
+OS_type: windows
 License: MIT + file LICENSE
 Encoding: UTF-8
+Language: en-US
 LazyData: true
 URL: https://github.com/Janakiraman-311/RDesk
 BugReports: https://github.com/Janakiraman-311/RDesk/issues
-SystemRequirements: Windows 10 or later, Rtools44
+SystemRequirements: Windows 10 or later, Rtools44 or later
     (https://cran.r-project.org/bin/windows/Rtools/),
     Microsoft WebView2 Runtime
     (https://developer.microsoft.com/microsoft-edge/webview2/)
@@ -36,6 +48,7 @@ Suggests:
     renv,
     broom,
     ggplot2,
-    dplyr
+    dplyr,
+    rstudioapi
 VignetteBuilder: knitr
 Config/testthat/edition: 3

@@ -42,7 +42,7 @@ and never launches the R installer. \code{"installer"} allows the legacy silent
 installer path explicitly.}
 
 \item{runtime_dir}{Optional path to an existing portable R runtime root
-containing \code{bin/}. When supplied, RDesk copies this runtime directly and
+containing \verb{bin/}. When supplied, RDesk copies this runtime directly and
 skips the download/extract step.}
 
 \item{overwrite}{If TRUE, overwrite existing output. Default FALSE.}
@@ -65,4 +65,16 @@ Path to the created zip file, invisibly.
 }
 \description{
 Build a self-contained distributable from an RDesk application
+}
+\examples{
+\dontrun{
+# Build the current app in the 'MyApp' directory
+build_app("MyApp")
+
+# Build with a specific R version and custom installer metadata
+build_app("MyApp", 
+          r_version = "4.4.2",
+          build_installer = TRUE,
+          publisher = "My Company")
+}
 }

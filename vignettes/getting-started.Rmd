@@ -116,7 +116,8 @@ RDesk::build_app(
 )
 ```
 
-The resulting `dist/MyCoolApp.zip` can be unzipped and run on any Windows machine—no R installation required by the end-user!
+The resulting `dist/MyCoolApp.zip` can be unzipped and run on any Windows machine-no
+R installation required by the end-user!
 
 If the build machine already has an R runtime you want to reuse, skip the portable-R download step entirely:
 

@@ -2,15 +2,50 @@
 % Please edit documentation in R/scaffold.R
 \name{rdesk_create_app}
 \alias{rdesk_create_app}
-\title{Create a new RDesk application project}
+\title{Create a new RDesk application with guided setup}
 \usage{
-rdesk_create_app(app_name, path = ".")
+rdesk_create_app(
+  name,
+  path = ".",
+  data_source = NULL,
+  viz_type = NULL,
+  use_async = NULL,
+  theme = "light",
+  open = TRUE
+)
 }
 \arguments{
-\item{app_name}{Name of the application}
+\item{name}{App name. Must be a valid directory name.}
 
-\item{path}{Directory where the project will be created}
+\item{path}{Directory to create the app in. Default is current directory.}
+
+\item{data_source}{One of "builtin", "csv", "database", "api".
+If NULL (default), prompts interactively.}
+
+\item{viz_type}{One of "charts", "tables", "mixed".
+If NULL, prompts interactively.}
+
+\item{use_async}{Logical. If NULL, prompts interactively.}
+
+\item{theme}{One of "light", "dark", "system". Default "light".}
+
+\item{open}{Logical. If TRUE and in RStudio, opens the new project. Default TRUE.}
+}
+\value{
+Path to the created app directory, invisibly.
 }
 \description{
-Create a new RDesk application project
+Create a new RDesk application with guided setup
+}
+\examples{
+\dontrun{
+# Create an app interactively (prompts in console)
+rdesk_create_app("MyVisualizer")
+
+# Create a specific app non-interactively
+rdesk_create_app("MyBatchApp",
+                 data_source = "csv",
+                 viz_type = "tables",
+                 use_async = TRUE)
+}
 }

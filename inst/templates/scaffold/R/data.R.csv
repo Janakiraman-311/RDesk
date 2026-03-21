@@ -1,0 +1,17 @@
+# {{APP_NAME}} - data loading
+# Data source: CSV file
+
+init_data <- function() {
+  # Returns NULL until the user loads a file via the File menu
+  NULL
+}
+
+load_csv <- function(path) {
+  tryCatch(
+    utils::read.csv(path, stringsAsFactors = FALSE),
+    error = function(e) {
+      warning("[{{APP_NAME}}] Could not read CSV: ", e$message)
+      NULL
+    }
+  )
+}

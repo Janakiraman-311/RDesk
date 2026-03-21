@@ -1,0 +1,19 @@
+# {{APP_NAME}} - chart rendering
+
+make_chart <- function(df, x_var = "wt", y_var = "mpg") {
+  p <- ggplot2::ggplot(df, ggplot2::aes(.data[[x_var]], .data[[y_var]])) +
+    ggplot2::geom_point(size = 3, alpha = 0.8,
+                        colour = "#378ADD") +
+    ggplot2::geom_smooth(method = "lm", se = FALSE,
+                          colour = "#1D9E75", linewidth = 0.8) +
+    ggplot2::theme_minimal(base_size = 13) +
+    ggplot2::labs(x = x_var, y = y_var)
+  plot_to_b64(p)
+}
+
+plot_to_b64 <- function(p, width = 8, height = 5, dpi = 150) {
+  tmp <- tempfile(fileext = ".png")
+  on.exit(unlink(tmp))
+  ggplot2::ggsave(tmp, p, width = width, height = height, dpi = dpi)
+  base64enc::base64encode(tmp)
+}

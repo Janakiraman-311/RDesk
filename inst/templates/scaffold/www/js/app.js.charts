@@ -1,0 +1,29 @@
+// {{APP_NAME}} - UI logic (Charts variant)
+
+rdesk.on("data_ready", function(data) {
+  if (data.chart) {
+    document.getElementById("main-chart").src = "data:image/png;base64," + data.chart;
+  }
+  updateStatus("Initial chart rendered");
+});
+
+rdesk.on("get_data_result", function(data) {
+  if (data.chart) {
+    document.getElementById("main-chart").src = "data:image/png;base64," + data.chart;
+  }
+  updateStatus("Chart refreshed");
+});
+
+rdesk.on("__loading__", function(state) {
+  updateStatus(state.active ? (state.message || "Working...") : "Ready");
+});
+
+function updateStatus(msg) {
+  var el = document.getElementById("status-label");
+  if (el) el.textContent = msg;
+}
+
+// Request data on load
+rdesk.ready(function() {
+  rdesk.send("get_data", {});
+});

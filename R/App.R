@@ -7,20 +7,25 @@
 #' @importFrom R6 R6Class
 NULL
 
-#' @title RDesk Application
-#' @description
 #' Create and launch a native desktop application window from R.
+#'
+#' @description
 #' Provides bidirectional native pipe communication between R and the UI.
 #'
 #' @examples
 #' \dontrun{
-#' app <- App$new(title = "My App", width = 1200, height = 800)
+#' app <- App$new(title = "Car Visualizer", width = 1200, height = 800)
+#' 
 #' app$on_ready(function() {
-#'   app$load_ui("www/index.html")
+#'   message("App is ready!")
 #' })
-#' app$on_message("ping", function(msg) {
-#'   app$send("pong", list(ts = Sys.time()))
+#' 
+#' # Handle messages from UI
+#' app$on_message("get_data", function(payload) {
+#'   list(cars = mtcars[1:5, ])
 #' })
+#' 
+#' # Start the app
 #' app$run()
 #' }
 #' @export
@@ -35,11 +40,15 @@ App <- R6::R6Class("App",
     #' @param www Directory containing HTML/CSS/JS assets (default: built-in template)
     #' @param icon Path to window icon file
     #' @return A new App instance
-    initialize = function(title  = "RDesk App",
+    initialize = function(title,
                           width  = 1200L,
                           height = 800L,
                           www    = NULL,
                           icon   = NULL) {
+      if (missing(title)) stop("Title is mandatory")
+      if (missing(width)) stop("Width is mandatory")
+      if (missing(height)) stop("Height is mandatory")
+
       private$.title  <- title
       private$.width  <- as.integer(width)
       private$.height <- as.integer(height)
@@ -189,7 +198,7 @@ App <- R6::R6Class("App",
       )
       invisible(self)
     },
-
+ 
     #' @description Show a loading state in the UI
     #' @param message Text shown under the spinner
     #' @param progress Optional numeric 0-100 for a progress bar
@@ -208,7 +217,7 @@ App <- R6::R6Class("App",
       ))
       invisible(self)
     },
-
+ 
     #' @description Update progress on an active loading state
     #' @param value Numeric 0-100
     #' @param message Optional updated message
@@ -218,13 +227,13 @@ App <- R6::R6Class("App",
       self$send("__loading__", payload)
       invisible(self)
     },
-
+ 
     #' @description Hide the loading state in the UI
     loading_done = function() {
       self$send("__loading__", list(active = FALSE, message = "", progress = NULL))
       invisible(self)
     },
-
+ 
     #' @description Show a non-blocking toast notification in the UI
     #' @param message Text to show
     #' @param type One of "info", "success", "warning", "error"
@@ -260,7 +269,7 @@ App <- R6::R6Class("App",
       private$.send_launcher_cmd("REMOVE_TRAY", queue_if_unavailable = TRUE)
       invisible(self)
     },
-
+ 
     #' @description Service this app's pending native events
     #' @return The App instance (invisible)
     service = function() {

@@ -132,3 +132,18 @@ rdesk_resolve_www <- function(www_dir) {
        "Working Directory: ", getwd(), "\n",
        "Tip: Try using an absolute path or ensure your 'www' folder is next to your script.")
 }
+
+#' Convert a data frame to a list suitable for JSON serialization
+#'
+#' @param df Data frame to convert
+#' @return A list with 'rows' (list of lists) and 'cols' (character vector)
+#' @export
+rdesk_df_to_list <- function(df) {
+  if (is.null(df) || nrow(df) == 0) {
+    return(list(rows = list(), cols = character(0)))
+  }
+  list(
+    rows = lapply(seq_len(nrow(df)), function(i) as.list(df[i, ])),
+    cols = names(df)
+  )
+}

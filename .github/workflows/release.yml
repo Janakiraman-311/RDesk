@@ -3,11 +3,12 @@ name: release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
 
 jobs:
   release:
     runs-on: windows-latest
+
     env:
       RENV_PATHS_LIBRARY: renv/library
       RENV_CONFIG_AUTOLOADER_ENABLED: false
@@ -16,8 +17,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -40,93 +39,31 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::devtools, any::rcmdcheck, any::callr, any::mirai
+          extra-packages: any::devtools, any::rcmdcheck, any::withr
 
-      - name: Install and Map Rtools
-        run: |
-          choco install rtools --version=4.5.6768 -y --allow-downgrade
-          $rtools = Get-ChildItem -Path C:\ -Filter "rtools*" -Directory | Select-Object -First 1
-          if ($rtools) {
-            echo "Found Rtools at $($rtools.FullName)"
-            echo "$($rtools.FullName)\usr\bin" >> $GITHUB_PATH
-            echo "$($rtools.FullName)\x86_64-w64-mingw32.static.posix\bin" >> $GITHUB_PATH
-          } else {
-            throw "Rtools 4.5 not found in C:\"
-          }
-
-      - name: Ensure CMake is available
-        run: |
-          $cmake = Get-Command cmake -ErrorAction SilentlyContinue
-          if (-not $cmake) {
-            choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          }
-          Get-Command cmake -ErrorAction Stop | Select-Object -ExpandProperty Source
-
-      - name: Verify build tools
-        run: |
-          g++ --version
-          gcc --version
-          cmake --version
-
-      - name: Prepare WebView2 SDK
-        run: |
-          [xml]$nuspec = Get-Content launcher_src\launcher\webview2_sdk\Microsoft.Web.WebView2.nuspec
-          $wvVersion = $nuspec.package.metadata.version
-          $zip = Join-Path $env:RUNNER_TEMP "webview2-sdk-$wvVersion.zip"
-          $extract = Join-Path $env:RUNNER_TEMP "webview2-sdk-$wvVersion"
-          Invoke-WebRequest "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/$wvVersion" -OutFile $zip
-          if (Test-Path $extract) { Remove-Item -Recurse -Force $extract }
-          Expand-Archive -Path $zip -DestinationPath $extract -Force
-          Copy-Item "$extract\build" launcher_src\launcher\webview2_sdk\build -Recurse -Force
-          Copy-Item "$extract\runtimes" launcher_src\launcher\webview2_sdk\runtimes -Recurse -Force
-
-      - name: Build launcher assets
-        shell: pwsh
-        run: |
-          cd launcher_src\launcher
-          if (!(Test-Path ..\..\inst\bin)) { New-Item -ItemType Directory -Path ..\..\inst\bin -Force }
-          
-          # Direct compilation via g++ (already on GITHUB_PATH from Step 7)
-          echo "Compiling launcher..."
-          g++ -std=c++17 -O2 -static -mwindows -o rdesk-launcher.exe main.cpp `
-              -Iwebview `
-              -I../../inst/include `
-              -Iwebview2_sdk/build/native/include `
-              -lole32 -lshell32 -lshlwapi -luser32 -lversion -lcomdlg32 -loleaut32 -luuid
-          
-          if ($LASTEXITCODE -ne 0) { throw "G++ compilation failed with exit code $LASTEXITCODE" }
-          
-          echo "Copying assets to inst/bin..."
-          Copy-Item rdesk-launcher.exe ..\..\inst\bin\rdesk-launcher.exe -Force
-          Copy-Item webview2_sdk\runtimes\win-x64\native\WebView2Loader.dll ..\..\inst\bin\WebView2Loader.dll -Force
-
-      - name: Install Inno Setup
-        run: choco install innosetup -y
-
-      - name: Build App and Installer
+      - name: Verify Rtools and Compilation
         shell: Rscript {0}
         run: |
           source("renv/activate.R")
-          install.packages(".", repos = NULL, type = "source")
-          RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser", build_installer = TRUE, portable_r_method = "installer")
+          devtools::install(pkg = ".", upgrade = FALSE, quick = TRUE)
+          launcher <- system.file("bin", "rdesk-launcher.exe", package = "RDesk")
+          if (launcher == "" || !file.exists(launcher)) {
+            stop("Launcher binary not found after installation!")
+          }
+          cat("Launcher verified at: ", launcher, "\n")
 
-      - name: Verify async stack
+      - name: Build App Bundles
         shell: Rscript {0}
         run: |
           source("renv/activate.R")
-          options(rdesk.async_backend = "callr")
-          library(RDesk)
-          stopifnot(requireNamespace("callr"), requireNamespace("mirai"))
-          fn <- RDesk::async(function(p) list(result = p[["x"]] * 2))
-          cat("async() wrapper created successfully\n")
+          # Build multiple demos for the release
+          RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser", version = "${{ github.ref_name }}")
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          name: RDesk ${{ github.ref_name }}
-          generate_release_notes: true
+          files: dist/*.zip
           draft: true
-          files: |
-            dist/*.zip
-            dist/*-setup.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

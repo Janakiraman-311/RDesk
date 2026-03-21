@@ -50,15 +50,28 @@ rdesk_stop_daemons <- function() {
 #'   cancelled and \code{on_error()} receives a timeout error.
 #' @param app_id Optional App ID used to associate a job with a specific app.
 #' @return Invisible job ID.
+#' @examples
+#' \dontrun{
+#' # Run a long-running computation in the background
+#' rdesk_async(
+#'   task = function(n) { Sys.sleep(2); sum(runif(n)) },
+#'   args = list(n = 1e6),
+#'   on_done = function(res) message("Task finished: ", res),
+#'   on_error = function(err) message("Task failed: ", err$message)
+#' )
+#' }
 #' @export
 rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL,
                         timeout_sec = NULL, app_id = NULL) {
+  if (missing(task) || is.null(task)) stop("Missing task function")
+  if (!is.function(task)) stop("task must be a function")
+
   # Generate a unique job ID
   job_id  <- paste0("job_", digest::digest(runif(1), algo = "crc32"))
   backend <- getOption("rdesk.async_backend", "callr")
 
   if (backend == "mirai" && requireNamespace("mirai", quietly = TRUE)) {
-    # mirai path — submit to persistent daemon pool
+    # mirai path - submit to persistent daemon pool
     # We use .expr to execute the task with provided args
     m <- mirai::mirai(
       .expr = do.call(task, args),
@@ -75,7 +88,7 @@ rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL,
       app_id = app_id
     )
   } else {
-    # callr fallback — on-demand process spawning
+    # callr fallback - on-demand process spawning
     job <- callr::r_bg(task, args = args, supervise = TRUE)
     
     .rdesk_jobs[[job_id]] <- list(
@@ -136,7 +149,7 @@ rdesk_poll_jobs <- function() {
 
     if (!is_done) next
 
-    # Job finished — remove from registry first to avoid re-polling
+    # Job finished - remove from registry first to avoid re-polling
     rm(list = id, envir = .rdesk_jobs)
 
     # Extract result or error based on backend
@@ -253,7 +266,7 @@ rdesk_jobs_list <- function() {
 #' to the UI as a message of type \code{<original_type>_result}.
 #'
 #' @param fn A function(payload) that performs the computation and returns
-#'   a list to send back to the UI. Must be self-contained — do not
+#'   a list to send back to the UI. Must be self-contained - do not
 #'   reference variables from the parent environment directly.
 #' @param app The App instance. If NULL (default), attempts to resolve
 #'   from the global registry. Explicitly passing `app = app` is
@@ -278,9 +291,11 @@ async <- function(fn,
                   loading_message = "Working...",
                   cancellable     = TRUE,
                   error_message   = "Error: ") {
+  
+  if (!is.function(fn)) stop("task must be a function")
 
   # Capture packages loaded NOW at registration time
-  # This is intentional — we snapshot the environment when the
+  # This is intentional - we snapshot the environment when the
   # developer calls async(), not when the task runs
   base_pkgs <- c("base", "methods", "datasets", "utils",
                  "grDevices", "graphics", "stats", "R6",
@@ -299,7 +314,7 @@ async <- function(fn,
 
   # Return the actual handler function
   wrapper <- function(payload) {
-    # Resolve app reference — try explicit param first, then global registry
+    # Resolve app reference - try explicit param first, then global registry
     app_obj <- app
     if (is.null(app_obj)) {
       app_ids <- ls(.rdesk_apps)
@@ -366,5 +381,10 @@ async <- function(fn,
   # Tag the wrapper so on_message() can inject the type
   attr(wrapper, "rdesk_async_wrapper") <- TRUE
   attr(wrapper, "rdesk_msg_type_env")  <- msg_type_env
+  
+  # Metadata for testing and internal identification
+  attr(wrapper, "is_rdesk_async")   <- TRUE
+  attr(wrapper, "loading_message") <- loading_message
+
   wrapper
 }

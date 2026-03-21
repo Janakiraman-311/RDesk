@@ -1,0 +1,16 @@
+# {{APP_NAME}} - data loading
+# Data source: Live API via httr2
+
+init_data <- function() {
+  # Example httr2 fetch logic
+  # req <- httr2::request("https://api.example.com/v1/data")
+  # resp <- httr2::req_perform(req)
+  # httr2::resp_body_json(resp)
+  
+  # For the scaffold demo, return a dummy table
+  data.frame(
+    event = c("API Call", "Fetch", "Result"),
+    code = c(200, 201, 200),
+    source = "Placeholder API"
+  )
+}
