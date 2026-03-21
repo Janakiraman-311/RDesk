@@ -144,8 +144,10 @@ build_app <- function(app_dir = ".",
   pkg_lib <- file.path(stage_root, "packages", "library")
   dir.create(pkg_lib, recursive = TRUE)
 
-  # Always include RDesk and its hard deps
-  core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "digest", "zip")
+  # Always include RDesk and its hard deps that might not be on CRAN
+  core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", 
+                 "ggplot2", "dplyr", "digest", "zip", "callr", "httpuv", 
+                 "mirai", "rcmdcheck", "renv", "rstudioapi")
   all_pkgs  <- unique(c(core_pkgs, include_packages))
 
   rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
