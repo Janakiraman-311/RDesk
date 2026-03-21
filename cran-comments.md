@@ -1,44 +1,41 @@
 ## R CMD check results
 
-0 errors | 1 warning | 3 notes
+0 errors | 1 warning | 2 notes
 
 ### Warning
 
-* `inst/include/nlohmann/json.hpp` contains diagnostic suppression pragmas.
-  This file is the nlohmann/json v3 single-header library, a widely-used
-  MIT-licensed C++ JSON library vendored directly into the package to avoid
-  external dependencies. The pragmas suppress known false-positive warnings
-  from MSVC and GCC when compiling third-party code. This is standard
-  practice for vendored C++ headers.
+* Two vendored third-party C++ headers contain diagnostic suppression pragmas:
+
+  1. `inst/include/nlohmann/json.hpp` -- the nlohmann/json v3 single-header
+     library, a widely-used MIT-licensed C++ JSON library. The pragmas
+     suppress known false-positive warnings from MSVC and GCC when
+     compiling third-party code.
+
+  2. `src/webview/webview.h` -- the webview library header providing the
+     cross-platform WebView2 wrapper. The pragmas suppress platform-specific
+     compiler warnings in the third-party integration layer.
+
+  Both files are vendored unchanged from their upstream sources and are
+  standard practice for C++ projects embedding third-party headers.
 
 ### Notes
 
-* New submission — expected.
+* Possibly misspelled words (RDesk, UI, WebView, callr, mirai): These are
+  technical terms specific to this package and its dependencies. All have
+  been added to inst/WORDLIST.
 
-* Maintainer email — I will respond promptly to the CRAN confirmation email.
+* New submission -- expected.
 
-* Non-portable C++ flag `-mwindows` in src/Makevars.win. This flag is
-  required for Windows GUI applications to suppress the console window
-  when launching the native WebView2 window. It is only present in
-  Makevars.win and only applies on Windows. The package declares
-  OS_type: windows in DESCRIPTION as this package is inherently
-  Windows-specific (it wraps Win32 APIs and Microsoft WebView2).
+* Non-portable C++ flag `-mwindows` in src/Makevars.win. Required for
+  Windows GUI applications to suppress the console window when launching
+  the native WebView2 window. Only present in Makevars.win, only applies
+  on Windows. Package declares OS_type: windows in DESCRIPTION.
 
-## Package notes
+## Winbuilder results
 
-This package is Windows-only (OS_type: windows). It wraps Win32 APIs
-and the Microsoft WebView2 runtime which are not available on other
-platforms. Installation on Linux/macOS will fail with an informative
-error message.
-
-The compiled launcher in src/ intentionally writes JSON to stdout as
-the designed IPC communication channel between the native window and
-the R backend process. This is not debug output -- it is the core
-messaging protocol of the framework.
-
-build_app() downloads a portable R runtime at app packaging time only,
-not at package install time. All examples and vignettes calling
-build_app() are wrapped in \dontrun{}.
-
-Checked with devtools::check_win_devel() and devtools::check_win_release()
-on DATE. No ERRORs. No WARNINGs. Notes as described above.
+Checked with devtools::check_win_release() on 2026-03-21.
+Status: 1 WARNING, 2 NOTEs -- all documented above.
+Installation: OK (23 seconds)
+Check: OK (74 seconds)
+R version: 4.5.3 (2026-03-11 ucrt)
+Launcher compiled successfully: rdesk-launcher.exe built via src/Makevars.win
