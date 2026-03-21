@@ -13,24 +13,18 @@ async(
 )
 }
 \arguments{
-\item{fn}{A function(payload) that performs the computation and returns
-a list to send back to the UI. Must be self-contained - do not
-reference variables from the parent environment directly.}
+\item{fn}{The handler function, taking a \code{payload} argument.}
 
-\item{app}{The App instance. If NULL (default), attempts to resolve
-from the global registry. Explicitly passing \code{app = app} is
-recommended for reliability.}
+\item{app}{The RDesk \code{App} instance. If NULL, tries to resolve from the global registry.}
 
-\item{loading_message}{Character string shown in the loading overlay.
-Default "Working..."}
+\item{loading_message}{Message to display in the UI overlay while working.}
 
-\item{cancellable}{Logical. If TRUE, shows a Cancel button. Default TRUE.}
+\item{cancellable}{Whether the UI should show a 'Cancel' button.}
 
-\item{error_message}{Character string prefix for error toasts.
-Default "Error: "}
+\item{error_message}{Prefix for toast notifications if the task fails.}
 }
 \value{
-A function suitable for use with \code{app$on_message()}
+A wrapped handler function suitable for \code{app$on_message()}.
 }
 \description{
 \code{async()} is the simplest way to make an RDesk message handler
@@ -38,10 +32,15 @@ non-blocking. Wrap any handler function with \code{async()} and RDesk
 automatically handles background execution, loading states, error toasts,
 and result routing.
 
-The wrapped function runs in an isolated worker process. All packages
-loaded in the main session at registration time are automatically
-reloaded in the worker. The return value is automatically sent back
-to the UI as a message of type \code{<original_type>_result}.
+\code{async()} transforms a standard RDesk message handler into a background task.
+The UI remains responsive while the task runs. When finished, a result
+message (e.g., \code{get_data_result}) is automatically sent back to the UI.
+}
+\details{
+To ensure the background worker has access to all application logic, RDesk
+automatically sources every \code{.R} file in the application's \verb{R/} directory
+before executing the task. It also snapshots currently loaded packages
+(excluding system packages) to recreate the environment.
 }
 \examples{
 \dontrun{

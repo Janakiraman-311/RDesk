@@ -26,98 +26,46 @@ RDesk requires **Windows 10 or later**, **Rtools44** (or 45), and the **Microsof
 library(RDesk)
 ```
 
-## 2. Your First App
+## 2. Your First App (The One-Click Way)
 
-An RDesk app consists of two main parts:
-1. An `app.R` file (R logic)
-2. A `www/` directory (HTML/JS/CSS)
-
-### Create the Structure
-
-```r
-dir.create("my_app/www", recursive = TRUE)
-```
-
-### The R Backend (`app.R`)
-
-In `app.R`, you define how R responds to messages from the UI:
+The fastest way to build an RDesk application is using the built-in scaffolding tool. This generates a professional "Hero Dashboard" with a sidebar, KPI cards, and an asynchronous charting engine.
 
 ```r
 library(RDesk)
 
-# Create the app object
-app <- App$new(
-  title  = "My First RDesk App",
-  width  = 800,
-  height = 600
-)
-
-# Handle the 'ready' event from JS
-app$on_message("ready", function(msg) {
-  app$toast("Welcome to RDesk!", type = "success")
-})
-
-# Handle custom triggers
-app$on_message("calculate", function(msg) {
-  result <- msg$val * 2
-  app$send("result_data", list(value = result))
-})
-
-# Run the app
-app$run()
+# Create a professional dashboard in a new directory
+RDesk::rdesk_create_app("MyDashboard", path = "C:/Desktop/MyApps")
 ```
 
-### The UI (`www/index.html`)
+### What's inside the generated app?
 
-The UI communicates with R using the global `rdesk` object:
+1.  **`app.R`**: The main entry point that initializes the `App` class.
+2.  **`R/server.R`**: Contains the message handlers for data refreshing and filtering.
+3.  **`R/plots.R`**: Logic for generating `ggplot2` charts (automatically converted to base64 for the UI).
+4.  **`www/`**: Modern HTML/JS/CSS assets with a responsive dashboard layout.
 
-```html
-<!DOCTYPE html>
-<html>
-<body>
-  <h1>RDesk Hello World</h1>
-  <input type="number" id="val" value="10">
-  <button onclick="calculate()">Double it!</button>
-  <h2 id="result">---</h2>
+### Running the App
 
-  <script src="/rdesk.js"></script>
-  <script>
-    function calculate() {
-      const v = document.getElementById('val').value;
-      rdesk.send('calculate', { val: parseFloat(v) });
-    }
-
-    rdesk.on('result_data', function(payload) {
-      document.getElementById('result').innerText = payload.value;
-    });
-
-    rdesk.ready(() => rdesk.send('ready', {}));
-  </script>
-</body>
-</html>
-```
-
-## 3. Running and Building
-
-To test your app during development:
+Once created, you can run your app directly from RStudio:
 
 ```r
-# Run directly from source
-# Rscript app.R
+setwd("C:/Desktop/MyApps/MyDashboard")
+source("app.R")
 ```
 
-To build a **standalone portable bundle** (a ZIP file containing R, your app, and a launcher):
+## 3. Building a Standalone Executable
+
+RDesk's core value is the ability to turn your R code into a standalone `.exe` that runs on any Windows machine without requiring a pre-installed R version.
 
 ```r
+# Build a portable ZIP bundle
 RDesk::build_app(
-  app_dir  = "my_app",
-  out_dir  = "dist",
-  app_name = "MyCoolApp"
+  app_dir  = "C:/Desktop/MyApps/MyDashboard",
+  app_name = "MyProfessionalApp"
 )
 ```
 
-The resulting `dist/MyCoolApp.zip` can be unzipped and run on any Windows machine-no
-R installation required by the end-user!
+The resulting `.zip` file in the `dist/` folder contains exactly what you need to distribute your tool. The end-user simply unzips and runs `MyProfessionalApp.exe`.
 
 If the build machine already has an R runtime you want to reuse, skip the portable-R download step entirely:
 

@@ -260,24 +260,22 @@ rdesk_jobs_list <- function() {
 #' automatically handles background execution, loading states, error toasts,
 #' and result routing.
 #'
-#' The wrapped function runs in an isolated worker process. All packages
-#' loaded in the main session at registration time are automatically
-#' reloaded in the worker. The return value is automatically sent back
-#' to the UI as a message of type \code{<original_type>_result}.
+#' `async()` transforms a standard RDesk message handler into a background task.
+#' The UI remains responsive while the task runs. When finished, a result
+#' message (e.g., `get_data_result`) is automatically sent back to the UI.
 #'
-#' @param fn A function(payload) that performs the computation and returns
-#'   a list to send back to the UI. Must be self-contained - do not
-#'   reference variables from the parent environment directly.
-#' @param app The App instance. If NULL (default), attempts to resolve
-#'   from the global registry. Explicitly passing `app = app` is
-#'   recommended for reliability.
-#' @param loading_message Character string shown in the loading overlay.
-#'   Default "Working..."
-#' @param cancellable Logical. If TRUE, shows a Cancel button. Default TRUE.
-#' @param error_message Character string prefix for error toasts.
-#'   Default "Error: "
+#' @details
+#' To ensure the background worker has access to all application logic, RDesk
+#' automatically sources every `.R` file in the application's `R/` directory
+#' before executing the task. It also snapshots currently loaded packages
+#' (excluding system packages) to recreate the environment.
 #'
-#' @return A function suitable for use with \code{app$on_message()}
+#' @param fn The handler function, taking a `payload` argument.
+#' @param app The RDesk `App` instance. If NULL, tries to resolve from the global registry.
+#' @param loading_message Message to display in the UI overlay while working.
+#' @param cancellable Whether the UI should show a 'Cancel' button.
+#' @param error_message Prefix for toast notifications if the task fails.
+#' @return A wrapped handler function suitable for `app$on_message()`.
 #'
 #' @examples
 #' \dontrun{
@@ -337,7 +335,7 @@ async <- function(fn,
 
     # Launch background task
     job_id <- rdesk_async(
-      task = function(.fn, .pkgs, .payload) {
+      task = function(.fn, .pkgs, .payload, .app_dir) {
         # Reload packages in isolated worker context
         invisible(lapply(.pkgs, function(p) {
           tryCatch(
@@ -346,13 +344,21 @@ async <- function(fn,
             error = function(e) NULL
           )
         }))
+        
+        # Source app modules to ensure handlers and helpers (like make_chart) are available
+        if (!is.null(.app_dir) && dir.exists(file.path(.app_dir, "R"))) {
+          r_files <- list.files(file.path(.app_dir, "R"), pattern = "\\.R$", full.names = TRUE)
+          invisible(lapply(r_files, source))
+        }
+        
         # Run the developer's function
         .fn(.payload)
       },
       args = list(
         .fn      = fn,
         .pkgs    = loaded_pkgs,
-        .payload = payload
+        .payload = payload,
+        .app_dir = if (!is.null(app_obj)) app_obj$get_dir() else NULL
       ),
       on_done = function(result) {
         app_obj$loading_done()

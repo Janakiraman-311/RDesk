@@ -5,7 +5,7 @@
 \title{Build a self-contained distributable from an RDesk application}
 \usage{
 build_app(
-  app_dir,
+  app_dir = ".",
   out_dir = "dist",
   app_name = NULL,
   version = NULL,

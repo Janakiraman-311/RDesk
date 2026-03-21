@@ -12,27 +12,62 @@
     <span class="app-subtitle">Built with RDesk</span>
   </header>
 
-  <main class="app-main">
-    <section class="controls-bar">
-      <button id="btn-refresh" onclick="rdesk.send('get_data', {})">
-        Refresh Data
-      </button>
-      <span id="status-label" class="status-label">Ready</span>
-    </section>
+  <div class="app-container">
+    <aside class="app-sidebar">
+      <div class="sidebar-group">
+        <label>Data Filter</label>
+        <select id="cyl-filter" onchange="rdesk.send('filter', { column: 'cyl', value: this.value })">
+          <option value="all">All Cylinders</option>
+          <option value="4">4 Cylinders</option>
+          <option value="6">6 Cylinders</option>
+          <option value="8">8 Cylinders</option>
+        </select>
+      </div>
+      <div class="sidebar-footer">
+        <button id="btn-refresh" class="btn-primary" onclick="rdesk.send('get_data', {})">
+          Refresh All
+        </button>
+      </div>
+    </aside>
 
-    <div class="dashboard-grid">
-      <section class="chart-section">
-        <img id="main-chart" class="chart-img" alt="Chart loading..." />
+    <main class="app-main">
+      <section class="kpi-bar">
+        <div class="kpi-card">
+          <div class="kpi-label">Avg MPG</div>
+          <div id="kpi-mpg" class="kpi-value">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total Rows</div>
+          <div id="kpi-count" class="kpi-value">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg HP</div>
+          <div id="kpi-hp" class="kpi-value">-</div>
+        </div>
       </section>
 
-      <section class="table-section">
-        <table id="data-table">
-          <thead id="table-head"></thead>
-          <tbody id="table-body"></tbody>
-        </table>
+      <section class="dashboard-grid">
+        <div class="chart-section">
+          <h3 class="section-title">MPG vs Weight</h3>
+          <img id="main-chart" class="chart-img" alt="Chart loading..." />
+        </div>
+
+        <div class="table-section">
+          <h3 class="section-title">Data Explorer</h3>
+          <div class="table-wrap">
+            <table id="data-table">
+              <thead id="table-head"></thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
-    </div>
-  </main>
+      
+      <div class="app-footer">
+        <span id="status-label" class="status-label">Ready</span>
+      </div>
+    </main>
+  </div>
 
   <script src="js/rdesk.js"></script>
   <script src="js/app.js"></script>

@@ -2,28 +2,38 @@
 
 rdesk.on("data_ready", function(data) {
   if (data.chart) {
-    document.getElementById("main-chart").src = "data:image/png;base64," + data.chart;
+    document.getElementById("main-chart").src = data.chart;
   }
+  if (data.kpis) updateKPIs(data.kpis);
   renderTable(data.rows, data.cols);
   updateStatus("Initial data rendered");
 });
 
 rdesk.on("get_data_result", function(data) {
   if (data.chart) {
-    document.getElementById("main-chart").src = "data:image/png;base64," + data.chart;
+    document.getElementById("main-chart").src = data.chart;
   }
+  if (data.kpis) updateKPIs(data.kpis);
   renderTable(data.rows, data.cols);
   updateStatus("Refreshed - " + data.rows.length + " rows");
 });
 
 rdesk.on("filter_result", function(result) {
   renderTable(result.data.rows, result.data.cols);
+  if (result.chart) document.getElementById("main-chart").src = result.chart;
+  if (result.kpis) updateKPIs(result.kpis);
   updateStatus("Showing " + result.count + " rows");
 });
 
 rdesk.on("__loading__", function(state) {
   updateStatus(state.active ? (state.message || "Working...") : "Ready");
 });
+
+function updateKPIs(kpis) {
+  document.getElementById("kpi-mpg").textContent = kpis.avg_mpg || "-";
+  document.getElementById("kpi-count").textContent = kpis.count || "-";
+  document.getElementById("kpi-hp").textContent = kpis.avg_hp || "-";
+}
 
 function renderTable(rows, cols) {
   var head = document.getElementById("table-head");

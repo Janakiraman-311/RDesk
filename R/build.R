@@ -123,6 +123,8 @@ build_app <- function(app_dir = ".",
   # ---- Step 3: Download and extract portable R -----------------------------
   stage_runtime_dir <- file.path(stage_root, "runtime", "R")
   dir.create(stage_runtime_dir, recursive = TRUE)
+  actual_r_version <- r_version
+  
   if (!is.null(user_runtime_dir)) {
     message("[RDesk] Step 3/6 - copying provided portable R runtime...")
     rdesk_copy_dir(user_runtime_dir, stage_runtime_dir)
@@ -131,13 +133,16 @@ build_app <- function(app_dir = ".",
     }
   } else {
     message("[RDesk] Step 3/6 - provisioning portable R ", r_version, "...")
-    rdesk_fetch_portable_r(
+    actual_r_version <- rdesk_fetch_portable_r(
       r_version = r_version,
       dest_dir = stage_runtime_dir,
       prune = prune_runtime,
       method = portable_r_method
     )
   }
+  
+  # Update r_version to the one actually provisioned
+  r_version <- actual_r_version
 
   # ---- Step 4: Bundle packages ---------------------------------------------
   message("[RDesk] Step 4/6 - bundling R packages...")
@@ -165,14 +170,23 @@ build_app <- function(app_dir = ".",
 
   if (is_rdesk_source) {
     message("[RDesk]     Source tree detected.")
-    utils::install.packages(
-      rdesk_src,
-      lib = pkg_lib,
-      repos = NULL,
-      type = "source",
-      dependencies = FALSE,
-      quiet = TRUE
-    )
+    # Build to binary zip to avoid 'in use' installation errors
+    tmp_bin <- file.path(tempdir(), "RDesk_bundle.zip")
+    suppressMessages(devtools::build(rdesk_src, binary = TRUE, path = tempdir(), quiet = TRUE))
+    # devtools::build returns the path, but find it just in case
+    zip_files <- list.files(tempdir(), pattern = "^RDesk_.*\\.zip$", full.names = TRUE)
+    if (length(zip_files) > 0) {
+      zip::unzip(zip_files[1], exdir = pkg_lib)
+      file.remove(zip_files)
+    } else {
+      # Fallback to direct library copy if build fails
+      installed_rdesk <- system.file(package = "RDesk")
+      if (nzchar(installed_rdesk)) {
+        rdesk_copy_dir(installed_rdesk, file.path(pkg_lib, "RDesk"))
+      } else {
+        stop("[build_app] Failed to build RDesk binary for bundling.")
+      }
+    }
   } else {
     installed_rdesk <- system.file(package = "RDesk")
     if (!nzchar(installed_rdesk)) {
@@ -331,47 +345,57 @@ rdesk_fetch_portable_r <- function(r_version,
                                    prune = TRUE,
                                    method = c("extract_only", "installer")) {
   method <- match.arg(method)
-  url <- paste0("https://cloud.r-project.org/bin/windows/base/R-", r_version, "-win.exe")
-  tmp_exe  <- file.path(tempdir(), paste0("R-", r_version, "-win.exe"))
-
-  if (!file.exists(tmp_exe)) {
+  
+  # Try primary first
+  url_primary <- paste0("https://cloud.r-project.org/bin/windows/base/R-", r_version, "-win.exe")
+  tmp_exe_primary <- file.path(tempdir(), paste0("R-", r_version, "-win.exe"))
+  
+  success <- FALSE
+  actual_v <- r_version
+  
+  if (file.exists(tmp_exe_primary)) {
+    success <- TRUE
+    final_exe <- tmp_exe_primary
+  } else {
     message("[RDesk]   Downloading R installer (~80MB)...")
     success <- tryCatch({
-      suppressWarnings(utils::download.file(url, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl"))
+      suppressWarnings(utils::download.file(url_primary, tmp_exe_primary, mode = "wb", quiet = FALSE, method = "libcurl"))
+      final_exe <- tmp_exe_primary
       TRUE
-    }, error = function(e) {
-      # Fallback 1: Try R-4.4.2 (a very stable, widely available version) if 4.5.1 fails
-      if (grepl("4.5", r_version)) {
-        message("[RDesk]   R 4.5.x not found on mirror. Falling back to stable R 4.4.2...")
-        url_fallback <- "https://cloud.r-project.org/bin/windows/base/old/4.4.2/R-4.4.2-win.exe"
-        tryCatch({
-           suppressWarnings(utils::download.file(url_fallback, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl"))
-           TRUE
-        }, error = function(e2) FALSE)
+    }, error = function(e) { FALSE })
+    
+    if (!success && grepl("4.5", r_version)) {
+      message("[RDesk]   R 4.5.x not found on mirror. Falling back to stable R 4.4.2...")
+      actual_v <- "4.4.2"
+      url_fallback <- "https://cloud.r-project.org/bin/windows/base/old/4.4.2/R-4.4.2-win.exe"
+      tmp_exe_fallback <- file.path(tempdir(), "R-4.4.2-win.exe")
+      
+      if (file.exists(tmp_exe_fallback)) {
+        final_exe <- tmp_exe_fallback
+        success <- TRUE
       } else {
-        url_alt <- paste0("https://cloud.r-project.org/bin/windows/base/old/", r_version, "/R-", r_version, "-win.exe")
-        message("[RDesk]   Retrying from: ", url_alt)
-        tryCatch({
-          suppressWarnings(utils::download.file(url_alt, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl"))
+        success <- tryCatch({
+          suppressWarnings(utils::download.file(url_fallback, tmp_exe_fallback, mode = "wb", quiet = FALSE, method = "libcurl"))
+          final_exe <- tmp_exe_fallback
           TRUE
         }, error = function(e2) FALSE)
       }
-    })
-    
-    if (!success) stop("[build_app] Failed to download R installer (tried primary, fallback 4.4.2, and archive).")
+    }
   }
-
-  message("[RDesk]   Preparing R runtime (this takes ~60 seconds)...")
-  tmp_extract <- file.path(tempdir(), paste0("R-", r_version, "-extract"))
+  
+  if (!success) stop("[build_app] Failed to download R installer (tried 4.5.x and 4.4.2).")
+  
+  message("[RDesk]   Preparing R runtime (", actual_v, ") (this takes ~60 seconds)...")
+  tmp_extract <- file.path(tempdir(), paste0("R-", actual_v, "-extract"))
   if (dir.exists(tmp_extract)) unlink(tmp_extract, recursive = TRUE)
   dir.create(tmp_extract, recursive = TRUE)
 
   if (method == "extract_only") {
     sevenzip <- rdesk_find_7zip()
-    ret <- system2(sevenzip, args = c("x", "-y", paste0("-o", normalizePath(tmp_extract, winslash = "\\")), normalizePath(tmp_exe, winslash = "\\")), stdout = FALSE, stderr = FALSE)
+    ret <- system2(sevenzip, args = c("x", "-y", paste0("-o", normalizePath(tmp_extract, winslash = "\\")), normalizePath(final_exe, winslash = "\\")), stdout = FALSE, stderr = FALSE)
     if (!identical(ret, 0L)) stop("[build_app] Failed to extract the R installer with standalone 7-Zip.")
   } else {
-    install_cmd <- sprintf('"%s" /SILENT /DIR="%s" /COMPONENTS="main,x64"', normalizePath(tmp_exe), normalizePath(tmp_extract))
+    install_cmd <- sprintf('"%s" /SILENT /DIR="%s" /COMPONENTS="main,x64"', normalizePath(final_exe), normalizePath(tmp_extract))
     ret <- system(install_cmd, wait = TRUE, show.output.on.console = FALSE)
     if (!identical(ret, 0L)) stop("[build_app] Silent installation of R failed.")
   }
@@ -380,6 +404,8 @@ rdesk_fetch_portable_r <- function(r_version,
   if (is.null(r_root)) stop("[build_app] Could not locate the extracted R runtime.")
   rdesk_copy_dir(r_root, dest_dir)
   if (prune) rdesk_prune_runtime(dest_dir)
+  
+  return(actual_v)
 }
 
 rdesk_prune_runtime <- function(runtime_dir) {
@@ -410,8 +436,20 @@ rdesk_install_packages_to <- function(pkgs, lib_dir, r_version) {
   all_deps <- rdesk_resolve_deps(pkgs, avail)
   all_deps <- setdiff(all_deps, "RDesk")
   target_repos <- sprintf("https://cloud.r-project.org/bin/windows/contrib/%s", minor)
+  
   if (length(all_deps) > 0) {
+    message("[RDesk]   Downloading ", length(all_deps), " packages...")
     utils::install.packages(all_deps, lib = lib_dir, contriburl = target_repos, type = "win.binary", quiet = FALSE, dependencies = FALSE)
+  }
+  
+  # Final verification of bundled critical packages
+  critical <- intersect(all_deps, c("callr", "mirai", "nanonext", "ggplot2", "processx"))
+  found <- list.dirs(lib_dir, full.names = FALSE, recursive = FALSE)
+  missing <- setdiff(critical, found)
+  if (length(missing) > 0) {
+    stop("[build_app] CRITICAL FAILURE: The following core dependencies failed to bundle:\n",
+         paste("  -", missing, collapse = "\n"),
+         "\nThis is likely due to a CRAN mirror issue or package availability for R ", r_version)
   }
 }
 

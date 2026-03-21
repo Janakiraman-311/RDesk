@@ -2,7 +2,7 @@
 % Please edit documentation in R/scaffold.R
 \name{rdesk_create_app}
 \alias{rdesk_create_app}
-\title{Create a new RDesk application with guided setup}
+\title{Create a new RDesk application (Single-Hero Dashboard)}
 \usage{
 rdesk_create_app(
   name,
@@ -19,33 +19,30 @@ rdesk_create_app(
 
 \item{path}{Directory to create the app in. Default is current directory.}
 
-\item{data_source}{One of "builtin", "csv", "database", "api".
-If NULL (default), prompts interactively.}
+\item{data_source}{Internal use. Defaults to "builtin".}
 
-\item{viz_type}{One of "charts", "tables", "mixed".
-If NULL, prompts interactively.}
+\item{viz_type}{Internal use. Defaults to "mixed".}
 
-\item{use_async}{Logical. If NULL, prompts interactively.}
+\item{use_async}{Internal use. Defaults to TRUE.}
 
-\item{theme}{One of "light", "dark", "system". Default "light".}
+\item{theme}{One of "light", "dark", "system". Default "system".}
 
-\item{open}{Logical. If TRUE and in RStudio, opens the new project. Default TRUE.}
+\item{open}{Logical. If TRUE and in RStudio, opens the new project in a new session.}
 }
 \value{
 Path to the created app directory, invisibly.
 }
 \description{
-Create a new RDesk application with guided setup
+Scaffolds a professional RDesk application with a modern dashboard layout.
+The app includes a sidebar for filters, KPI cards, and an asynchronous
+ggplot2 charting engine fueled by mtcars (default).
 }
 \examples{
 \dontrun{
-# Create an app interactively (prompts in console)
-rdesk_create_app("MyVisualizer")
+# Create the Professional Hero Dashboard
+rdesk_create_app("MyDashboard")
 
-# Create a specific app non-interactively
-rdesk_create_app("MyBatchApp",
-                 data_source = "csv",
-                 viz_type = "tables",
-                 use_async = TRUE)
+# Create with a specific theme
+rdesk_create_app("DarkDash", theme = "dark")
 }
 }

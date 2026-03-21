@@ -2,13 +2,9 @@
 # Generated: {{DATE}}
 
 # Resolve app directory
-app_dir <- tryCatch(
-  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) getwd()
-  else dirname(rstudioapi::getActiveDocumentContext()$path),
-  error = function(e) getwd()
-)
+app_dir <- getwd()
 
-# Load RDesk — dev mode or installed
+# Load RDesk - dev mode or installed
 pkg_root <- dirname(dirname(dirname(app_dir)))
 is_dev   <- file.exists(file.path(pkg_root, "DESCRIPTION")) &&
             file.exists(file.path(pkg_root, "R", "App.R"))

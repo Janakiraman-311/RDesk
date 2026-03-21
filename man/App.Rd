@@ -43,6 +43,7 @@ app$run()
 \item \href{#method-App-remove_tray}{\code{App$remove_tray()}}
 \item \href{#method-App-service}{\code{App$service()}}
 \item \href{#method-App-quit}{\code{App$quit()}}
+\item \href{#method-App-get_dir}{\code{App$get_dir()}}
 \item \href{#method-App-run}{\code{App$run()}}
 \item \href{#method-App-clone}{\code{App$clone()}}
 }
@@ -379,11 +380,27 @@ The App instance (invisible)
 \if{html}{\out{<a id="method-App-quit"></a>}}
 \if{latex}{\out{\hypertarget{method-App-quit}{}}}
 \subsection{Method \code{quit()}}{
-Close the window and stop the app
+Close the window and stop the app's event loop.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{App$quit()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-get_dir"></a>}}
+\if{latex}{\out{\hypertarget{method-App-get_dir}{}}}
+\subsection{Method \code{get_dir()}}{
+Get the application root directory (where www/ and R/ are located).
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$get_dir()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+Character string path.
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-run"></a>}}

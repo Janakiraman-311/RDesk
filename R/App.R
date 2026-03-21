@@ -277,7 +277,8 @@ App <- R6::R6Class("App",
       invisible(self)
     },
  
-    #' @description Close the window and stop the app
+    #' @description Close the window and stop the app's event loop.
+    #' @return The App instance (invisible)
     quit = function() {
       private$.running <- FALSE
       # Also remove from global registry if present
@@ -286,7 +287,13 @@ App <- R6::R6Class("App",
       }
       invisible(self)
     },
- 
+
+    #' @description Get the application root directory (where www/ and R/ are located).
+    #' @return Character string path.
+    get_dir = function() {
+      dirname(private$.www)
+    },
+    
     #' @description Start the application - opens the window
     #' @param block If TRUE (default), blocks with an event loop until the window is closed.
     run = function(block = TRUE) {

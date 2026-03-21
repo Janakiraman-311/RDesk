@@ -1,25 +1,26 @@
-#' Create a new RDesk application with guided setup
+#' Create a new RDesk application (Single-Hero Dashboard)
+#'
+#' @description
+#' Scaffolds a professional RDesk application with a modern dashboard layout.
+#' The app includes a sidebar for filters, KPI cards, and an asynchronous
+#' ggplot2 charting engine fueled by mtcars (default).
 #'
 #' @param name App name. Must be a valid directory name.
 #' @param path Directory to create the app in. Default is current directory.
-#' @param data_source One of "builtin", "csv", "database", "api".
-#'   If NULL (default), prompts interactively.
-#' @param viz_type One of "charts", "tables", "mixed".
-#'   If NULL, prompts interactively.
-#' @param use_async Logical. If NULL, prompts interactively.
-#' @param theme One of "light", "dark", "system". Default "light".
-#' @param open Logical. If TRUE and in RStudio, opens the new project. Default TRUE.
+#' @param theme One of "light", "dark", "system". Default "system".
+#' @param open Logical. If TRUE and in RStudio, opens the new project in a new session.
+#' @param data_source Internal use. Defaults to "builtin".
+#' @param viz_type Internal use. Defaults to "mixed".
+#' @param use_async Internal use. Defaults to TRUE.
+#'
 #' @return Path to the created app directory, invisibly.
 #' @examples
 #' \dontrun{
-#' # Create an app interactively (prompts in console)
-#' rdesk_create_app("MyVisualizer")
+#' # Create the Professional Hero Dashboard
+#' rdesk_create_app("MyDashboard")
 #' 
-#' # Create a specific app non-interactively
-#' rdesk_create_app("MyBatchApp",
-#'                  data_source = "csv",
-#'                  viz_type = "tables",
-#'                  use_async = TRUE)
+#' # Create with a specific theme
+#' rdesk_create_app("DarkDash", theme = "dark")
 #' }
 #' @export
 rdesk_create_app <- function(name,
@@ -41,54 +42,11 @@ rdesk_create_app <- function(name,
          "letters, numbers, dots, hyphens, or underscores.")
   }
 
-  # Interactive prompts - only when running interactively and args not supplied
-  is_interactive <- interactive() && is.null(data_source)
-
-  if (is_interactive) {
-    cat("\n[RDesk] Creating new app:", name, "\n\n")
-
-    data_source <- rdesk_prompt_choice(
-      question = "What data source will your app use?",
-      choices  = c(
-        "builtin"  = "Built-in R datasets (good for learning RDesk)",
-        "csv"      = "CSV / Excel files (local file loading)",
-        "database" = "Database via DBI (SQL databases)",
-        "api"      = "Live API / web data"
-      )
-    )
-
-    viz_type <- rdesk_prompt_choice(
-      question = "What is the primary visualisation?",
-      choices  = c(
-        "charts"  = "Charts (ggplot2 plots)",
-        "tables"  = "Data tables (summary + filtering)",
-        "mixed"   = "Full dashboard (charts + tables + stats)"
-      )
-    )
-
-    use_async_choice <- rdesk_prompt_choice(
-      question = "Do you need background processing?",
-      choices  = c(
-        "yes" = "Yes - my computations take more than 1 second",
-        "no"  = "No - keep it simple"
-      )
-    )
-    use_async <- use_async_choice == "yes"
-
-    theme <- rdesk_prompt_choice(
-      question = "Colour theme?",
-      choices  = c(
-        "light"  = "Light",
-        "dark"   = "Dark",
-        "system" = "System default"
-      )
-    )
-  } else {
-    # Non-interactive defaults
-    if (is.null(data_source)) data_source <- "builtin"
-    if (is.null(viz_type))    viz_type    <- "mixed"
-    if (is.null(use_async))   use_async   <- TRUE
-  }
+  # Simply default to the Hero (Advanced Dashboard) automatically
+  if (is.null(data_source)) data_source <- "builtin"
+  if (is.null(viz_type))    viz_type    <- "mixed"
+  if (is.null(use_async))   use_async   <- TRUE
+  if (is.null(theme))       theme       <- "system"
 
   # Ensure length 1 for all parameters
   data_source <- as.character(data_source)[1]
@@ -129,63 +87,21 @@ rdesk_create_app <- function(name,
 }
 
 
-#' Internal prompt helper
-#' @keywords internal
-rdesk_prompt_choice <- function(question, choices) {
-  cat(question, "\n")
-  nms <- names(choices)
-  for (i in seq_along(choices)) {
-    cat(sprintf("  %d. %s\n", i, choices[i]))
-  }
-  repeat {
-    cat("> ")
-    input <- trimws(readLines(con = stdin(), n = 1, warn = FALSE))
-    idx   <- suppressWarnings(as.integer(input))
-    if (!is.na(idx) && idx >= 1 && idx <= length(choices)) {
-      cat("\n")
-      return(nms[idx])
-    }
-    # Also accept the key directly (e.g. "csv", "builtin")
-    if (input %in% nms) {
-      cat("\n")
-      return(input)
-    }
-    cat("  Please enter a number between 1 and", length(choices), "\n")
-  }
-}
-
-
 #' Internal success message
 #' @keywords internal
 rdesk_scaffold_success_msg <- function(name, app_dir, data_source, viz_type, use_async) {
-  async_note <- if (use_async) "async() background processing" else "synchronous handlers"
-  data_note  <- switch(data_source,
-    builtin  = "mtcars built-in dataset",
-    csv      = "CSV file loader with dialog",
-    database = "DBI database connection template",
-    api      = "httr2 API fetch template",
-    "custom data source"
-  )
-  viz_note <- switch(viz_type,
-    charts = "ggplot2 chart panel",
-    tables = "sortable data table",
-    mixed  = "full dashboard: charts + table + KPI cards",
-    "visualization suite"
-  )
-
-  cat("\n[RDesk] Created:", app_dir, "\n")
-  cat("[RDesk] Your app includes:\n")
-  cat("  -", data_note, "\n")
-  cat("  -", viz_note, "\n")
-  cat("  -", async_note, "\n")
-  cat("  - Native Win32 menu (File, Help)\n")
-  cat("  - Loading overlay already wired up\n")
+  cat("\n[RDesk] Successfully created:", app_dir, "\n")
+  cat("[RDesk] Your Professional Dashboard includes:\n")
+  cat("  - Mixed visualization (Charts + Tables)\n")
+  cat("  - Built-in KPI cards system\n")
+  cat("  - Sidebar filtering engine\n")
+  cat("  - Background processing (Async Workers)\n")
   cat("\n[RDesk] Run it now:\n")
-  cat(sprintf("  setwd(\"%s\")\n", normalizePath(app_dir, winslash = "/")))
+  cat(sprintf("  setwd(%s)\n", shQuote(normalizePath(app_dir, winslash = "\\"))))
   cat("  source(\"app.R\")\n\n")
-  cat("[RDesk] Build a distributable when ready:\n")
-  cat(sprintf("  RDesk::build_app(app_dir = \"%s\", app_name = \"%s\")\n\n",
-              normalizePath(app_dir, winslash = "/"), name))
+  cat("[RDesk] Build your executable when ready:\n")
+  cat(sprintf("  RDesk::build_app(app_dir = %s, app_name = %s)\n\n",
+              shQuote(normalizePath(app_dir, winslash = "\\")), shQuote(name)))
 }
 
 
