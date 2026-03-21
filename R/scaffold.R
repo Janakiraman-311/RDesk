@@ -231,6 +231,7 @@ rdesk_scaffold_files <- function(app_dir, name, data_source,
                         variant = theme)
   rdesk_write_template("www/js/app.js",   file.path(app_dir, "www", "js", "app.js"), vars,
                         variant = viz_type)
+  rdesk_write_template("data/README.md",  file.path(app_dir, "data", "README.md"), vars)
 
   # Copy rdesk.js from package
   rdesk_js_src <- system.file("www", "rdesk.js", package = "RDesk")
