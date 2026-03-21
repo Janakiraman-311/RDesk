@@ -1,0 +1,10 @@
+# R/plots.R.api
+# API-driven visualizations for RDesk
+
+#' Render the main visual from API data
+#' @param data Reactive data source (API response)
+#' @return A ggplot2 object
+render_app_plot <- function(data) {
+  # Add your API visualization logic here
+  NULL
+}

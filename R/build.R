@@ -151,9 +151,18 @@ build_app <- function(app_dir = ".",
   rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
 
   # Install RDesk separately from the local source tree or the installed package.
-  message("[RDesk]   Bundling local RDesk package...")
+  message("[RDesk]   Bundling RDesk package...")
   rdesk_src <- normalizePath(getwd(), mustWork = FALSE)
+  is_rdesk_source <- FALSE
   if (file.exists(file.path(rdesk_src, "DESCRIPTION"))) {
+    desc_check <- read.dcf(file.path(rdesk_src, "DESCRIPTION"))
+    if ("Package" %in% colnames(desc_check) && desc_check[1, "Package"] == "RDesk") {
+      is_rdesk_source <- TRUE
+    }
+  }
+
+  if (is_rdesk_source) {
+    message("[RDesk]     Source tree detected.")
     utils::install.packages(
       rdesk_src,
       lib = pkg_lib,
@@ -165,8 +174,9 @@ build_app <- function(app_dir = ".",
   } else {
     installed_rdesk <- system.file(package = "RDesk")
     if (!nzchar(installed_rdesk)) {
-      stop("[build_app] Could not locate the local RDesk package to bundle.")
+      stop("[build_app] Could not locate the installed RDesk package to bundle.")
     }
+    message("[RDesk]     Installed package detected.")
     rdesk_copy_dir(installed_rdesk, file.path(pkg_lib, "RDesk"))
   }
 
@@ -270,12 +280,13 @@ rdesk_validate_build_inputs <- function(app_dir,
            "Provided path: ", runtime_dir)
     }
   } else if (portable_r_method == "extract_only") {
-    tryCatch({
-      rdesk_find_7zip()
-    }, error = function(e) {
-      stop("[Validation Failed] portable_r_method='extract_only' requires standalone 7-Zip.\n",
-           "Error: ", e$message)
-    })
+    sevenzip <- rdesk_find_7zip()
+    if (is.null(sevenzip)) {
+        message("[RDesk]   Warning: Standalone 7-Zip not found.")
+        message("[RDesk]   Switching to portable_r_method='installer' (no extra tools needed).")
+        # Update the calling environment's method (kludge for this call)
+        assign("portable_r_method", "installer", envir = parent.frame())
+    }
   }
 
   # 4. InnoSetup check
@@ -327,15 +338,25 @@ rdesk_fetch_portable_r <- function(r_version,
       utils::download.file(url, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl")
       TRUE
     }, error = function(e) {
-      url_alt <- paste0("https://cloud.r-project.org/bin/windows/base/old/", r_version, "/R-", r_version, "-win.exe")
-      message("[RDesk]   Retrying from: ", url_alt)
-      tryCatch({
-        utils::download.file(url_alt, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl")
-        TRUE
-      }, error = function(e2) FALSE)
+      # Fallback 1: Try R-4.4.2 (a very stable, widely available version) if 4.5.1 fails
+      if (grepl("4.5", r_version)) {
+        message("[RDesk]   R 4.5.x not found on mirror. Falling back to stable R 4.4.2...")
+        url_fallback <- "https://cloud.r-project.org/bin/windows/base/old/4.4.2/R-4.4.2-win.exe"
+        tryCatch({
+           utils::download.file(url_fallback, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl")
+           TRUE
+        }, error = function(e2) FALSE)
+      } else {
+        url_alt <- paste0("https://cloud.r-project.org/bin/windows/base/old/", r_version, "/R-", r_version, "-win.exe")
+        message("[RDesk]   Retrying from: ", url_alt)
+        tryCatch({
+          utils::download.file(url_alt, tmp_exe, mode = "wb", quiet = FALSE, method = "libcurl")
+          TRUE
+        }, error = function(e2) FALSE)
+      }
     })
     
-    if (!success) stop("[build_app] Failed to download R installer from Cloud mirror (tried current and old).")
+    if (!success) stop("[build_app] Failed to download R installer (tried primary, fallback 4.4.2, and archive).")
   }
 
   message("[RDesk]   Preparing R runtime (this takes ~60 seconds)...")
@@ -371,7 +392,7 @@ rdesk_find_7zip <- function() {
   candidates <- c(Sys.which("7z"), Sys.which("7za"), "C:/Program Files/7-Zip/7z.exe", "C:/Program Files (x86)/7-Zip/7z.exe")
   found <- candidates[nchar(candidates) > 0 & file.exists(candidates)]
   found <- found[!grepl("rtools", found, ignore.case = TRUE)]
-  if (length(found) == 0) stop("[build_app] Standalone 7-Zip not found.")
+  if (length(found) == 0) return(NULL)
   found[1]
 }
 

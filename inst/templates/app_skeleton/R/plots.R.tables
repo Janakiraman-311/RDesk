@@ -1,0 +1,8 @@
+# R/plots.R.tables
+# Table-centric apps do not usually require a plots.R file, 
+# but this file is kept for consistency.
+
+#' Placeholder for future visualizations
+render_app_plot <- function(data) {
+  NULL
+}
