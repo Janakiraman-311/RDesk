@@ -147,7 +147,7 @@ build_app <- function(app_dir = ".",
   # Always include RDesk and its hard deps that might not be on CRAN
   core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", 
                  "ggplot2", "dplyr", "digest", "zip", "callr", "httpuv", 
-                 "mirai", "rcmdcheck", "renv", "rstudioapi")
+                 "mirai", "nanonext", "rcmdcheck", "renv", "rstudioapi")
   all_pkgs  <- unique(c(core_pkgs, include_packages))
 
   rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
@@ -424,9 +424,15 @@ rdesk_resolve_deps <- function(pkgs, avail) {
     if (pkg %in% resolved || pkg %in% base_pkgs || pkg == "RDesk") next
     resolved <- c(resolved, pkg)
     if (!is.null(avail) && pkg %in% rownames(avail)) {
-      deps_str <- avail[pkg, "Imports"]
-      if (!is.na(deps_str) && nchar(deps_str) > 0) {
+      # Check both Depends and Imports for binary transparency
+      dep_fields <- avail[pkg, c("Depends", "Imports")]
+      dep_fields <- dep_fields[!is.na(dep_fields) & nchar(dep_fields) > 0]
+      deps_str <- paste(dep_fields, collapse = ", ")
+      
+      if (nchar(deps_str) > 0) {
         dep_names <- trimws(gsub("\\s*\\(.*?\\)", "", strsplit(deps_str, ",")[[1]]))
+        # Filter out R itself from Depends
+        dep_names <- dep_names[dep_names != "R"]
         queue <- c(queue, setdiff(dep_names[nchar(dep_names) > 0], c(resolved, base_pkgs)))
       }
     }

@@ -2,9 +2,7 @@
 # Full dashboard visualizations for RDesk
 
 #' Render the main chart
-#' @param data Reactive data source
-#' @return A ggplot2 object
-render_app_plot <- function(data) {
+make_chart <- function(data) {
   if (is.null(data) || nrow(data) == 0) return(NULL)
   
   ggplot2::ggplot(data, ggplot2::aes(x = wt, y = mpg)) +
