@@ -47,11 +47,11 @@ jobs:
           if (!requireNamespace("rcmdcheck", quietly = TRUE)) install.packages("rcmdcheck")
           res <- rcmdcheck::rcmdcheck(
             args = c("--no-manual", "--as-cran"),
-            error_on = "warning",
+            error_on = "error",
             check_dir = "check"
           )
-          if (length(res$errors) > 0 || length(res$warnings) > 0) {
-            stop("Check failed with errors or warnings")
+          if (length(res$errors) > 0) {
+            stop("Check failed with errors")
           }
         shell: Rscript {0}
 

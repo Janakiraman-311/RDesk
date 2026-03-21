@@ -37,9 +37,9 @@ launcher_src/launcher/out/
 launcher_src/launcher/x64/
 launcher_src/launcher/ARM64/
 
-# Webview2 SDK Binaries (should be fetched or ignored if pre-bundled)
-**/webview2_sdk/native/
-**/webview2_sdk/build/
+# Webview2 SDK Binaries (explicitly tracked in src/webview2_sdk)
+!src/webview2_sdk/build/
+!src/webview2_sdk/**/*.lib
 
 # WebView2 SDK Tools
 **/wv2winrt.exe
