@@ -26,9 +26,9 @@ RDesk requires **Windows 10 or later**, **Rtools44** (or 45), and the **Microsof
 library(RDesk)
 ```
 
-## 2. Your First App (The One-Click Way)
-
 The fastest way to build an RDesk application is using the built-in scaffolding tool. This generates a professional "Hero Dashboard" with a sidebar, KPI cards, and an asynchronous charting engine.
+
+![RDesk Hero Dashboard Landing Page](../man/figures/landing.png)
 
 ```r
 library(RDesk)

@@ -12,6 +12,8 @@ vignette: >
 RDesk provides three levels of async support. Start at Tier 1.
 Move to Tier 2 or 3 only when you need something Tier 1 cannot do.
 
+![RDesk Loading Overlay & Progress Hook](../man/figures/loading.png)
+
 ### Tier 1 -- async() wrapper (recommended)
 
 Wrap any message handler with `async()`. RDesk handles everything else.

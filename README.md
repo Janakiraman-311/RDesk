@@ -4,6 +4,8 @@
 [![build-app](https://github.com/Janakiraman-311/RDesk/actions/workflows/build-app.yml/badge.svg)](https://github.com/Janakiraman-311/RDesk/actions/workflows/build-app.yml)
 [![pkgdown](https://github.com/Janakiraman-311/RDesk/actions/workflows/pkgdown.yaml/badge.svg)](https://janakiraman-311.github.io/RDesk/)
 
+![RDesk CarsAnalyser Demo](man/figures/landing.png)
+
 **Build native Windows desktop applications with R.**
 
 RDesk turns your R code into a standalone .exe that runs on any

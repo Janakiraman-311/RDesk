@@ -30,6 +30,9 @@ app$on_message("load_file", function(payload) {
 
 ## Render a ggplot2 chart
 
+![RDesk Explorer Boxplot](../man/figures/explorer_boxplot.png)
+![RDesk Models Page](../man/figures/models.png)
+
 ```r
 app$on_message("get_chart", async(function(payload) {
   p <- ggplot2::ggplot(mtcars,
