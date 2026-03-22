@@ -1,4 +1,4 @@
-## R CMD check results (v1.0.1)
+## R CMD check results (v1.0.0)
 
 0 errors | 1 warning | 1 note
 
@@ -31,11 +31,18 @@
   the native WebView2 window. Only present in Makevars.win, only applies
   on Windows. Package declares OS_type: windows in DESCRIPTION.
 
+## Release Hardening (v1.0.0)
+
+The v1.0.0 Hardened Release incorporates several late-stage lifecycle features:
+- Added a professional **platform guard** message for macOS/Linux users.
+- Implemented `rdesk_auto_update()` for automated, silent enterprise deployments.
+- Measured and optimized bundled app size (down to ~60MB with pruning).
+
 ## Winbuilder results
 
 Checked with devtools::check_win_release() on 2026-03-21.
 Status: 1 WARNING, 2 NOTEs -- all documented above.
-Installation: OK (23 seconds)
-Check: OK (74 seconds)
+Installation: OK
+Check: OK
 R version: 4.5.3 (2026-03-11 ucrt)
 Launcher compiled successfully: rdesk-launcher.exe built via src/Makevars.win
