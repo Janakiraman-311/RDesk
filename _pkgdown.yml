@@ -1,4 +1,73 @@
 url: https://janakiraman-311.github.io/RDesk/
+
+title: RDesk
+
 template:
   bootstrap: 5
+  bootswatch: flatly
+  bslib:
+    primary: "#2C3E50"
+    border-radius: 0.5rem
+  includes:
+    in_header: |
+      <meta name="description" content="Build native Windows desktop apps with R. Zero ports. Native WebView2. Ships as a single exe.">
 
+home:
+  title: "RDesk — Native Desktop Apps for R"
+  description: >
+    Build standalone Windows desktop applications using R.
+    Zero network ports. Native WebView2. Ships as a single exe.
+    No R installation required on end-user machines.
+  links:
+    - text: "Report a bug"
+      href: https://github.com/Janakiraman-311/RDesk/issues
+
+navbar:
+  structure:
+    left:  [intro, reference, articles]
+    right: [github]
+  components:
+    intro:
+      text: "Get started"
+      href: articles/getting-started.html
+    articles:
+      text: "Guides"
+      menu:
+        - text: "Get started"
+          href: articles/getting-started.html
+        - text: "Coming from Shiny"
+          href: articles/shiny-migration.html
+        - text: "Async & background tasks"
+          href: articles/async-guide.html
+        - text: "Cookbook"
+          href: articles/cookbook.html
+        - text: "---"
+        - text: "IPC contract"
+          href: articles/ipc-contract.html
+        - text: "Architecture"
+          href: articles/architecture.html
+
+reference:
+  - title: "Scaffold"
+    desc: "Create a new RDesk application"
+    contents: [rdesk_create_app]
+  - title: "Core application"
+    desc: "Create and run desktop application windows"
+    contents: [App, rdesk_service, rdesk_is_bundle]
+  - title: "Async engine"
+    desc: "Background task execution without blocking the UI"
+    contents: [async, rdesk_async, rdesk_cancel_job, rdesk_jobs_pending, rdesk_jobs_list]
+  - title: "Updates"
+    desc: "Auto-update your distributed app"
+    contents: [rdesk_auto_update]
+  - title: "Build & distribute"
+    desc: "Package your app for distribution"
+    contents: [build_app]
+  - title: "Utilities & Serialization"
+    desc: "Helpers for plot conversion and data framing"
+    contents: [rdesk_plot_to_base64, rdesk_df_to_list, rdesk_error_plot]
+
+footer:
+  structure:
+    left: developed_by
+    right: built_with

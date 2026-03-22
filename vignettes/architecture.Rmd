@@ -1,0 +1,47 @@
+---
+title: "Architecture"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Architecture}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+RDesk is built on a "Source-to-Binary" philosophy that combines the flexibility of R with the security and performance of native Windows APIs.
+
+## The Three Components
+
+### 1. The Native Launcher (`launcher.cpp`)
+A lightweight (66.5kb) C++ application that:
+- Initializes the **WebView2** runtime.
+- Establishes a **Zero-Port IPC** bridge using standard input/output (stdin/stdout).
+- Manages the parent window, native menus, and system tray.
+- Includes an **Anti-Zombie Watchdog** that ensures R processes are cleaned up when the UI closes.
+
+### 2. The R Backend (`App.R`)
+An R6-based event loop that:
+- Runs a non-blocking service loop to process desktop messages.
+- Manages the **Async Engine** for background task execution.
+- Handles high-level desktop operations (File Dialogs, Clipboard, Notifications).
+
+### 3. The Web Frontend (`www/`)
+A standard HTML/JS/CSS surface that:
+- Communicates with R via the global `window.rdesk` object.
+- Pushes events to R using `rdesk.send(type, payload)`.
+- Listens for R updates using `rdesk.on(type, callback)`.
+
+## Zero-Port Design
+
+Unlike traditional R web frameworks, RDesk does not open any network ports (`httpuv`, `WebSockets`).
+
+1. **Security**: No firewall prompts or local network exposure.
+2. **Reliability**: No "port in use" errors during multi-instance launches.
+3. **Performance**: Native pipe communication is faster and more reliable than the loopback network stack.
+
+## Process Lifecycle
+
+When you run `app$run()`:
+1. R spawns the native launcher as a child process.
+2. The launcher opens the Windows window and starts the Chromium-based WebView2.
+3. R enters a `while(private$.running)` loop, servicing the stdin/stdout pipes.
+4. When the user closes the window, the launcher signals R to exit, ensuring a clean shutdown of all background worker nodes.
