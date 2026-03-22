@@ -41,3 +41,4 @@ The launcher build in `Makevars.win` must:
 *   **"WebView2 headers missing"**: Check the `-I` paths in `Makevars.win`.
 *   **"Duplicate symbols"**: Ensure `launcher.cpp` is clean and no other `.cpp` files in `src/` are trying to build the same binary.
 *   **"Pragma warnings in check"**: The `nlohmann/json` library and `webview.h` contain diagnostic pragmas. These trigger 1 WARNING in `R CMD check`. This is accepted on CRAN as documented in `cran-comments.md`. GHA is configured with `error_on = "error"` to allow this.
+*   **"Size Audit"**: The baseline for a v1.0.0 dashboard with Tidyverse and Tiling is **66.5 MB**. If a build suddenly exceeds 100MB, check if `prune_runtime` was disabled or if `renv` grabbed unnecessary large source packages.

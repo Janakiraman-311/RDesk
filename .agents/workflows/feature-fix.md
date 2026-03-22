@@ -35,10 +35,13 @@ This workflow defines the mandatory, step-by-step process for any change to the 
     source("tests/reproduce_issue.R")
     ```
 
-### Phase 4: CI Maintenance Check
+### Phase 4: CI & Documentation Maintenance
 1.  **Check Workflow Alignment**: Verify if the change requires updates to `.github/workflows/build-app.yml` (e.g. new deps, new R version).
 2.  **Use Rscript Shell**: Ensure any new CI steps use `shell: Rscript {0}`.
+3.  **Audit Help Files**: Run `devtools::document()` and check the `man/` directory for any "Lost braces" or "Undocumented arguments" warnings in the Rd files.
+4.  **Spell Check**: Run `spelling::spell_check_package()` and update `inst/WORDLIST` if new technical terms were introduced.
 
-### Phase 5: GHA Monitoring
-1.  **Push**: Commit with a specific "Phase XX" message.
+### Phase 5: GHA Monitoring & Final Polish
+1.  **Push**: Commit with a specific "Phase XX" or "Feature: ..." message.
 2.  **Full Job Audit**: Verify both `build` and `Verify async stack` steps pass with green checkmarks.
+3.  **Hardening Check**: If the feature impacts app lifecycle, verify the **Anti-Zombie Watchdog** and **Platform Guard** are still functional.

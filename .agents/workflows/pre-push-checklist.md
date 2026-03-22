@@ -20,13 +20,21 @@ Before committing or pushing code to the RDesk repository, follow these steps to
     > [!IMPORTANT]
     > All R steps in `.github/workflows` use `shell: Rscript {0}` and `source("renv/activate.R")`.
 
-### 4. Local Check
-Run the CRAN pre-check to verify `Makevars.win` and metadata:
+### 4. Local Check & Audit
+Run the CRAN pre-check and audit the latest hardening features:
 ```powershell
+# 1. Verification of all doc and code
+Rscript -e "source('renv/activate.R'); devtools::document(); spelling::spell_check_package()"
+
+# 2. Comprehensive check (0 errors expected)
 Rscript -e "source('renv/activate.R'); devtools::check(args = c('--no-manual', '--as-cran'), error_on = 'error')"
+
+# 3. Size and Bundle Audit (Target: < 70MB)
+Rscript -e "source('renv/activate.R'); RDesk::build_app(app_dir = 'inst/apps/mtcars_dashboard', prune_runtime = TRUE, dry_run = FALSE)"
 ```
 
-### 5. Git Hygiene
+### 5. Git Hygiene & Final Verification
 *   **Stage New Files**: Ensure `src/launcher.cpp` and `src/Makevars.win` are always staged.
-*   **Verify Binaries**: Never commit `.exe` files. They are now source-built only.
+*   **Verify Binaries**: Never commit `.exe` files. They are source-built only.
+*   **Platform Guard**: Verify `.onAttach` in `R/zzz.R` correctly checks `.Platform$OS.type`.
 *   **Clean Workspace**: Remove any temporary `dist/` or `check/` folders before push.
