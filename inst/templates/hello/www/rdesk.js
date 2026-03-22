@@ -139,11 +139,13 @@
       "align-items:center",
       "justify-content:center",
       "font-family:system-ui,sans-serif",
-      "color:#fff"
+      "color:#fff",
+      "backdrop-filter:blur(4px)"
     ].join(";");
     el.innerHTML = [
-      '<div style="text-align:center;max-width:320px;padding:32px;',
-      'background:rgba(30,30,30,0.95);border-radius:12px">',
+      '<div style="text-align:center;width:280px;padding:32px;',
+      'background:rgba(20,20,20,0.85);border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,0.3);',
+      'border:1px solid rgba(255,255,255,0.1)">',
       '<div id="__rdesk_spinner__" style="width:40px;height:40px;margin:0 auto 16px;',
       'border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;',
       'border-radius:50%;animation:rdesk-spin 0.8s linear infinite"></div>',
@@ -161,7 +163,7 @@
       '</div>'
     ].join("");
     var style = document.createElement("style");
-    style.textContent = "@keyframes rdesk-spin{to{transform:rotate(360deg)}}";
+    style.textContent = "@keyframes rdesk-spin{to{transform:rotate(360deg)}} #__rdesk_spinner_inner__{animation:rdesk-spin 1s ease-in-out infinite}";
     document.head.appendChild(style);
     document.body.appendChild(el);
     rdesk._overlay = el;
@@ -214,7 +216,7 @@
     };
     toast.style.cssText = [
       "position:fixed",
-      "bottom:32px",
+      "top:32px",
       "right:32px",
       "padding:12px 24px",
       "border-radius:10px",
@@ -225,7 +227,7 @@
       "font-family:system-ui,sans-serif",
       "z-index:11000",
       "opacity:0",
-      "transform: translateY(20px)",
+      "transform: translateY(-20px)",
       "transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
       "max-width:350px",
       "background:" + (colors[payload.type] || colors.info)
@@ -242,7 +244,7 @@
 
     setTimeout(function() {
       toast.style.opacity = "0";
-      toast.style.transform = "translateY(20px)";
+      toast.style.transform = "translateY(-20px)";
       setTimeout(function() {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
       }, 500);

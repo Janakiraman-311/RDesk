@@ -26,6 +26,23 @@ rdesk_log_dir <- function(app_name = Sys.getenv("R_APP_NAME", "RDeskApp")) {
   file.path(base_dir, "RDesk", rdesk_sanitize_log_component(app_name))
 }
 
+#' Log a message to the app's log file
+#'
+#' @param message Message to log
+#' @param level Log level ("INFO", "WARN", "ERROR")
+#' @param app_name Optional app name to determine log file
+#' @keywords internal
+rdesk_log <- function(message, level = "INFO", app_name = Sys.getenv("R_APP_NAME", "RDeskApp")) {
+  log_dir <- rdesk_log_dir(app_name)
+  if (!dir.exists(log_dir)) dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  log_file <- file.path(log_dir, "app.log")
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%OS3")
+  line <- sprintf("[%s] [%s] %s\n", timestamp, level, message)
+  
+  cat(line, file = log_file, append = TRUE)
+}
+
 #' Resolve the www directory for an app
 #'
 #' @param www_dir User-provided path to www directory (character)
@@ -197,4 +214,54 @@ rdesk_error_plot <- function(message = "Error generating plot") {
     return(paste0("data:image/png;base64,", base64enc::base64encode(raw)))
   }
   NULL
+}
+
+#' Parse a hotkey string into modifiers and virtual key codes
+#' @param keys String like "Ctrl+Shift+A" or "Alt+F4"
+#' @return List with modifiers and vk
+#' @keywords internal
+rdesk_parse_hotkey <- function(keys) {
+  parts <- trimws(tolower(strsplit(keys, "[+ ]")[[1]]))
+  mod <- 0
+  vk  <- 0
+  
+  if ("alt"   %in% parts) mod <- mod + 1
+  if ("ctrl"  %in% parts || "control" %in% parts) mod <- mod + 2
+  if ("shift" %in% parts) mod <- mod + 4
+  if ("win"   %in% parts) mod <- mod + 8
+  
+  # Remove modifiers to find the main key
+  main <- setdiff(parts, c("alt", "ctrl", "control", "shift", "win"))
+  if (length(main) == 0) return(list(modifiers = mod, vk = 0))
+  
+  key <- main[1]
+  if (nchar(key) == 1) {
+    vk <- as.integer(charToRaw(toupper(key)))
+  } else if (grepl("^f[0-9]+$", key)) {
+    f_num <- as.integer(substring(key, 2))
+    vk <- 0x70 + (f_num - 1) # F1 is 0x70
+  } else {
+    # Common special keys
+    vk <- switch(key,
+      "space"  = 0x20,
+      "enter"  = 0x0D,
+      "return" = 0x0D,
+      "escape" = 0x1B,
+      "tab"    = 0x09,
+      "backspace" = 0x08,
+      "delete" = 0x2E,
+      "insert" = 0x2D,
+      "home"   = 0x24,
+      "end"    = 0x23,
+      "pageup" = 0x21,
+      "pagedown" = 0x22,
+      "left"   = 0x25,
+      "up"     = 0x26,
+      "right"  = 0x27,
+      "down"   = 0x28,
+      0
+    )
+  }
+  
+  list(modifiers = mod, vk = vk)
 }

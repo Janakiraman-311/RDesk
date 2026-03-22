@@ -47,7 +47,7 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
 
   proc <- processx::process$new(
     command = launcher,
-    args    = c(url, title, as.character(width), as.character(height), www_path),
+    args    = c(url, title, as.character(width), as.character(height), www_path, as.character(Sys.getpid())),
     stdin   = "|",   # allow writing QUIT and other commands
     stdout  = "|",   # pipe so we can read READY signal and events
     stderr  = "|",

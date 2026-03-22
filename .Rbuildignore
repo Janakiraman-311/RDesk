@@ -1,13 +1,13 @@
 ^renv$
-^\.git$
+^\.git($|/)
 ^\.github$
 ^cran-comments\.md$
 ^\.Rproj\.user$
 ^.*\.Rproj$
 ^\.agents$
-^\.r-lib($|/)
+^\.r-lib/
 ^tests/smoke_test_run\.R$
-^renv($|/)
+^renv/
 ^renv\.lock$
 ^\.Rprofile$
 ^dist($|/)

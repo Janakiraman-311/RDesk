@@ -2,18 +2,27 @@
 
 ## New features
 
-* renv integration -- the RDesk development environment is now lockable
-  via `renv.lock` for reproducible builds across machines and contributors.
-* `build_app()` now writes an `renv.lock` file and `restore_env.R` helper
-  into every distributable bundle so package versions can be inspected and
-  restored later.
+* **Native Window Management**: Added `app$set_size()`, `app$set_position()`, `app$minimize()`, `app$maximize()`, `app$restore()`, `app$fullscreen()`, and `app$always_on_top()`.
+* **Enhanced Native Dialogs**: Implemented `app$dialog_folder()`, `app$message_box()` (OK/Yes/No/Cancel with icons), and `app$dialog_color()`.
+* **System Integration**:
+    * **Recursive Menus**: Native Win32 menu bars now support arbitrarily deep nesting and checkable items.
+    * **System Tray Context Menus**: Added `app$set_tray_menu()` for native right-click interaction.
+    * **Global Hotkeys**: Added `app$register_hotkey()` for system-wide keyboard shortcuts.
+    * **Clipboard**: Added `app$clipboard_read()` and `app$clipboard_write()`.
+* **Lifecycle & Stability Hardening**:
+    * **Anti-Zombie Watchdog**: Native launcher now auto-terminates if the parent R process dies.
+    * **Single-Instance Lock**: Prevents running multiple copies of the same application.
+    * **Close Interception**: Added `app$on_close()` to intercept or cancel window exit attempts.
+    * **Persistent Logging**: Success and error logs are now written to `%LOCALAPPDATA%/RDesk`.
+* **Auto-Updater**: Added `app$check_update()` to detect and link to remote application updates.
+* **renv integration**: The RDesk development environment and built bundles are now lockable via `renv.lock` for reproducible distribution.
 
 ## Bug fixes
 
-* Added `broom` to `Suggests` for demo-app and check-time dependency
-  completeness.
-* Updated GitHub Actions workflows to restore a locked renv environment
-  before checks and bundled-app builds when a project lockfile is present.
+* Fixed COM reference count leaks and Unicode path handling in the native launcher.
+* Resolved R6 namespace collisions during complex application initialization.
+* Hardened `build_app(dry_run = TRUE)` for rapid environment validation.
+* Fixed plot rendering synchronization in background worker pools.
 
 # RDesk 0.9.0 (2026-03-19)
 

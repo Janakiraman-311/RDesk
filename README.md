@@ -11,7 +11,8 @@ RDesk enables R developers to build standalone Windows desktop applications with
 |---|---|
 | **Zero-Port Security** | No `httpuv` or open ports. Uses native PostWebMessage bridge. |
 | **Async Performance** | Multi-tier background tasks via `mirai` and `callr`. |
-| **Native Integration** | Win32 Menus, System Tray, Toast Notifications, and File Dialogs. |
+| **Native Integration** | Win32 Menus, System Tray, Global Hotkeys, Clipboard, and File Dialogs. |
+| **Hardened Lifecycle** | Anti-Zombie Watchdog, Single-Instance Lock, and `on_close` interception. |
 | **Zero Config** | One-click scaffolding creates a professional "Hero" Dashboard. |
 | **Easy Distribution** | Single ZIP or InnoSetup Installer with bundled R runtime. |
 

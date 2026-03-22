@@ -60,6 +60,7 @@ App <- R6::R6Class("App",
         proc.time(),
         runif(1)
       ), algo = "crc32"))
+      private$.hotkey_callbacks <- new.env(parent = emptyenv())
 
       # System handler for UI-initiated job cancellation
       private$.router$register("__cancel_job__", function(payload) {
@@ -70,7 +71,7 @@ App <- R6::R6Class("App",
         }
       })
     },
- 
+
     #' @description Register a callback to fire when the window is ready
     #' @param fn A zero-argument function called after the server starts and window opens
     #' @return The App instance (invisible)
@@ -79,9 +80,107 @@ App <- R6::R6Class("App",
       private$.ready_fn <- fn
       invisible(self)
     },
- 
+
+    #' @description Register a callback to fire when the user attempts to close the window
+    #' @param fn A zero-argument function. Should return TRUE to allow closing, FALSE to cancel.
+    #' @return The App instance (invisible)
+    on_close = function(fn) {
+      if (!is.function(fn)) stop("on_close() requires a function")
+      private$.on_close_fn <- fn
+      # Tell the launcher to start intercepting WM_CLOSE
+      private$.send_launcher_cmd("INTERCEPT_CLOSE", list(enabled = TRUE))
+      invisible(self)
+    },
+
+    #' @description Check for application updates from a remote URL
+    #' @param version_url URL to a JSON metadata file (e.g. \code{{"version": "1.1.0", "url": "http://..."}})
+    #' @param current_version Optional version string to compare against. Defaults to app description version.
+    #' @return A list with update status and metadata
+    check_update = function(version_url, current_version = NULL) {
+      if (is.null(current_version)) {
+        desc_path <- file.path(self$get_dir(), "DESCRIPTION")
+        if (file.exists(desc_path)) {
+          desc <- read.dcf(desc_path)
+          current_version <- as.character(desc[1, "Version"])
+        } else {
+          current_version <- "1.0.0"
+        }
+      }
+
+      tmp <- tempfile(fileext = ".json")
+      on.exit(unlink(tmp), add = TRUE)
+
+      tryCatch({
+        utils::download.file(version_url, tmp, mode = "wb", quiet = TRUE)
+        latest <- jsonlite::fromJSON(tmp)
+
+        has_update <- utils::compareVersion(latest$version, current_version) > 0
+
+        list(
+          update_available = has_update,
+          current_version  = current_version,
+          latest_version   = latest$version,
+          download_url     = latest$url
+        )
+      }, error = function(e) {
+        warning("[RDesk] Update check failed: ", e$message)
+        list(update_available = FALSE, error = e$message)
+      })
+    },
+
+    #' @description Register a global keyboard shortcut (hotkey)
+    #' @param keys Character string representing the key combination (e.g., "Ctrl+Shift+A")
+    #' @param fn A zero-argument function to be called when the hotkey is pressed
+    #' @return The App instance (invisible)
+    register_hotkey = function(keys, fn) {
+      if (!is.character(keys) || length(keys) != 1) stop("keys must be a single string")
+      if (!is.function(fn)) stop("fn must be a function")
+
+      parsed <- rdesk_parse_hotkey(keys)
+      if (is.null(parsed) || parsed$vk == 0) stop("Invalid hotkey format: ", keys)
+
+      hotkey_id <- as.integer(sample.int(9999, 1))
+      private$.hotkey_callbacks[[as.character(hotkey_id)]] <- fn
+      
+      private$.send_launcher_cmd("REGISTER_HOTKEY", payload = list(
+        id = hotkey_id,
+        modifiers = parsed$modifiers,
+        vk = parsed$vk,
+        label = keys
+      ))
+      invisible(self)
+    },
+
+    #' @description Set the native system tray menu
+    #' @param items A named list of lists defining the menu structure
+    #' @return The App instance (invisible)
+    set_tray_menu = function(items) {
+      # Convert R named list to JSON array the launcher understands
+      menu_json <- private$.build_menu_json(items, prefix = "tray_menu")
+
+      private$.send_launcher_cmd("SET_TRAY_MENU", payload = menu_json, queue_if_unavailable = TRUE)
+
+      invisible(self)
+    },
+
+    #' @description Write text to the system clipboard
+    #' @param text Character string to copy
+    #' @return The App instance (invisible)
+    clipboard_write = function(text) {
+      private$.send_launcher_cmd("CLIPBOARD_WRITE", payload = list(text = as.character(text)))
+      invisible(self)
+    },
+
+    #' @description Read text from the system clipboard
+    #' @return Character string from clipboard or NULL
+    clipboard_read = function() {
+      req_id <- rdesk_req_id()
+      private$.send_launcher_cmd("CLIPBOARD_READ", id = req_id)
+      private$.wait_dialog_result(req_id)
+    },
+
     #' @description Register a handler for a UI -> R message type
-    #' @param type Character string message type (must match rdesk.send() first arg in JS)
+    #' @param type Unique message identifier string
     #' @param fn A function(payload) called when this message type arrives
     #' @return The App instance (invisible)
     on_message = function(type, fn) {
@@ -98,7 +197,7 @@ App <- R6::R6Class("App",
       private$.router$register(type, fn)
       invisible(self)
     },
- 
+
     #' @description Send a message from R to the UI
     #' @param type Character string message type (received by rdesk.on() in JS)
     #' @param payload A list or data.frame to serialise as JSON payload
@@ -121,7 +220,7 @@ App <- R6::R6Class("App",
       }
       invisible(self)
     },
- 
+
     #' @description Load an HTML file into the window
     #' @param path Path relative to the www directory (e.g. "index.html")
     #' @return The App instance (invisible)
@@ -129,20 +228,86 @@ App <- R6::R6Class("App",
       self$send("__navigate__", list(path = path))
       invisible(self)
     },
- 
+
+    #' @description Set the window size dynamically
+    #' @param width New width (pixels)
+    #' @param height New height (pixels)
+    #' @return The App instance (invisible)
+    set_size = function(width, height) {
+      private$.send_launcher_cmd("SET_SIZE", list(width = as.integer(width), height = as.integer(height)))
+      private$.width  <- as.integer(width)
+      private$.height <- as.integer(height)
+      invisible(self)
+    },
+
+    #' @description Set the window position dynamically
+    #' @param x Horizontal position from left (pixels)
+    #' @param y Vertical position from top (pixels)
+    #' @return The App instance (invisible)
+    set_position = function(x, y) {
+      private$.send_launcher_cmd("SET_POS", list(x = as.integer(x), y = as.integer(y)))
+      invisible(self)
+    },
+
+    #' @description Set the window title dynamically
+    #' @param title New title
+    #' @return The App instance (invisible)
+    set_title = function(title) {
+      private$.send_launcher_cmd("SET_TITLE", list(title = as.character(title)))
+      private$.title <- as.character(title)
+      invisible(self)
+    },
+
+    #' @description Minimize the window to the taskbar
+    #' @return The App instance (invisible)
+    minimize = function() {
+      private$.send_launcher_cmd("MINIMIZE")
+      invisible(self)
+    },
+
+    #' @description Maximize the window to fill the screen
+    #' @return The App instance (invisible)
+    maximize = function() {
+      private$.send_launcher_cmd("MAXIMIZE")
+      invisible(self)
+    },
+
+    #' @description Restore the window from minimize/maximize
+    #' @return The App instance (invisible)
+    restore = function() {
+      private$.send_launcher_cmd("RESTORE")
+      invisible(self)
+    },
+
+    #' @description Toggle fullscreen mode
+    #' @param enabled If TRUE, enters fullscreen. If FALSE, exits.
+    #' @return The App instance (invisible)
+    fullscreen = function(enabled = TRUE) {
+      private$.send_launcher_cmd("FULLSCREEN", list(enabled = isTRUE(enabled)))
+      invisible(self)
+    },
+
+    #' @description Set the window to stay always on top of others
+    #' @param enabled If TRUE, always on top.
+    #' @return The App instance (invisible)
+    always_on_top = function(enabled = TRUE) {
+      private$.send_launcher_cmd("TOPMOST", list(enabled = isTRUE(enabled)))
+      invisible(self)
+    },
+
     #' @description Set the native window menu
     #' @param items A named list of lists defining the menu structure
     #' @return The App instance (invisible)
     set_menu = function(items) {
       # Convert R named list to JSON array the launcher understands
       menu_json <- private$.build_menu_json(items)
-      
+
       private$.send_launcher_cmd("SET_MENU", payload = menu_json, queue_if_unavailable = TRUE)
-      
+
       private$.menu_callbacks <- items
       invisible(self)
     },
- 
+
     #' @description Open a native file-open dialog
     #' @param title Dialog title
     #' @param filters List of file filters, e.g. list("CSV files" = "*.csv")
@@ -157,7 +322,7 @@ App <- R6::R6Class("App",
       )
       private$.wait_dialog_result(req_id)
     },
- 
+
     #' @description Open a native file-save dialog
     #' @param title Dialog title
     #' @param default_name Initial filename
@@ -166,14 +331,14 @@ App <- R6::R6Class("App",
     dialog_save = function(title = "Save File", default_name = "",
                             filters = NULL) {
       filter_str <- private$.build_filter_str(filters)
-      
+
       # Extract default extension (e.g. "csv" from "*.csv")
       def_ext <- NULL
       if (!is.null(filters) && length(filters) > 0) {
         f <- filters[[1]]
         def_ext <- gsub("^.*\\.", "", f)
       }
- 
+
       req_id     <- rdesk_req_id()
       private$.send_launcher_cmd(
         "DIALOG_SAVE",
@@ -185,7 +350,49 @@ App <- R6::R6Class("App",
       )
       private$.wait_dialog_result(req_id)
     },
- 
+
+    #' @description Open a native folder selection dialog
+    #' @param title Dialog title
+    #' @return Selected directory path (character) or NULL if cancelled
+    dialog_folder = function(title = "Select Folder") {
+      req_id <- rdesk_req_id()
+      private$.send_launcher_cmd(
+        "DIALOG_FOLDER",
+        payload = list(title = title),
+        id = req_id
+      )
+      private$.wait_dialog_result(req_id)
+    },
+
+    #' @description Show a native message box / alert
+    #' @param message The message text
+    #' @param title The dialog title
+    #' @param type One of "ok", "okcancel", "yesno", "yesnocancel"
+    #' @param icon One of "info", "warning", "error", "question"
+    #' @return The button pressed (character: "ok", "cancel", "yes", "no")
+    message_box = function(message, title = "RDesk", type = "ok", icon = "info") {
+      req_id <- rdesk_req_id()
+      private$.send_launcher_cmd(
+        "MESSAGE_BOX",
+        payload = list(message = message, title = title, type = type, icon = icon),
+        id = req_id
+      )
+      private$.wait_dialog_result(req_id)
+    },
+
+    #' @description Open a native color selection dialog
+    #' @param initial_color Optional hex color to start with (e.g. "#FF0000")
+    #' @return Selected hex color code or NULL if cancelled
+    dialog_color = function(initial_color = "#FFFFFF") {
+      req_id <- rdesk_req_id()
+      private$.send_launcher_cmd(
+        "DIALOG_COLOR",
+        payload = list(color = initial_color),
+        id = req_id
+      )
+      private$.wait_dialog_result(req_id)
+    },
+
     #' @description Send a native desktop notification
     #' @param title Notification title
     #' @param body Notification body text
@@ -198,7 +405,7 @@ App <- R6::R6Class("App",
       )
       invisible(self)
     },
- 
+
     #' @description Show a loading state in the UI
     #' @param message Text shown under the spinner
     #' @param progress Optional numeric 0-100 for a progress bar
@@ -217,7 +424,7 @@ App <- R6::R6Class("App",
       ))
       invisible(self)
     },
- 
+
     #' @description Update progress on an active loading state
     #' @param value Numeric 0-100
     #' @param message Optional updated message
@@ -227,13 +434,13 @@ App <- R6::R6Class("App",
       self$send("__loading__", payload)
       invisible(self)
     },
- 
+
     #' @description Hide the loading state in the UI
     loading_done = function() {
       self$send("__loading__", list(active = FALSE, message = "", progress = NULL))
       invisible(self)
     },
- 
+
     #' @description Show a non-blocking toast notification in the UI
     #' @param message Text to show
     #' @param type One of "info", "success", "warning", "error"
@@ -246,7 +453,7 @@ App <- R6::R6Class("App",
       ))
       invisible(self)
     },
- 
+
     #' @description Set or update the system tray icon
     #' @param label Tooltip text for the tray icon
     #' @param icon Path to .ico file (optional)
@@ -261,7 +468,7 @@ App <- R6::R6Class("App",
       )
       invisible(self)
     },
- 
+
     #' @description Remove the system tray icon
     #' @return The App instance (invisible)
     remove_tray = function() {
@@ -269,14 +476,14 @@ App <- R6::R6Class("App",
       private$.send_launcher_cmd("REMOVE_TRAY", queue_if_unavailable = TRUE)
       invisible(self)
     },
- 
+
     #' @description Service this app's pending native events
     #' @return The App instance (invisible)
     service = function() {
       private$.poll_events()
       invisible(self)
     },
- 
+
     #' @description Close the window and stop the app's event loop.
     #' @return The App instance (invisible)
     quit = function() {
@@ -293,7 +500,7 @@ App <- R6::R6Class("App",
     get_dir = function() {
       dirname(private$.www)
     },
-    
+
     #' @description Start the application - opens the window
     #' @param block If TRUE (default), blocks with an event loop until the window is closed.
     run = function(block = TRUE) {
@@ -302,12 +509,15 @@ App <- R6::R6Class("App",
         message("[RDesk] CI Mode: Skipping native window initialization.")
         return(invisible(self))
       }
+
+      rdesk_log(sprintf("Starting application: %s", private$.title), level = "INFO", app_name = private$.title)
+
       private$.running <- TRUE
       if (getOption("rdesk.async_backend", "callr") == "mirai") {
         rdesk_start_daemons()  # Pre-warm worker pool
       }
 
-      url <- "https://app.rdesk/index.html" 
+      url <- "https://app.rdesk/index.html"
 
       private$.window_proc <- rdesk_open_window(
         url      = url,
@@ -322,25 +532,34 @@ App <- R6::R6Class("App",
       private$.flush_command_queue()
 
       if (!is.null(private$.ready_fn)) {
-        tryCatch(private$.ready_fn(), error = function(e) warning("[RDesk] on_ready error: ", e$message))
+        tryCatch(private$.ready_fn(), error = function(e) {
+          rdesk_log(sprintf("Startup Error (on_ready): %s", e$message), level = "ERROR", app_name = private$.title)
+          warning("[RDesk] on_ready error: ", e$message)
+        })
       }
 
       assign(as.character(private$.id), self, envir = .rdesk_apps)
 
       if (block) {
-        while (private$.running) {
-          rdesk_service()
-          if (!private$.running) break
-          Sys.sleep(0.01)
-        }
-        private$.cleanup()
+        on.exit(private$.cleanup())
+        tryCatch({
+          while (private$.running) {
+            rdesk_service()
+            if (!private$.running) break
+            Sys.sleep(0.01)
+          }
+        }, error = function(e) {
+          rdesk_log(sprintf("Application CRASHED: %s", e$message), level = "ERROR", app_name = private$.title)
+          warning("[RDesk] Fatal error: ", e$message)
+          private$.running <- FALSE
+        })
         message("[RDesk] App closed.")
       }
 
       invisible(self)
     }
   ),
- 
+
   private = list(
     .id          = NULL,
     .title       = NULL,
@@ -349,16 +568,18 @@ App <- R6::R6Class("App",
     .www         = NULL,
     .icon        = NULL,
     .ready_fn    = NULL,
+    .on_close_fn = NULL,
     .running     = FALSE,
     .window_proc = NULL,
     .router      = NULL,
     .send_queue  = list(),
     .command_queue = list(),
-    .menu_callbacks  = list(),   # Stores the action ID -> function mapping
+    .menu_actions  = new.env(parent = emptyenv()), # Stores the action ID -> function mapping for menus and tray menus
     .pending_dialogs = list(),  # req_id -> result or NULL
     .tray_callback = NULL,      # Function(button)
+    .hotkey_callbacks = NULL,
     .bundle_con = NULL,         # Non-blocking stdin connection in hosted bundle mode
- 
+
     .cleanup = function() {
       if (getOption("rdesk.async_backend", "callr") == "mirai") {
         rdesk_stop_daemons()  # Shut down worker pool cleanly
@@ -367,6 +588,7 @@ App <- R6::R6Class("App",
         rdesk_close_window(private$.window_proc)
         private$.window_proc <- NULL
       }
+      rdesk_log(sprintf("Application closed: %s", private$.title), level = "INFO", app_name = private$.title)
       private$.bundle_con <- NULL
       private$.running <- FALSE
     },
@@ -449,31 +671,52 @@ App <- R6::R6Class("App",
       invisible(NULL)
     },
  
-    .build_menu_json = function(items) {
-      # Convert: list(File = list("Open"=fn, "---", "Exit"=fn))
-      # To JSON array of {label, items:[{label, id}]}
-      result <- list()
-      private$.menu_actions <- list() # Internal ID -> function mapping
+    .build_menu_json = function(items, prefix = "menu") {
+      # Use an environment to ensure we don't clear existing actions from other menus (e.g. tray vs bar)
+      if (is.null(private$.menu_actions)) private$.menu_actions <- new.env(parent = emptyenv())
       
-      for (top_label in names(items)) {
-        sub_items <- items[[top_label]]
-        sub_json  <- list()
-        for (i in seq_along(sub_items)) {
-          item <- sub_items[[i]]
-          lbl  <- if (is.null(names(sub_items)) || names(sub_items)[i] == "")
-                    as.character(item) else names(sub_items)[i]
-          if (lbl == "---" || identical(item, "---")) {
-            sub_json <- c(sub_json, list(list(label = "---")))
+      recurse <- function(it, parent_label = prefix) {
+        res <- list()
+        for (i in seq_along(it)) {
+          val  <- it[[i]]
+          lbl  <- if (is.null(names(it)) || names(it)[i] == "") as.character(val) else names(it)[i]
+          
+          # Support both simple list("L"=fn) and detailed list("L"=list(checked=T, callback=fn))
+          item_callback <- val
+          item_checked  <- FALSE
+          is_submenu    <- is.list(val) && !is.function(val) && ("items" %in% names(val))
+          is_detailed   <- is.list(val) && !is.function(val) && (any(c("callback", "checked") %in% names(val)))
+
+          if (lbl == "---" || identical(val, "---")) {
+            res <- c(res, list(list(label = "---")))
+          } else if (is_submenu) {
+            # Submenu with items
+            sub_items <- if (is.list(val$items)) val$items else val
+            res <- c(res, list(list(label = lbl, items = recurse(sub_items, paste0(parent_label, "_", lbl)))))
+          } else if (is.list(val) && !is.function(val) && !is_detailed) {
+            # Default to treat any list without 'callback'/'checked' as a submenu (backward compat)
+            res <- c(res, list(list(label = lbl, items = recurse(val, paste0(parent_label, "_", lbl)))))
           } else {
-            item_id <- paste0("menu_", top_label, "_", i)
-            # Store callback in a flattened map for easier lookup
-            private$.menu_actions[[item_id]] <- item
-            sub_json <- c(sub_json, list(list(label = lbl, id = item_id)))
+            # Menu item
+            if (is_detailed) {
+               item_callback <- val$callback
+               item_checked  <- isTRUE(val$checked)
+            }
+            item_id <- paste0(parent_label, "_", i, "_", digest::digest(lbl, algo="crc32"))
+            private$.menu_actions[[item_id]] <- item_callback
+            res <- c(res, list(list(label = lbl, id = item_id, checked = item_checked)))
           }
         }
-        result <- c(result, list(list(label = top_label, items = sub_json)))
+        res
       }
-      result
+
+      # Top level is special - it's a list of top-level menus
+      final <- list()
+      for (top_label in names(items)) {
+        sub_items <- items[[top_label]]
+        final <- c(final, list(list(label = top_label, items = recurse(sub_items, paste0(prefix, "_", top_label)))))
+      }
+      final
     },
  
     .build_filter_str = function(filters) {
@@ -518,13 +761,29 @@ App <- R6::R6Class("App",
                      error = function(e) warning("[RDesk] menu handler error: ", e$message))
           }
         } else if (evt$event == "DIALOG_RESULT") {
-          private$.pending_dialogs[[evt$id]] <- evt$path
+          private$.pending_dialogs[[evt$id]] <- if (!is.null(evt$path)) evt$path else evt$result
         } else if (evt$event == "DIALOG_CANCEL") {
           private$.pending_dialogs[[evt$id]] <- "__CANCEL__"
         } else if (evt$event == "TRAY_CLICK") {
           if (is.function(private$.tray_callback)) {
             tryCatch(private$.tray_callback(evt$button),
                      error = function(e) warning("[RDesk] tray handler error: ", e$message))
+          }
+        } else if (evt$event == "WINDOW_CLOSING") {
+          res <- TRUE
+          if (is.function(private$.on_close_fn)) {
+            res <- tryCatch(private$.on_close_fn(), error = function(e) {
+              warning("[RDesk] on_close error: ", e$message)
+              TRUE 
+            })
+          }
+          if (isTRUE(res)) {
+            self$quit()
+          }
+        } else if (evt$event == "HOTKEY") {
+          callback <- private$.hotkey_callbacks[[as.character(evt$id)]]
+          if (is.function(callback)) {
+            tryCatch(callback(), error = function(e) warning("[RDesk] hotkey handler error: ", e$message))
           }
         }
       } else if (!is.null(evt$type)) {
@@ -543,8 +802,7 @@ App <- R6::R6Class("App",
           self$quit()
         }
       }
-    },
-    .menu_actions = list()
+    }
   )
 )
  

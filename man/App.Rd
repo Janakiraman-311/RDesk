@@ -28,12 +28,29 @@ app$run()
 \itemize{
 \item \href{#method-App-new}{\code{App$new()}}
 \item \href{#method-App-on_ready}{\code{App$on_ready()}}
+\item \href{#method-App-on_close}{\code{App$on_close()}}
+\item \href{#method-App-check_update}{\code{App$check_update()}}
+\item \href{#method-App-register_hotkey}{\code{App$register_hotkey()}}
+\item \href{#method-App-set_tray_menu}{\code{App$set_tray_menu()}}
+\item \href{#method-App-clipboard_write}{\code{App$clipboard_write()}}
+\item \href{#method-App-clipboard_read}{\code{App$clipboard_read()}}
 \item \href{#method-App-on_message}{\code{App$on_message()}}
 \item \href{#method-App-send}{\code{App$send()}}
 \item \href{#method-App-load_ui}{\code{App$load_ui()}}
+\item \href{#method-App-set_size}{\code{App$set_size()}}
+\item \href{#method-App-set_position}{\code{App$set_position()}}
+\item \href{#method-App-set_title}{\code{App$set_title()}}
+\item \href{#method-App-minimize}{\code{App$minimize()}}
+\item \href{#method-App-maximize}{\code{App$maximize()}}
+\item \href{#method-App-restore}{\code{App$restore()}}
+\item \href{#method-App-fullscreen}{\code{App$fullscreen()}}
+\item \href{#method-App-always_on_top}{\code{App$always_on_top()}}
 \item \href{#method-App-set_menu}{\code{App$set_menu()}}
 \item \href{#method-App-dialog_open}{\code{App$dialog_open()}}
 \item \href{#method-App-dialog_save}{\code{App$dialog_save()}}
+\item \href{#method-App-dialog_folder}{\code{App$dialog_folder()}}
+\item \href{#method-App-message_box}{\code{App$message_box()}}
+\item \href{#method-App-dialog_color}{\code{App$dialog_color()}}
 \item \href{#method-App-notify}{\code{App$notify()}}
 \item \href{#method-App-loading_start}{\code{App$loading_start()}}
 \item \href{#method-App-loading_progress}{\code{App$loading_progress()}}
@@ -97,6 +114,123 @@ The App instance (invisible)
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-on_close"></a>}}
+\if{latex}{\out{\hypertarget{method-App-on_close}{}}}
+\subsection{Method \code{on_close()}}{
+Register a callback to fire when the user attempts to close the window
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$on_close(fn)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{fn}}{A zero-argument function. Should return TRUE to allow closing, FALSE to cancel.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-check_update"></a>}}
+\if{latex}{\out{\hypertarget{method-App-check_update}{}}}
+\subsection{Method \code{check_update()}}{
+Check for application updates from a remote URL
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$check_update(version_url, current_version = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{version_url}}{URL to a JSON metadata file (e.g. {"version": "1.1.0", "url": "http://..."})}
+
+\item{\code{current_version}}{Optional version string to compare against. Defaults to app description version.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A list with update status and metadata
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-register_hotkey"></a>}}
+\if{latex}{\out{\hypertarget{method-App-register_hotkey}{}}}
+\subsection{Method \code{register_hotkey()}}{
+Register a global keyboard shortcut (hotkey)
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$register_hotkey(keys, fn)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{keys}}{Character string representing the key combination (e.g., "Ctrl+Shift+A")}
+
+\item{\code{fn}}{A zero-argument function to be called when the hotkey is pressed}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-set_tray_menu"></a>}}
+\if{latex}{\out{\hypertarget{method-App-set_tray_menu}{}}}
+\subsection{Method \code{set_tray_menu()}}{
+Set the native system tray menu
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$set_tray_menu(items)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{items}}{A named list of lists defining the menu structure}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-clipboard_write"></a>}}
+\if{latex}{\out{\hypertarget{method-App-clipboard_write}{}}}
+\subsection{Method \code{clipboard_write()}}{
+Write text to the system clipboard
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$clipboard_write(text)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{text}}{Character string to copy}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-clipboard_read"></a>}}
+\if{latex}{\out{\hypertarget{method-App-clipboard_read}{}}}
+\subsection{Method \code{clipboard_read()}}{
+Read text from the system clipboard
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$clipboard_read()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+Character string from clipboard or NULL
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-App-on_message"></a>}}
 \if{latex}{\out{\hypertarget{method-App-on_message}{}}}
 \subsection{Method \code{on_message()}}{
@@ -108,7 +242,7 @@ Register a handler for a UI -> R message type
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{type}}{Character string message type (must match rdesk.send() first arg in JS)}
+\item{\code{type}}{Unique message identifier string}
 
 \item{\code{fn}}{A function(payload) called when this message type arrives}
 }
@@ -153,6 +287,149 @@ Load an HTML file into the window
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{path}}{Path relative to the www directory (e.g. "index.html")}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-set_size"></a>}}
+\if{latex}{\out{\hypertarget{method-App-set_size}{}}}
+\subsection{Method \code{set_size()}}{
+Set the window size dynamically
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$set_size(width, height)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{width}}{New width (pixels)}
+
+\item{\code{height}}{New height (pixels)}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-set_position"></a>}}
+\if{latex}{\out{\hypertarget{method-App-set_position}{}}}
+\subsection{Method \code{set_position()}}{
+Set the window position dynamically
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$set_position(x, y)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{x}}{Horizontal position from left (pixels)}
+
+\item{\code{y}}{Vertical position from top (pixels)}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-set_title"></a>}}
+\if{latex}{\out{\hypertarget{method-App-set_title}{}}}
+\subsection{Method \code{set_title()}}{
+Set the window title dynamically
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$set_title(title)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{title}}{New title}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-minimize"></a>}}
+\if{latex}{\out{\hypertarget{method-App-minimize}{}}}
+\subsection{Method \code{minimize()}}{
+Minimize the window to the taskbar
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$minimize()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-maximize"></a>}}
+\if{latex}{\out{\hypertarget{method-App-maximize}{}}}
+\subsection{Method \code{maximize()}}{
+Maximize the window to fill the screen
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$maximize()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-restore"></a>}}
+\if{latex}{\out{\hypertarget{method-App-restore}{}}}
+\subsection{Method \code{restore()}}{
+Restore the window from minimize/maximize
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$restore()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-fullscreen"></a>}}
+\if{latex}{\out{\hypertarget{method-App-fullscreen}{}}}
+\subsection{Method \code{fullscreen()}}{
+Toggle fullscreen mode
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$fullscreen(enabled = TRUE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{enabled}}{If TRUE, enters fullscreen. If FALSE, exits.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-always_on_top"></a>}}
+\if{latex}{\out{\hypertarget{method-App-always_on_top}{}}}
+\subsection{Method \code{always_on_top()}}{
+Set the window to stay always on top of others
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$always_on_top(enabled = TRUE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{enabled}}{If TRUE, always on top.}
 }
 \if{html}{\out{</div>}}
 }
@@ -224,6 +501,72 @@ Open a native file-save dialog
 }
 \subsection{Returns}{
 Selected file path (character) or NULL if cancelled
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-dialog_folder"></a>}}
+\if{latex}{\out{\hypertarget{method-App-dialog_folder}{}}}
+\subsection{Method \code{dialog_folder()}}{
+Open a native folder selection dialog
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$dialog_folder(title = "Select Folder")}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{title}}{Dialog title}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Selected directory path (character) or NULL if cancelled
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-message_box"></a>}}
+\if{latex}{\out{\hypertarget{method-App-message_box}{}}}
+\subsection{Method \code{message_box()}}{
+Show a native message box / alert
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$message_box(message, title = "RDesk", type = "ok", icon = "info")}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{message}}{The message text}
+
+\item{\code{title}}{The dialog title}
+
+\item{\code{type}}{One of "ok", "okcancel", "yesno", "yesnocancel"}
+
+\item{\code{icon}}{One of "info", "warning", "error", "question"}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The button pressed (character: "ok", "cancel", "yes", "no")
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-dialog_color"></a>}}
+\if{latex}{\out{\hypertarget{method-App-dialog_color}{}}}
+\subsection{Method \code{dialog_color()}}{
+Open a native color selection dialog
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$dialog_color(initial_color = "#FFFFFF")}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{initial_color}}{Optional hex color to start with (e.g. "#FF0000")}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Selected hex color code or NULL if cancelled
 }
 }
 \if{html}{\out{<hr>}}
