@@ -36,9 +36,22 @@ The launcher build in `Makevars.win` must:
 *   Link `-lole32 -lshell32 -lshlwapi -luser32 -lversion -lcomdlg32 -loleaut32 -luuid`.
 *   Ensure the output is placed in `../inst/bin/rdesk-launcher.exe`.
 
+#### Rule E: CRAN Repo Before renv::restore() (CRITICAL)
+Every `Restore renv` step **MUST** set the CRAN repo before calling `renv::restore()`:
+```r
+if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+renv::restore(prompt = FALSE, clean = FALSE)
+```
+Without the `options(repos = ...)` line, renv tries to auto-initialize Bioconductor, which calls `renv_bioconductor_init_biocmanager()`, which tries to install `BiocVersion` from an empty repo URL — **causing a fatal crash.** This affects ALL workflows, not just pkgdown.
+
+#### Rule F: Pin R Version Explicitly
+Every `r-lib/actions/setup-r@v2` step **MUST** specify `r-version: '4.5.1'`. Without it, the runner may resolve to a different R version than the `renv.lock`, causing DLL mismatch errors.
+
 ### 4. Troubleshooting Memory
 *   **"Launcher not found"**: Ensure `devtools::install()` or `R CMD INSTALL` was run. `load_all()` does NOT trigger the `.exe` build by default unless configured.
 *   **"WebView2 headers missing"**: Check the `-I` paths in `Makevars.win`.
 *   **"Duplicate symbols"**: Ensure `launcher.cpp` is clean and no other `.cpp` files in `src/` are trying to build the same binary.
 *   **"Pragma warnings in check"**: The `nlohmann/json` library and `webview.h` contain diagnostic pragmas. These trigger 1 WARNING in `R CMD check`. This is accepted on CRAN as documented in `cran-comments.md`. GHA is configured with `error_on = "error"` to allow this.
 *   **"Size Audit"**: The baseline for a v1.0.0 dashboard with Tidyverse and Tiling is **66.5 MB**. If a build suddenly exceeds 100MB, check if `prune_runtime` was disabled or if `renv` grabbed unnecessary large source packages.
+*   **`Error: package 'BiocVersion' is not available`**: The `renv::restore()` step is missing `options(repos = c(CRAN = "https://cloud.r-project.org"))` before the restore call. Without it, renv tries to init Bioconductor from an empty repo URL (see **Rule E**). Root cause of the pkgdown CI failure on 2026-03-22.
