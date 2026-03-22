@@ -1,4 +1,4 @@
-#' Create a new RDesk application (Single-Hero Dashboard)
+#' Create a new RDesk application
 #'
 #' @description
 #' Scaffolds a professional RDesk application with a modern dashboard layout.

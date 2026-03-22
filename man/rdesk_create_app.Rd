@@ -2,7 +2,7 @@
 % Please edit documentation in R/scaffold.R
 \name{rdesk_create_app}
 \alias{rdesk_create_app}
-\title{Create a new RDesk application (Single-Hero Dashboard)}
+\title{Create a new RDesk application}
 \usage{
 rdesk_create_app(
   name,

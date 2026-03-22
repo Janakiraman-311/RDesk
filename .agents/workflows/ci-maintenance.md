@@ -14,7 +14,7 @@ The RDesk build uses the standard R "Source-to-Binary" model to comply with CRAN
 ### 2. Critical File Paths
 | Component | Path | Description |
 | :--- | :--- | :--- |
-| **CI Workflows** | `.github/workflows/*.yml` | Simple workflows that trust `devtools::install` to build the launcher. |
+| **CI Workflows** | `.github/workflows/*.yml` | Workflows that trust `R CMD INSTALL` to build the launcher. |
 | **Launcher Source** | `src/launcher.cpp` | Core C++ logic for the WebView2 host. |
 | **WebView2 SDK** | `src/webview2_sdk/` | Contained within `src` for on-install compilation. |
 | **Build Rules** | `src/Makevars.win` | Windows-specific makefile for building the launcher. |
@@ -46,20 +46,36 @@ if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 renv::restore(prompt = FALSE, clean = FALSE)
 ```
-Without the `options(repos = ...)` line, renv tries to auto-initialize Bioconductor, which calls `renv_bioconductor_init_biocmanager()`, which tries to install `BiocVersion` from an empty repo URL — **causing a fatal crash.** This affects ALL workflows, not just pkgdown.
+Without the `options(repos = ...)` line, renv tries to auto-initialize Bioconductor, which causes a fatal crash.
 
 #### Rule F: Pin R Version Explicitly
-Every `r-lib/actions/setup-r@v2` step **MUST** specify `r-version: '4.5.1'`. Without it, the runner may resolve to a different R version than the `renv.lock`, causing DLL mismatch errors.
+Every `r-lib/actions/setup-r@v2` step **MUST** specify `r-version: '4.5.1'`.
 
 #### Rule G: Runner Environment (OS)
 *   **Binary Builds (`build-app`, `R-CMD-check`)**: MUST use `windows-latest`. The launcher compilation depends on Rtools and Win32 APIs.
-*   **Documentation (`pkgdown`)**: SHOULD use `windows-latest` for Windows-only packages (like RDesk) but **MUST** use `peaceiris/actions-gh-pages` for deployment. Using `JamesIves` on Windows causes fatal `rsync` errors during the deployment step (path mismatch with `D:\a\...`).
+*   **Documentation (`pkgdown`)**: MUST use `windows-latest` for Windows-only packages (like RDesk). 
+*   **Deployment**: MUST use `peaceiris/actions-gh-pages@v4` on Windows runners. Using `JamesIves` on Windows causes fatal `rsync` errors.
 
-### 4. Troubleshooting Memory
-*   **"Launcher not found"**: Ensure `devtools::install()` or `R CMD INSTALL` was run. `load_all()` does NOT trigger the `.exe` build by default unless configured.
-*   **"WebView2 headers missing"**: Check the `-I` paths in `Makevars.win`.
-*   **"Duplicate symbols"**: Ensure `launcher.cpp` is clean and no other `.cpp` files in `src/` are trying to build the same binary.
-*   **"Pragma warnings in check"**: The `nlohmann/json` library and `webview.h` contain diagnostic pragmas. These trigger 1 WARNING in `R CMD check`. This is accepted on CRAN as documented in `cran-comments.md`. GHA is configured with `error_on = "error"` to allow this.
-*   **"Size Audit"**: The baseline for a v1.0.0 dashboard with Tidyverse and Tiling is **66.5 MB**. If a build suddenly exceeds 100MB, check if `prune_runtime` was disabled or if `renv` grabbed unnecessary large source packages.
-*   **`Error: package 'BiocVersion' is not available`**: The `renv::restore()` step is missing `options(repos = c(CRAN = "https://cloud.r-project.org"))` before the restore call. Without it, renv tries to init Bioconductor from an empty repo URL (see **Rule E**). Root cause of the pkgdown CI failure on 2026-03-22.
-*   **`rsync error (code 12) at io.c`**: This occurs when `pkgdown` runs on Windows with `JamesIves`. Switch the deployment step to `peaceiris/actions-gh-pages@v4` which uses pure git instead of rsync.
+#### Rule H: Workflow Permissions
+Every job that deploys to GitHub Pages MUST include explicit write permissions:
+```yaml
+permissions:
+  contents: write
+```
+
+#### Rule I: Zero-Dependency Installation
+In CI environments, use base R's installation command:
+```yaml
+- name: Install RDesk
+  run: R CMD INSTALL .
+  shell: cmd
+```
+
+### 4. Troubleshooting
+*   **"there is no package called 'devtools'"**: In CI, `devtools` is not in `renv.lock`. Use `R CMD INSTALL .` instead.
+*   **"launcher.exe not found"**: Ensure the package is installed into the library before running pkgdown.
+*   **"rsync error (code 12) at io.c"**: Switch deploy action to `peaceiris/actions-gh-pages@v4`.
+*   **"Permission denied (403)"**: Add `permissions: contents: write` to the GHA job.
+*   **"package 'BiocVersion' is not available"**: Check `Rule E` (set CRAN repo before restore).
+*   **"Duplicate symbols"**: Ensure `launcher.cpp` is the only source building the binary in `src/`.
+*   **"Size Audit"**: Baseline v1.0.0 is ~66.5 MB.

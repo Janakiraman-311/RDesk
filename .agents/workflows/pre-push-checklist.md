@@ -13,8 +13,9 @@ Before committing or pushing code to the RDesk repository, follow these steps to
 ### 3. Build & Verification
 *   **Compiling the Launcher**:
     ```powershell
-    # Trigger source build via install
-    Rscript -e "devtools::install(pkg = '.', upgrade = FALSE, quick = TRUE)"
+    # Trigger source build via install (zero dependencies required)
+    # This is the verified method for CI environments.
+    R CMD INSTALL .
     ```
 *   **CI Library Sync**: 
     > [!IMPORTANT]

@@ -18,9 +18,7 @@ home:
     Build standalone Windows desktop applications using R.
     Zero network ports. Native WebView2. Ships as a single exe.
     No R installation required on end-user machines.
-  links:
-    - text: "Report a bug"
-      href: https://github.com/Janakiraman-311/RDesk/issues
+  links: ~
 
 navbar:
   structure:
