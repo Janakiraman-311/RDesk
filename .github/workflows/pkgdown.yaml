@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      RENV_CONFIG_BIOCONDUCTOR_VERSION: ""
+      RENV_CONFIG_AUTOLOADER_ENABLED: false
     steps:
       - uses: actions/checkout@v4
 
@@ -24,9 +24,10 @@ jobs:
       - name: Install System Dependencies
         run: sudo apt-get update && sudo apt-get install -y libudunits2-dev libgdal-dev libgeos-dev libproj-dev
 
-      - uses: r-lib/actions/setup-renv@v2
+      - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          cache-version: 1
+          extra-packages: any::pkgdown, local::.
+          needs: website
 
       - name: Build site
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
