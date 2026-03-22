@@ -13,7 +13,7 @@ template:
       <meta name="description" content="Build native Windows desktop apps with R. Zero ports. Native WebView2. Ships as a single exe.">
 
 home:
-  title: "RDesk — Native Desktop Apps for R"
+  title: "RDesk - Native Desktop Apps for R"
   description: >
     Build standalone Windows desktop applications using R.
     Zero network ports. Native WebView2. Ships as a single exe.

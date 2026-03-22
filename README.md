@@ -6,8 +6,8 @@
 
 **Build native Windows desktop applications with R.**
 
-RDesk turns your R code into a standalone `.exe` that runs on any
-Windows machine — no R installation required. Zero open network ports.
+RDesk turns your R code into a standalone .exe that runs on any
+Windows machine - no R installation required. Zero open network ports.
 Native Win32 window. Ships as a single ZIP or professional installer.
 
 ```r
