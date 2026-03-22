@@ -16,6 +16,7 @@
     <aside class="app-sidebar">
       <div class="sidebar-group">
         <label>Data Filter</label>
+        <!-- Add more filters by copying this block and changing the column name -->
         <select id="cyl-filter" onchange="rdesk.send('filter', { column: 'cyl', value: this.value })">
           <option value="all">All Cylinders</option>
           <option value="4">4 Cylinders</option>

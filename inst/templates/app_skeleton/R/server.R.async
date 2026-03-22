@@ -19,7 +19,7 @@ init_handlers <- function(app) {
     # Send initial data to UI
     df <- init_data()
     if (!is.null(df)) {
-      res <- rdesk_df_to_list(df)
+      res <- RDesk::rdesk_df_to_list(df)
       res$kpis <- get_app_kpis(df)
       app$send("data_ready", res)
     }
@@ -30,7 +30,7 @@ init_handlers <- function(app) {
     df <- init_data()
     # If viz_type is mixed or charts, include chart
     chart_b64 <- if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) make_chart(df) else NULL
-    res <- rdesk_df_to_list(df)
+    res <- RDesk::rdesk_df_to_list(df)
     res$chart <- chart_b64
     res$kpis  <- get_app_kpis(df)
     res
@@ -44,19 +44,10 @@ init_handlers <- function(app) {
       df <- df[as.character(df[[payload$column]]) == as.character(val), ]
     }
     list(
-      data  = rdesk_df_to_list(df),
+      data  = RDesk::rdesk_df_to_list(df),
       chart = if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) make_chart(df) else NULL,
       count = nrow(df),
       kpis  = get_app_kpis(df)
     )
   }, app = app, loading_message = "Filtering..."))
-}
-
-# Helper - convert data frame to list for JSON serialisation
-rdesk_df_to_list <- function(df) {
-  if (is.null(df) || nrow(df) == 0) return(list(rows = list(), cols = character(0)))
-  list(
-    rows = lapply(seq_len(nrow(df)), function(i) as.list(df[i, ])),
-    cols = names(df)
-  )
 }

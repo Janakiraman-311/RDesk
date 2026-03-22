@@ -33,23 +33,34 @@ app$on_message("calculate_total", async(function(payload) {
 
 ### Tier 2 -- rdesk_async() (manual control)
 
-Use `rdesk_async()` when you need:
-- Custom loading messages that update during the task.
-- Progress bar updates (`loading_progress()`).
-- Different error handling per task.
-- Knowing the `job_id` before the task starts.
+Use `rdesk_async()` when you need manual control over the UI state or multiple progress updates:
 
 ```r
 app$on_message("long_job", function(payload) {
   job_id <- rdesk_async(
-    task = function(x) { Sys.sleep(2); x * 2 },
+    task = function(x) { 
+       # Perform multiple steps, each reporting progress
+       for(i in 1:5) { 
+         Sys.sleep(1) 
+         # Note: You can send progress manually or 
+         # rely on the final on_done. 
+       }
+       x * 2 
+    },
     args = list(x = 10),
     on_done = function(res) {
+      # Hide overlay when task finishes
       app$send("__loading__", list(active = FALSE))
       app$send("job_finished", list(result = res))
     }
   )
-  app$send("__loading__", list(active = TRUE, message = "Starting long job...", job_id = job_id))
+  # Show overlay with explicit message and job_id for cancellation
+  app$send("__loading__", list(
+    active = TRUE, 
+    message = "Starting long job...", 
+    job_id = job_id,
+    progress = 10 # Initial progress
+  ))
 })
 ```
 
