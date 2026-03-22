@@ -15,21 +15,7 @@ make_chart <- function(data) {
       color = "Cyl"
     )
     
-  rdesk_plot_to_base64(p)
-}
-
-#' Convert a ggplot2 object to a base64-encoded PNG string
-rdesk_plot_to_base64 <- function(plot, width = 6, height = 4, dpi = 96) {
-  tmp <- tempfile(fileext = ".png")
-  on.exit(unlink(tmp), add = TRUE)
-  
-  ggplot2::ggsave(tmp, plot = plot, width = width, height = height, dpi = dpi)
-  
-  if (file.exists(tmp)) {
-    raw <- readBin(tmp, "raw", file.info(tmp)$size)
-    return(paste0("data:image/png;base64,", base64enc::base64encode(raw)))
-  }
-  NULL
+  RDesk::rdesk_plot_to_base64(p)
 }
 
 #' Get dashboard KPIs
@@ -40,9 +26,13 @@ get_app_kpis <- function(data) {
     return(list(avg_mpg = "0.0", count = "0", avg_hp = "0"))
   }
   
+  # Defensive column checks
+  avg_mpg <- if ("mpg" %in% names(data)) format(mean(data$mpg), digits = 1, nsmall = 1) else "N/A"
+  avg_hp  <- if ("hp" %in% names(data)) format(round(mean(data$hp))) else "N/A"
+  
   list(
-    avg_mpg = format(mean(data$mpg), digits = 1, nsmall = 1),
+    avg_mpg = avg_mpg,
     count   = format(nrow(data)),
-    avg_hp  = format(round(mean(data$hp)))
+    avg_hp  = avg_hp
   )
 }

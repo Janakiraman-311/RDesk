@@ -45,11 +45,11 @@ app$on_message("long_job", function(payload) {
     task = function(x) { Sys.sleep(2); x * 2 },
     args = list(x = 10),
     on_done = function(res) {
-      app$loading_done()
+      app$send("__loading__", list(active = FALSE))
       app$send("job_finished", list(result = res))
     }
   )
-  app$loading_start("Starting long job...", job_id = job_id)
+  app$send("__loading__", list(active = TRUE, message = "Starting long job...", job_id = job_id))
 })
 ```
 

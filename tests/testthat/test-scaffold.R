@@ -27,29 +27,28 @@ test_that("rdesk_create_app creates directory structure", {
 
 test_that("template placeholder replacement works", {
   withr::with_tempdir({
-    app_dir <- rdesk_create_app("PlaceholderTest", data_source = "csv", viz_type = "charts", open = FALSE)
+    app_dir <- rdesk_create_app("PlaceholderTest", open = FALSE)
     
     app_r <- readLines(file.path(app_dir, "app.R"), warn = FALSE)
     expect_true(any(grepl("PlaceholderTest", app_r)))
     expect_false(any(grepl("\\{\\{", app_r)))
     
     desc <- readLines(file.path(app_dir, "DESCRIPTION"), warn = FALSE)
-    expect_true(any(grepl("DataSource: csv", desc)))
+    expect_true(any(grepl("DataSource: builtin", desc)))
   })
 })
 
-test_that("variant selection picks correct templates", {
+test_that("scaffolded app is correctly structured", {
   withr::with_tempdir({
-    # Test async variant
-    async_dir <- rdesk_create_app("AsyncApp", use_async = TRUE, open = FALSE)
-    server_async <- readLines(file.path(async_dir, "R", "server.R"), warn = FALSE)
-    expect_true(any(grepl("async\\(function", server_async)))
+    app_dir <- rdesk_create_app("ModernDash", open = FALSE)
     
-    # Test sync variant
-    sync_dir <- rdesk_create_app("SyncApp", use_async = FALSE, open = FALSE)
-    server_sync <- readLines(file.path(sync_dir, "R", "server.R"), warn = FALSE)
-    expect_false(any(grepl("async\\(function", server_sync)))
-    expect_true(any(grepl("function\\(payload\\)", server_sync)))
+    # Check default async backend use
+    server_R <- readLines(file.path(app_dir, "R", "server.R"), warn = FALSE)
+    expect_true(any(grepl("async\\(function", server_R)))
+    
+    # Check KPI presence
+    plots_R <- readLines(file.path(app_dir, "R", "plots.R"), warn = FALSE)
+    expect_true(any(grepl("get_app_kpis", plots_R)))
   })
 })
 

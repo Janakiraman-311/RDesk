@@ -1,8 +1,0 @@
-# R/plots.R.api
-# API-driven visualizations for RDesk
-
-#' Render the main visual from API data
-make_chart <- function(data) {
-  # Add your API visualization logic here
-  NULL
-}

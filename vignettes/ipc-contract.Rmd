@@ -13,7 +13,7 @@ This document defines the standard JSON envelope used for all communication betw
 
 ## The Message Envelope
 
-Every message sent across the WebSocket must be a JSON object with the following structure:
+Every message sent across the native IPC bridge (WebView2 to stdin/stdout) must be a JSON object with the following structure:
 
 ```json
 {

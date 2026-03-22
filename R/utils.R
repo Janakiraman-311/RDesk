@@ -147,3 +147,54 @@ rdesk_df_to_list <- function(df) {
     cols = names(df)
   )
 }
+
+#' Convert a ggplot2 object to a base64-encoded PNG string
+#'
+#' @param plot A ggplot2 object
+#' @param width Width in inches (default 6)
+#' @param height Height in inches (default 4)
+#' @param dpi DPI resolution (default 96)
+#' @return A base64-encoded PNG string or a fallback error plot
+#' @export
+rdesk_plot_to_base64 <- function(plot, width = 6, height = 4, dpi = 96) {
+  tmp <- tempfile(fileext = ".png")
+  on.exit(unlink(tmp), add = TRUE)
+  
+  res <- tryCatch({
+    ggplot2::ggsave(tmp, plot = plot, width = width, height = height, dpi = dpi)
+    TRUE
+  }, error = function(e) {
+    warning("[RDesk] Failed to save plot: ", e$message)
+    FALSE
+  })
+  
+  if (isTRUE(res) && file.exists(tmp)) {
+    raw <- readBin(tmp, "raw", file.info(tmp)$size)
+    return(paste0("data:image/png;base64,", base64enc::base64encode(raw)))
+  }
+  
+  # Fallback to error plot
+  rdesk_error_plot("Plot generation failed")
+}
+
+#' Generate a base64-encoded error plot
+#'
+#' @param message Error message to display (optional)
+#' @return A base64-encoded PNG string
+#' @export
+rdesk_error_plot <- function(message = "Error generating plot") {
+  tmp <- tempfile(fileext = ".png")
+  on.exit(unlink(tmp), add = TRUE)
+  
+  p <- ggplot2::ggplot() +
+    ggplot2::annotate("text", x = 1, y = 1, label = message, color = "red", size = 5) +
+    ggplot2::theme_void()
+    
+  ggplot2::ggsave(tmp, plot = p, width = 4, height = 2, dpi = 72)
+  
+  if (file.exists(tmp)) {
+    raw <- readBin(tmp, "raw", file.info(tmp)$size)
+    return(paste0("data:image/png;base64,", base64enc::base64encode(raw)))
+  }
+  NULL
+}

@@ -1,6 +1,6 @@
-## R CMD check results
+## R CMD check results (v1.0.1)
 
-0 errors | 1 warning | 2 notes
+0 errors | 1 warning | 1 note
 
 ### Warning
 

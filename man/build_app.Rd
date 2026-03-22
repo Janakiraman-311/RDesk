@@ -19,7 +19,8 @@ build_app(
   website = "https://github.com/Janakiraman-311/RDesk",
   license_file = NULL,
   icon_file = NULL,
-  prune_runtime = TRUE
+  prune_runtime = TRUE,
+  dry_run = FALSE
 )
 }
 \arguments{

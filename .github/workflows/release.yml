@@ -52,12 +52,14 @@ jobs:
           }
           cat("Launcher verified at: ", launcher, "\n")
 
-      - name: Build App Bundles
+      - name: Build App Bundle
         shell: Rscript {0}
         run: |
           source("renv/activate.R")
-          # Build multiple demos for the release
-          RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", app_name = "CarsAnalyser", version = "${{ github.ref_name }}")
+          # Create a fresh app using the real scaffolding engine
+          RDesk::rdesk_create_app("CarsDashboard", path = "C:/Temp")
+          # Build the newly created app
+          RDesk::build_app(app_dir = "C:/Temp/CarsDashboard", app_name = "CarsDashboard", version = "${{ github.ref_name }}")
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

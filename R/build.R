@@ -52,7 +52,8 @@ build_app <- function(app_dir = ".",
                       website   = "https://github.com/Janakiraman-311/RDesk",
                       license_file = NULL,
                       icon_file    = NULL,
-                      prune_runtime = TRUE) {
+                      prune_runtime = TRUE,
+                      dry_run       = FALSE) {
 
   options(timeout = max(1200, getOption("timeout")))
   portable_r_method <- match.arg(portable_r_method)
@@ -60,6 +61,24 @@ build_app <- function(app_dir = ".",
   user_runtime_dir <- runtime_dir
   if (!is.null(user_runtime_dir)) {
     user_runtime_dir <- normalizePath(path.expand(user_runtime_dir), mustWork = TRUE)
+  }
+
+  if (dry_run) {
+    message("\n[RDesk] DRY RUN: Validating app structure...")
+    if (!file.exists(file.path(app_dir, "app.R"))) stop("[dry_run] Missing app.R")
+    if (!dir.exists(file.path(app_dir, "www"))) stop("[dry_run] Missing www/")
+    message("[RDesk]   V Structure OK")
+    
+    # Check RTools
+    rtools_path <- Sys.getenv("RTOOLS45_HOME", Sys.getenv("RTOOLS44_HOME", ""))
+    if (nzchar(rtools_path)) {
+      message("[RDesk]   V RTools found: ", rtools_path)
+    } else {
+      message("[RDesk]   ! RTools not found (Optional if using pre-built binaries)")
+    }
+    
+    message("[RDesk] DRY RUN: All checks passed.")
+    return(invisible(TRUE))
   }
 
   # Auto-detect metadata from DESCRIPTION if possible
