@@ -145,7 +145,7 @@ Check for application updates from a remote URL
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{version_url}}{URL to a JSON metadata file (e.g. {"version": "1.1.0", "url": "http://..."})}
+\item{\code{version_url}}{URL to a JSON metadata file (e.g. \verb{\{"version": "1.1.0", "url": "http://..."\}})}
 
 \item{\code{current_version}}{Optional version string to compare against. Defaults to app description version.}
 }

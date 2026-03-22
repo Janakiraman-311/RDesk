@@ -25,6 +25,8 @@
 #' @param icon_file Path to an .ico file for the installer and application shortcut.
 #' @param prune_runtime If TRUE, remove unnecessary files (Tcl/Tk, docs, tests) from 
 #'   the bundled R runtime to reduce size (~15-20MB saving). Default TRUE.
+#' @param dry_run If TRUE, performs a quick validation of the app structure and 
+#'   environment without performing the full build. Default FALSE.
 #' @return Path to the created zip file, invisibly.
 #' @examples
 #' \dontrun{

@@ -6,8 +6,10 @@ async
 callr
 cancelled
 centralised
+checkable
 CMD
 CRAN
+Ctrl
 csv
 dialogs
 distributable
@@ -15,6 +17,7 @@ dplyr
 exe
 filesystem
 frontend
+fullscreen
 getOption
 ggplot
 hardcoded
@@ -28,14 +31,18 @@ js
 JS
 json
 jsonlite
+KPI
+Lifecycle
 LOCALAPPDATA
 lockfile
 mirai
 Makevars
+mtcars
 MultiByteToWideChar
 MyRDeskApp
 nanonext
 nlohmann
+okcancel
 PostWebMessage
 PostWebMessageAsString
 pre
@@ -54,6 +61,7 @@ standardised
 stdin
 stdout
 UI
+vk
 WebSocket
 webview
 WebView
@@ -61,3 +69,5 @@ WebView2
 Win
 WinMain
 www
+yesno
+yesnocancel

@@ -93,7 +93,7 @@ App <- R6::R6Class("App",
     },
 
     #' @description Check for application updates from a remote URL
-    #' @param version_url URL to a JSON metadata file (e.g. \code{{"version": "1.1.0", "url": "http://..."}})
+    #' @param version_url URL to a JSON metadata file (e.g. \verb{\{"version": "1.1.0", "url": "http://..."\}})
     #' @param current_version Optional version string to compare against. Defaults to app description version.
     #' @return A list with update status and metadata
     check_update = function(version_url, current_version = NULL) {
@@ -822,4 +822,90 @@ rdesk_service <- function() {
     app <- .rdesk_apps[[id]]
     app$service()
   }
+}#' Automatically check for and install app updates
+#'
+#' @description
+#' \code{rdesk_auto_update} is a high-level function designed for bundled (standalone)
+#' applications. It checks a remote version string, compares it with the current
+#' version, and if a newer version is found, it downloads and executes the installer
+#' silently before quitting the current application.
+#'
+#' @param version_url URL to a plain text file containing the latest version string (e.g., "1.1.0")
+#' @param download_url URL to the latest installer .exe
+#' @param current_version Current app version string e.g. "1.0.0"
+#' @param silent If TRUE, downloads and installs without prompting. Default FALSE.
+#' @param app Optional App instance for showing toast notifications.
+#' @return Invisible TRUE if update was applied, FALSE otherwise.
+#' @export
+rdesk_auto_update <- function(version_url,
+                               download_url,
+                               current_version,
+                               silent  = FALSE,
+                               app     = NULL) {
+  if (!rdesk_is_bundle()) {
+    # Only acts in bundled mode
+    return(invisible(FALSE))
+  }
+
+  latest <- tryCatch({
+    con <- url(version_url)
+    on.exit(close(con))
+    trimws(readLines(con, n = 1, warn = FALSE))
+  }, error = function(e) {
+    warning("[RDesk] Could not fetch remote version: ", e$message)
+    return(invisible(NULL))
+  })
+
+  if (is.null(latest) || !nzchar(latest)) {
+    return(invisible(FALSE))
+  }
+
+  if (utils::compareVersion(latest, current_version) <= 0) {
+    # No update needed
+    return(invisible(FALSE))
+  }
+
+  # Update available
+  if (!is.null(app) && !silent) {
+    app$toast(
+      paste0("Version ", latest, " is available. Downloading..."),
+      type = "info"
+    )
+  }
+
+  # Temporary path for the new installer
+  dest <- file.path(tempdir(), paste0("update-", latest, "-setup.exe"))
+
+  tryCatch({
+    message("[RDesk] Downloading update version ", latest, "...")
+    utils::download.file(download_url, dest, mode = "wb", quiet = TRUE)
+
+    if (!is.null(app) && !silent) {
+      app$toast("Update downloaded. Restarting...", type = "success")
+      Sys.sleep(1.5)
+    }
+
+    # Launch installer silently and quit
+    # /SILENT /SUPPRESSMSGBOXES /NORESTART is standard for InnoSetup
+    message("[RDesk] Executing silent installer: ", dest)
+    system2(dest, args = c("/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"),
+            wait = FALSE)
+
+    if (!is.null(app)) {
+      app$quit()
+    } else {
+      # Fallback if no app object - just tell the user we are exiting
+      message("[RDesk] Update triggered. Closing application.")
+      quit(save = "no")
+    }
+
+    invisible(TRUE)
+
+  }, error = function(e) {
+    if (!is.null(app)) {
+      app$toast(paste("Update failed:", e$message), type = "error")
+    }
+    warning("[RDesk] Update failed: ", e$message)
+    invisible(FALSE)
+  })
 }

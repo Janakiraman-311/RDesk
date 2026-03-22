@@ -24,6 +24,15 @@ NULL
 }
 
 .onAttach <- function(libname, pkgname) {
+  # Platform Guard: Provide a clear message on non-Windows platforms
+  if (.Platform$OS.type != "windows") {
+    packageStartupMessage(
+      "[RDesk] RDesk requires Windows 10 or later.\n",
+      "  macOS and Linux support is planned for v2.0.\n",
+      "  See: https://github.com/Janakiraman-311/RDesk"
+    )
+  }
+
   packageStartupMessage(
     "[RDesk] v", utils::packageVersion("RDesk"), " ready."
   )
