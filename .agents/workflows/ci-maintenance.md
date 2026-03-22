@@ -53,7 +53,7 @@ Every `r-lib/actions/setup-r@v2` step **MUST** specify `r-version: '4.5.1'`. Wit
 
 #### Rule G: Runner Environment (OS)
 *   **Binary Builds (`build-app`, `R-CMD-check`)**: MUST use `windows-latest`. The launcher compilation depends on Rtools and Win32 APIs.
-*   **Documentation (`pkgdown`)**: MUST use `ubuntu-latest`. Using Windows for pkgdown causes fatal `rsync` errors during the deployment step (path mismatch with `D:\a\...`).
+*   **Documentation (`pkgdown`)**: SHOULD use `windows-latest` for Windows-only packages (like RDesk) but **MUST** use `peaceiris/actions-gh-pages` for deployment. Using `JamesIves` on Windows causes fatal `rsync` errors during the deployment step (path mismatch with `D:\a\...`).
 
 ### 4. Troubleshooting Memory
 *   **"Launcher not found"**: Ensure `devtools::install()` or `R CMD INSTALL` was run. `load_all()` does NOT trigger the `.exe` build by default unless configured.
@@ -62,4 +62,4 @@ Every `r-lib/actions/setup-r@v2` step **MUST** specify `r-version: '4.5.1'`. Wit
 *   **"Pragma warnings in check"**: The `nlohmann/json` library and `webview.h` contain diagnostic pragmas. These trigger 1 WARNING in `R CMD check`. This is accepted on CRAN as documented in `cran-comments.md`. GHA is configured with `error_on = "error"` to allow this.
 *   **"Size Audit"**: The baseline for a v1.0.0 dashboard with Tidyverse and Tiling is **66.5 MB**. If a build suddenly exceeds 100MB, check if `prune_runtime` was disabled or if `renv` grabbed unnecessary large source packages.
 *   **`Error: package 'BiocVersion' is not available`**: The `renv::restore()` step is missing `options(repos = c(CRAN = "https://cloud.r-project.org"))` before the restore call. Without it, renv tries to init Bioconductor from an empty repo URL (see **Rule E**). Root cause of the pkgdown CI failure on 2026-03-22.
-*   **`rsync error (code 12) at io.c`**: This occurs when `pkgdown` runs on Windows. Switch the `pkgdown` job to `ubuntu-latest` (see **Rule G**).
+*   **`rsync error (code 12) at io.c`**: This occurs when `pkgdown` runs on Windows with `JamesIves`. Switch the deployment step to `peaceiris/actions-gh-pages@v4` which uses pure git instead of rsync.

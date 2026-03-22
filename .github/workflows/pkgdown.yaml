@@ -8,10 +8,11 @@ name: pkgdown
 
 jobs:
   pkgdown:
-    runs-on: ubuntu-latest
+    # RDesk is an OS_type: Windows package. Site building requires RDesk installation 
+    # to run vignettes (library(RDesk)), so we must build on a Windows runner.
+    runs-on: windows-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      RENV_CONFIG_AUTOLOADER_ENABLED: false
     steps:
       - uses: actions/checkout@v4
 
@@ -19,26 +20,27 @@ jobs:
 
       - uses: r-lib/actions/setup-r@v2
         with:
+          r-version: '4.5.1'
           use-public-rspm: true
 
-      - name: Install System Dependencies
-        run: sudo apt-get update && sudo apt-get install -y libudunits2-dev libgdal-dev libgeos-dev libproj-dev
-
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::pkgdown, local::.
-          needs: website
+      - name: Restore renv
+        run: |
+          if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          renv::restore(prompt = FALSE, clean = FALSE)
+        shell: Rscript {0}
 
       - name: Build site
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
 
       - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+        # Using peaceiris instead of JamesIves to avoid rsync path resolution issues on Windows
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          clean: false
-          branch: gh-pages
-          folder: docs
-          token: ${{ secrets.GITHUB_TOKEN }}
-          force: true
-          attempt-limit: 3
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          force_push: true
+          # Preserve existing branch history if desired, but site builds are usually overrides
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
