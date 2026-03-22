@@ -30,3 +30,6 @@
 ^CONTRIBUTING\.md$
 ^backup$
 ^temp_.*$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

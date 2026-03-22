@@ -18,7 +18,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
 LazyData: true
-URL: https://github.com/Janakiraman-311/RDesk
+URL: https://github.com/Janakiraman-311/RDesk, https://janakiraman-311.github.io/RDesk/
 BugReports: https://github.com/Janakiraman-311/RDesk/issues
 SystemRequirements: Windows 10 or later, Rtools44 or later
     (https://cran.r-project.org/bin/windows/Rtools/),
