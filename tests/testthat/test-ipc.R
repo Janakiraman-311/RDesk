@@ -22,8 +22,8 @@ test_that("rdesk_parse_message() returns NULL on bad JSON", {
 })
 
 test_that("rdesk_parse_message() returns NULL on missing fields", {
-  expect_null(rdesk_parse_message('{"type":"x"}'))
-  expect_null(rdesk_parse_message('{"payload":{}}'))
+  expect_warning(expect_null(rdesk_parse_message('{"type":"x"}')), "missing required fields")
+  expect_warning(expect_null(rdesk_parse_message('{"payload":{}}')), "missing required fields")
 })
 
 test_that("rdesk_parse_message() parses valid envelope", {

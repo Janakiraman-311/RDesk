@@ -1,9 +1,8 @@
 library(testthat)
 library(RDesk)
-library(ggplot2)
 
 test_that("rdesk_plot_to_base64 handles basic ggplot", {
-  p <- ggplot(mtcars, aes(x = mpg, y = wt)) + geom_point()
+  p <- ggplot2::ggplot(mtcars, ggplot2::aes(x = mpg, y = wt)) + ggplot2::geom_point()
   b64 <- rdesk_plot_to_base64(p)
   
   expect_true(is.character(b64))
@@ -11,7 +10,6 @@ test_that("rdesk_plot_to_base64 handles basic ggplot", {
 })
 
 test_that("rdesk_plot_to_base64 falls back to error plot on failure", {
-  # Create a plot that will cause an error during save (e.g. invalid object)
   p <- "not a plot"
   
   # Should still return a base64 string because it fails over to rdesk_error_plot
