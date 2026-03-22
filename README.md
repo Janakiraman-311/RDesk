@@ -1,163 +1,81 @@
-# RDesk
+# RDesk (v1.0.0)
 
 [![R-CMD-check](https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml)
 [![build-app](https://github.com/Janakiraman-311/RDesk/actions/workflows/build-app.yml/badge.svg)](https://github.com/Janakiraman-311/RDesk/actions/workflows/build-app.yml)
 
-**The native desktop application framework for R.**
+**The Enterprise-Grade Native Desktop Framework for R.**
 
-RDesk lets R developers build standalone Windows desktop applications
-using R and modern web technologies (HTML/CSS/JS). Apps run with
-zero open network ports using native WebView2 and stdin/stdout IPC.
-Distribute as a single ZIP or professional Windows installer.
-No R installation required on the end user's machine.
+RDesk enables R developers to build standalone Windows desktop applications with professional web-based UIs (HTML/CSS/JS). Powered by a zero-port native IPC bridge and WebView2, it bypasses the network stack entirely for maximum security and performance.
 
-## Why RDesk?
+| Feature | Details |
+|---|---|
+| **Zero-Port Security** | No `httpuv` or open ports. Uses native PostWebMessage bridge. |
+| **Async Performance** | Multi-tier background tasks via `mirai` and `callr`. |
+| **Native Integration** | Win32 Menus, System Tray, Toast Notifications, and File Dialogs. |
+| **Zero Config** | One-click scaffolding creates a professional "Hero" Dashboard. |
+| **Easy Distribution** | Single ZIP or InnoSetup Installer with bundled R runtime. |
 
-If you can write a Shiny app, you can build a desktop app with RDesk.
-Your R logic — dplyr, ggplot2, models — stays identical.
-RDesk replaces the browser delivery mechanism with a native Windows
-window, giving your users a true desktop experience with no server,
-no browser, and no internet connection required.
+## 🚀 Quick Start
 
-| | Shiny | RDesk |
-|---|---|---|
-| Delivery | Browser + server | Native exe |
-| Network ports | Yes — httpuv | Zero |
-| R on client | Not needed | Not needed |
-| Offline use | No | Yes |
-| Feels like | A website | Excel / Tableau |
-| Target | Web dashboards | Desktop software |
-
-## Key features
-
-- **Zero-port security** — PostWebMessage IPC replaces httpuv entirely.
-  No open ports. Passes enterprise security audits.
-- **Virtual hostname** — Assets served via `https://app.rdesk/`
-  through WebView2's virtual host API. Never touches the network stack.
-- **Async engine** — Three-tier background task system (async wrapper,
-  rdesk_async, mirai direct). 5.9x faster than per-task process spawning.
-  Loading overlays, progress bars, and cancellation built in.
-- **Native OS integration** — Win32 menus, system tray, file dialogs,
-  toast notifications.
-- **Standalone distribution** — Bundle portable R runtime automatically.
-  Distribute as ZIP or InnoSetup installer exe.
-- **Professional CI/CD** — Three GitHub Actions workflows: check,
-  build, and release with draft installer attached.
-
-## Requirements
-
-- Windows 10 or 11
-- [Rtools44+](https://cran.r-project.org/bin/windows/Rtools/) for building
-- [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
-  (pre-installed on Windows 11, download for Windows 10)
-
-## Installation
-
+### 1. Install RDesk
 ```r
+# Note: Requires Windows 10/11 and Rtools44+
 devtools::install_github("Janakiraman-311/RDesk")
 ```
 
-## Your first app
-
+### 2. Scaffold Your "Hero" Dashboard
+RDesk includes a professional, card-based dashboard template with integrated sidebar filters and async plot rendering.
 ```r
-# Create a new app scaffold
-RDesk::rdesk_create_app("MyDashboard", path = "C:/Projects")
+library(RDesk)
+rdesk_create_app("MyDashboard", path = "C:/Projects")
 ```
 
-Edit `R/server.R`:
-
+### 3. Build & Ship
+Distribute your app as a professional Windows installer.
 ```r
-app$on_message("greet", async(function(payload) {
-  list(message = paste("Hello from R,", payload$name))
-}))
-```
-
-Edit `www/js/app.js`:
-
-```javascript
-rdesk.send("greet", { name: "World" });
-rdesk.on("greet_result", function(data) {
-  document.getElementById("output").textContent = data.message;
-});
-```
-
-Build and distribute:
-
-```r
+# Tip: Use dry_run = TRUE to validate your structure in < 1 second!
 RDesk::build_app(
   app_dir         = "C:/Projects/MyDashboard",
-  app_name        = "MyDashboard",
+  app_name        = "SalesDash",
   build_installer = TRUE
 )
-# Output: dist/MyDashboard-1.0.0-setup.exe
-# No R installation required on the target machine.
 ```
 
-If you already have a usable R runtime on the build machine, you can
-skip the portable-R download step:
+## ⚡ Powerhouse Features
+
+### 🌪️ Async-First Logic
+Stop blocking your UI. Use the `async()` wrapper to run heavy R logic (like model training or large plots) in the background with automatic loading overlays and error handling.
 
 ```r
-RDesk::build_app(
-  app_dir     = "C:/Projects/MyDashboard",
-  app_name    = "MyDashboard",
-  runtime_dir = "C:/Program Files/R/R-4.5.1"
-)
+app$on_message("run_analytics", async(function(payload) {
+  # This runs in a background mirai worker
+  mtcars %>% 
+    filter(cyl == payload$cyl) %>% 
+    lm(mpg ~ wt, data = .) %>% 
+    broom::tidy()
+}, loading_message = "Analyzing data..."))
 ```
 
-If you want CI or an advanced local setup to opt into the legacy
-installer-based runtime expansion explicitly, use:
+### 🛠️ Professional Build Engine
+The `build_app()` engine automatically:
+- Provisions a portable R runtime for the target machine.
+- Compiles the native C++ launcher on-the-fly.
+- Bundles all your HTML/JS/CSS assets.
+- Generates a Windows Explorer-ready `.zip` or `.exe` installer.
 
-```r
-RDesk::build_app(
-  app_dir            = "C:/Projects/MyDashboard",
-  app_name           = "MyDashboard",
-  portable_r_method  = "installer"
-)
-```
+## 📖 Deeper Documentation
+- [**Getting Started**](vignettes/getting-started.Rmd) — Your first 5 minutes with RDesk.
+- [**Async Guide**](vignettes/async-guide.Rmd) — Mastering the three-tier background task system.
+- [**IPC Contract**](vignettes/ipc-contract.Rmd) — Details on the zero-port messaging bridge.
+- [**Architecture**](vignettes/architecture.Rmd) — How the native C++ launcher manages R.
 
-For reproducible team builds, this repo now supports `renv`. If the
-project root contains `renv.lock`, GitHub Actions restores that locked
-environment before running checks or bundled-app builds. Each bundle
-created with `build_app()` also writes its own `renv.lock` and a
-`restore_env.R` helper into the distributable root when `renv` is
-available on the build machine.
+## 🔧 Requirements
+- Windows 10 or 11
+- [Rtools44+](https://cran.r-project.org/bin/windows/Rtools/) (Required for build compilation)
+- [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (Built into Windows 11)
 
-## Async in one line
-
-```r
-# Runs in background, shows spinner, routes result automatically
-app$on_message("run_model", async(function(payload) {
-  lm(mpg ~ wt + cyl, data = mtcars) |> broom::tidy()
-}))
-```
-
-## Project structure
-
-```
-RDesk/
-├── R/              Core framework — App R6, IPC, async engine
-├── launcher_src/   C++ native launcher source
-├── inst/           Templates, JS bridge, demo apps, installer script
-├── man/            Roxygen documentation
-├── vignettes/      IPC contract, async guide, architecture
-└── tests/          Unit and manual tests
-```
-
-## CI/CD
-
-Every push to main triggers automated validation and build.
-Version tags trigger a draft release with the installer attached.
-The bundled-app workflows use `portable_r_method = "installer"` so CI
-does not depend on a standalone 7-Zip installation.
-When `renv.lock` is present, CI restores the locked project library
-before package checks and bundle creation.
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-# GitHub builds installer and creates draft release automatically
-```
+---
+**RDesk** is maintained by Janakiraman G. Built for R developers who need to ship real software.
 
 ## License
-
 MIT
