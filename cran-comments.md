@@ -1,4 +1,4 @@
-## R CMD check results (v1.0.1)
+## R CMD check results (v1.0.0)
 
 0 errors | 1 warning | 1 note
 
