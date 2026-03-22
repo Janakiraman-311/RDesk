@@ -30,6 +30,14 @@ jobs:
           renv::restore(prompt = FALSE, clean = FALSE)
         shell: Rscript {0}
 
+      - name: Install RDesk
+        # renv::restore() installs dependencies but NOT the dev package itself.
+        # This step compiles and installs RDesk into the renv library.
+        run: |
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          devtools::install(quick = TRUE, upgrade = "never")
+        shell: Rscript {0}
+
       - name: Build site
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
