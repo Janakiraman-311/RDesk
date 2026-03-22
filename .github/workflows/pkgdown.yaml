@@ -11,6 +11,8 @@ jobs:
     # RDesk is an OS_type: Windows package. Site building requires RDesk installation 
     # to run vignettes (library(RDesk)), so we must build on a Windows runner.
     runs-on: windows-latest
+    permissions:
+      contents: write
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -46,7 +48,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
-          force_push: true
-          # Preserve existing branch history if desired, but site builds are usually overrides
+          force_orphan: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
