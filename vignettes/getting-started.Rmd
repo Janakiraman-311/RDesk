@@ -14,111 +14,65 @@ knitr::opts_chunk$set(
 )
 ```
 
-RDesk is a framework for building **native Windows desktop applications** using R for the logic and HTML/JS/CSS for the user interface. Unlike Shiny, RDesk apps run as standalone executables with zero-port IPC, native menus, and system tray integration.
+## The Problem: "The Last Mile" of R Deployment
 
-## 1. Installation
+Data scientists often build powerful tools in R, but sharing them with non-technical users is difficult. Shiny is excellent for web dashboards, but it requires a server, a steady internet connection, and often IT approval for network ports.
 
-RDesk requires **Windows 10 or later**, **Rtools44** (or 45), and the **Microsoft WebView2 Runtime** (installed by default on most modern Windows systems).
+**RDesk** solves this by turning your R code into a **native Windows desktop application**. It runs as a standalone `.exe` with zero network overhead and no server required.
+
+## The Solution: Your First Native App in 60 Seconds
+
+The easiest way to start is by using the built-in scaffolding tool. This generates a professional, high-performance dashboard that is ready to be bundled.
+
+### 1. Installation
+
+RDesk works out-of-the-box on modern Windows systems. You only need **R** and **Rtools** installed.
 
 ```r
 # Install from GitHub
-# devtools::install_github("Janakiraman-311/RDesk")
+devtools::install_github("Janakiraman-311/RDesk")
 library(RDesk)
 ```
 
-The fastest way to build an RDesk application is using the built-in scaffolding tool. This generates a professional "Hero Dashboard" with a sidebar, KPI cards, and an asynchronous charting engine.
+### 2. Scaffold a Dashboard
 
-![RDesk Hero Dashboard Landing Page](../man/figures/landing.png)
-
-```r
-library(RDesk)
-
-# Create a professional dashboard in a new directory
-RDesk::rdesk_create_app("MyDashboard", path = "C:/Desktop/MyApps")
-```
-
-### What's inside the generated app?
-
-1.  **`app.R`**: The main entry point that initializes the `App` class.
-2.  **`R/server.R`**: Contains the message handlers for data refreshing and filtering.
-3.  **`R/plots.R`**: Logic for generating `ggplot2` charts (automatically converted to base64 for the UI).
-4.  **`www/`**: Modern HTML/JS/CSS assets with a responsive dashboard layout.
-
-### Running the App
-
-Once created, you can run your app directly from RStudio:
+Run this command to create a complete project structure in a new folder:
 
 ```r
-setwd("C:/Desktop/MyApps/MyDashboard")
-source("app.R")
+RDesk::rdesk_create_app("MyFirstApp")
 ```
 
-## 3. Building a Standalone Executable
+![RDesk Hero Dashboard](../man/figures/landing.png)
 
-RDesk's core value is the ability to turn your R code into a standalone `.exe` that runs on any Windows machine without requiring a pre-installed R version.
+### 3. Run and Bundling
+
+Navigate to your new folder and run `app.R` to see your application in action. When you're ready to share it, one command creates a distributable bundle:
 
 ```r
-# Build a portable ZIP bundle
-RDesk::build_app(
-  app_dir  = "C:/Desktop/MyApps/MyDashboard",
-  app_name = "MyProfessionalApp"
-)
+RDesk::build_app(app_dir = "MyFirstApp", app_name = "SalesTool")
 ```
 
-The resulting `.zip` file in the `dist/` folder contains exactly what you need to distribute your tool. The end-user simply unzips and runs `MyProfessionalApp.exe`.
+The `dist/` folder will now contain a portable ZIP. **Your user just unzips and runs `SalesTool.exe`—they don't even need R installed.**
 
-If the build machine already has an R runtime you want to reuse, skip the portable-R download step entirely:
+## Why it works differently
 
-```r
-RDesk::build_app(
-  app_dir     = "my_app",
-  out_dir     = "dist",
-  app_name    = "MyCoolApp",
-  runtime_dir = "C:/Program Files/R/R-4.5.1"
-)
-```
-
-If you want to allow the legacy silent-installer provisioning path explicitly, opt into it with:
-
-```r
-RDesk::build_app(
-  app_dir           = "my_app",
-  out_dir           = "dist",
-  app_name          = "MyCoolApp",
-  portable_r_method = "installer"
-)
-```
-
-If your team uses `renv`, commit `renv.lock` in the project root.
-RDesk's GitHub Actions workflows restore from that lockfile before
-checks and bundle builds, and `build_app()` writes a bundle-level
-`renv.lock` plus `restore_env.R` helper into each distributable when
-`renv` is available on the build machine.
-
-## 4. Key Concepts
-
-### Native IPC
-Zero ports, zero firewall issues. Communication happens over standard input/output using a high-speed JSON protocol.
+### Zero-Port IPC
+Traditional R web apps use `httpuv` to open a network port. Many corporate firewalls block these by default. RDesk uses **Native Bidirectional Pipes** (Standard I/O) to communicate between R and the UI. It's safer, faster, and invisible to the network.
 
 ### Async Processing
-Use the `async()` wrapper to run heavy R tasks without freezing the UI:
+R is single-threaded, but your desktop app shouldn't be. Use the `async()` wrapper to run heavy tasks in the background:
 
 ```r
-app$on_message("heavy_task", async(function(msg) {
-  Sys.sleep(2) # Simulate work
-  list(status = "Done")
+app$on_message("calculate", async(function(payload) {
+  Sys.sleep(5) # Simulation
+  list(result = 42)
 }, app = app))
 ```
 
-### Native Menus & Trays
-RDesk gives you full control over the Windows shell:
+The UI remains fluid, showing a loading overlay while the background worker handles the math.
 
-```r
-app$on_ready(function() {
-  app$set_menu(list(
-    File = list(
-      "Exit" = app$quit
-    )
-  ))
-})
-```
+## Next Steps
+
+*   [**Coming from Shiny**](shiny-migration.html) — Map your existing Shiny knowledge to the RDesk mental model.
+*   [**Cookbook**](cookbook.html) — Common recipes for file dialogs, charts, and native menus.
+*   [**Async Guide**](async-guide.html) — Deep dive into background task management.
