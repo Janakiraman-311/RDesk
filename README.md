@@ -32,6 +32,16 @@ RDesk solves the "Last Mile" problem of R deployment. Instead of a browser URL, 
 | **Distribution** | Deploy to Cloud | **Single ZIP or Installer** |
 | **User Experience** | Website-like | **Desktop Native** |
 
+## Who uses RDesk?
+
+- Data analysts building internal tools that cannot live on a server
+- Consultants distributing one-off analysis tools to clients
+- Teams replacing Excel macros with proper R-powered apps
+- Organisations that need offline, zero-IT-involvement deployment
+
+Not the right fit for web applications, cross-platform needs, 
+or real-time collaborative tools — use Shiny for those.
+
 ## Core Benefits
 
 *   **🔒 Zero-Port IPC**: Native bidirectional pipes between R and the UI. No firewall issues or port conflicts.

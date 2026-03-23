@@ -14,62 +14,73 @@ knitr::opts_chunk$set(
 )
 ```
 
-## The Problem: "The Last Mile" of R Deployment
+## The "Last Mile" of R Deployment
 
-Data scientists often build powerful tools in R, but sharing them with non-technical users is difficult. Shiny is excellent for web dashboards, but it requires a server, a steady internet connection, and often IT approval for network ports.
+Data analysts build powerful tools in R, but sharing them with non-technical users is difficult. Shiny is excellent for web dashboards, but it requires a server and a steady network connection.
 
 **RDesk** solves this by turning your R code into a **native Windows desktop application**. It runs as a standalone `.exe` with zero network overhead and no server required.
 
-## The Solution: Your First Native App in 60 Seconds
-
-The easiest way to start is by using the built-in scaffolding tool. This generates a professional, high-performance dashboard that is ready to be bundled.
-
-### 1. Installation
+## 1. Installation
 
 RDesk works out-of-the-box on modern Windows systems. You only need **R** and **Rtools** installed.
 
 ```r
 # Install from GitHub
-devtools::install_github("Janakiraman-311/RDesk")
+# devtools::install_github("Janakiraman-311/RDesk")
 library(RDesk)
 ```
 
-### 2. Scaffold a Dashboard
+## 2. Your First App (The One-Click Way)
 
-Run this command to create a complete project structure in a new folder:
+The fastest way to build an RDesk application is using the built-in scaffolding tool. This generates a professional dashboard with a sidebar, KPI cards, and an asynchronous charting engine.
 
 ```r
-RDesk::rdesk_create_app("MyFirstApp")
+library(RDesk)
+
+# Create a professional dashboard in a new directory
+RDesk::rdesk_create_app("MyDashboard")
 ```
 
 ![RDesk Hero Dashboard](../man/figures/landing.png)
 
-### 3. Run and Bundling
+Navigate to the `MyDashboard` folder and run `app.R` to see the results.
 
-Navigate to your new folder and run `app.R` to see your application in action. When you're ready to share it, one command creates a distributable bundle:
+## 3. Building a Standalone Executable
+
+The core value of RDesk is the ability to turn your R code into a standalone `.exe` that runs on any machine without requiring a pre-installed R version.
+
+> **First build note:** The initial build takes 3-5 minutes as RDesk 
+> downloads and bundles a portable R runtime. Subsequent builds 
+> complete in under 30 seconds.
 
 ```r
-RDesk::build_app(app_dir = "MyFirstApp", app_name = "SalesTool")
+# Build a portable ZIP bundle
+RDesk::build_app(
+  app_dir  = "MyDashboard",
+  app_name = "MyProfessionalApp"
+)
 ```
 
-The `dist/` folder will now contain a portable ZIP. **Your user just unzips and runs `SalesTool.exe`—they don't even need R installed.**
+The resulting `.zip` file in the `dist/` folder contains exactly what you need to distribute your tool. The end-user simply unzips and runs `MyProfessionalApp.exe`.
 
-## Why it works differently
+### Using renv for reproducibility
+
+If your project uses `renv`, commit your `renv.lock` in the project root. RDesk's GitHub Actions workflows will automatically restore from that lockfile before building. Additionally, `build_app()` writes a bundle-level `renv.lock` into each distributable when `renv` is active.
+
+## 4. Key Concepts
 
 ### Zero-Port IPC
-Traditional R web apps use `httpuv` to open a network port. Many corporate firewalls block these by default. RDesk uses **Native Bidirectional Pipes** (Standard I/O) to communicate between R and the UI. It's safer, faster, and invisible to the network.
+Zero ports, zero firewall issues. Communication happens over standard input/output using a high-speed JSON protocol.
 
 ### Async Processing
-R is single-threaded, but your desktop app shouldn't be. Use the `async()` wrapper to run heavy tasks in the background:
+Use the `async()` wrapper to run heavy R tasks without freezing the UI:
 
 ```r
-app$on_message("calculate", async(function(payload) {
-  Sys.sleep(5) # Simulation
-  list(result = 42)
+app$on_message("heavy_task", async(function(msg) {
+  Sys.sleep(2) # Simulate work
+  list(status = "Done")
 }, app = app))
 ```
-
-The UI remains fluid, showing a loading overlay while the background worker handles the math.
 
 ## Next Steps
 

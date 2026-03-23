@@ -1,6 +1,9 @@
 ## R CMD check results (v1.0.0)
 
-0 errors | 1 warning | 1 note
+0 errors | 1 warning | 2 notes
+
+Full package documentation and vignettes are available at:
+https://janakiraman-311.github.io/RDesk/
 
 ### Warning
 
@@ -33,16 +36,16 @@
 
 ## Release Hardening (v1.0.0)
 
-The v1.0.0 Hardened Release incorporates several late-stage lifecycle features:
-- Added a professional **platform guard** message for macOS/Linux users.
-- Implemented `rdesk_auto_update()` for automated, silent enterprise deployments.
-- Measured and optimized bundled app size (down to ~60MB with pruning).
+The v1.0.0 release incorporates several stability features:
+- Professional platform guard for macOS/Linux users.
+- Automated system tray integration and auto-update plumbing.
+- Optimized bundle size (~60MB with runtime pruning).
 
 ## Winbuilder results
 
-Checked with devtools::check_win_release() on 2026-03-21.
+Checked with devtools::check_win_devel() on 2026-03-23.
 Status: 1 WARNING, 2 NOTEs -- all documented above.
 Installation: OK
 Check: OK
-R version: 4.5.3 (2026-03-11 ucrt)
+R version: 4.5.3 (2026-03-22 r89674 ucrt)
 Launcher compiled successfully: rdesk-launcher.exe built via src/Makevars.win
