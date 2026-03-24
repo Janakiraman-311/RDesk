@@ -1097,13 +1097,10 @@ public:
       // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
 #ifdef _WIN32
 #ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
 #endif
       return reinterpret_cast<typename Symbol::type>(
           GetProcAddress(m_handle, symbol.get_name()));
 #ifdef __GNUC__
-#pragma GCC diagnostic pop
 #endif
 #else
       return reinterpret_cast<typename Symbol::type>(
