@@ -1,4 +1,14 @@
-## R CMD check results (v1.0.0)
+## Resubmission (v1.0.1)
+
+This is a resubmission to address the automated points raised in the 2026-03-24 incoming pre-test. 
+
+I would like to clarify that the identified WARNING and NOTEs are intentional and critical for the package's operation as a native Windows GUI framework:
+
+1. **C++ Pragmas (WARNING)**: These exist in the vendored third-party headers `nlohmann/json` and `webview.h` to suppress platform-specific diagnostic noise (e.g., MSVC/GCC warnings). They are standard for these widely-used libraries.
+2. **Technical Terms (NOTE)**: Terms such as 'RDesk', 'mirai', 'callr', and 'WebView' are technical names specific to this package and its dependencies. They have been added to the package WORDLIST.
+3. **-mwindows Flag (NOTE)**: This is required in `Makevars.win` to ensure the application launches as a Windows GUI without an attached console window.
+
+## R CMD check results (v1.0.1)
 
 0 errors | 1 warning | 2 notes
 
@@ -23,23 +33,14 @@ https://janakiraman-311.github.io/RDesk/
 
 ### Notes
 
-* Possibly misspelled words (RDesk, UI, WebView, callr, mirai): These are
-  technical terms specific to this package and its dependencies. All have
-  been added to inst/WORDLIST.
+* Possibly misspelled words: 'RDesk', 'UI', 'WebView', 'callr', 'mirai'.
+  These are technical terms and have been added to `inst/WORDLIST`.
 
 * New submission -- expected.
 
 * Non-portable C++ flag `-mwindows` in src/Makevars.win. Required for
   Windows GUI applications to suppress the console window when launching
-  the native WebView2 window. Only present in Makevars.win, only applies
-  on Windows. Package declares OS_type: windows in DESCRIPTION.
-
-## Release Hardening (v1.0.0)
-
-The v1.0.0 release incorporates several stability features:
-- Professional platform guard for macOS/Linux users.
-- Automated system tray integration and auto-update plumbing.
-- Optimized bundle size (~60MB with runtime pruning).
+  the native WebView2 window.
 
 ## Winbuilder results
 
