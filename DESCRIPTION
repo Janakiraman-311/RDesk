@@ -1,16 +1,16 @@
 Package: RDesk
 Title: Native Desktop App Framework for 'R'
-Version: 1.0.2
+Version: 1.0.3
 Authors@R: 
     person("Janakiraman", "G",
            email = "janakiraman.bt@gmail.com",
            role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-6050-2318"))
-Description: 'RDesk' is a framework for building native Windows desktop 
-    applications using 'R' and 'WebView2'. It provides a robust R6-based 
-    event loop, asynchronous background task management via 'mirai' and 
-    'callr', and a native Win32 message bridge for seamless 'R'-to-UI 
-    communication without listening ports or network overhead. It allows 'R' 
+Description: Build native Windows desktop applications using 'R' and 
+    'WebView2'. Provides a robust R6-based event loop, asynchronous 
+    background task management via 'mirai' and 'callr', and a native 
+    Win32 message bridge for seamless 'R'-to-user-interface 
+    communication without listening ports or network overhead. Allows 'R' 
     developers to create professional, standalone desktop tools with modern 
     web-based user interfaces while maintaining a pure 'R' backend.
 OS_type: windows

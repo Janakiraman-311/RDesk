@@ -1,3 +1,12 @@
+## Resubmission (1.0.3)
+
+Changes in response to CRAN automated pre-check feedback for v1.0.2:
+
+* Modified the 'Description' field in DESCRIPTION to no longer start with
+  the package name, as requested by CRAN style guidelines.
+* Replaced the technical acronym 'UI' with 'user interface' in the 
+  Description to eliminate the remaining automated spelling NOTE.
+
 ## Resubmission (1.0.2)
 
 Changes in response to CRAN reviewer feedback from Uwe Ligges (2026-03-24):
