@@ -18,8 +18,8 @@ rdesk_start_daemons <- function() {
   if (getOption("rdesk.async_backend", "callr") != "mirai") return(invisible(NULL))
   if (!requireNamespace("mirai", quietly = TRUE)) return(invisible(NULL))
 
-  # Start one worker per physical core (minus 1) for best responsiveness
-  n <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+  # Cap at 2 workers for CRAN compliance (avoid Note on CPU vs Elapsed time)
+  n <- min(2L, max(1L, parallel::detectCores(logical = FALSE) - 1L))
   mirai::daemons(n)
   message("[RDesk] mirai daemon pool started: ", n, " workers")
   invisible(n)

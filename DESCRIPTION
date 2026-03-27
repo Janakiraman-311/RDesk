@@ -18,9 +18,9 @@ Authors@R: c(
            comment = "WebView2 SDK (src/webview2_sdk/)")
   )
 Description: Build native Windows desktop applications using 'R' and 
-    'WebView2'. Provides a robust R6-based event loop, asynchronous 
+    'WebView2'. Provides a robust 'R6'-based event loop, asynchronous 
     background task management via 'mirai' and 'callr', and a native 
-    Win32 message bridge for seamless 'R'-to-user-interface 
+    'Win32' message bridge for seamless 'R'-to-user-interface 
     communication without listening ports or network overhead. Allows 'R' 
     developers to create professional, standalone desktop tools with modern 
     web-based user interfaces while maintaining a pure 'R' backend.

@@ -95,17 +95,17 @@ rdesk_create_app <- function(name,
 #' Internal success message
 #' @keywords internal
 rdesk_scaffold_success_msg <- function(name, app_dir, data_source, viz_type, use_async) {
-  cat("\n[RDesk] Successfully created:", app_dir, "\n")
-  cat("[RDesk] Your Professional Dashboard includes:\n")
-  cat("  - Mixed visualization (Charts + Tables)\n")
-  cat("  - Built-in KPI cards system\n")
-  cat("  - Sidebar filtering engine\n")
-  cat("  - Background processing (Async Workers)\n")
-  cat("\n[RDesk] Run it now:\n")
-  cat(sprintf("  setwd(%s)\n", shQuote(normalizePath(app_dir, winslash = "\\"))))
-  cat("  source(\"app.R\")\n\n")
-  cat("[RDesk] Build your executable when ready:\n")
-  cat(sprintf("  RDesk::build_app(app_dir = %s, app_name = %s)\n\n",
+  message("\n[RDesk] Successfully created: ", app_dir, "\n")
+  message("[RDesk] Your Professional Dashboard includes:")
+  message("  - Mixed visualization (Charts + Tables)")
+  message("  - Built-in KPI cards system")
+  message("  - Sidebar filtering engine")
+  message("  - Background processing (Async Workers)")
+  message("\n[RDesk] Run it now:")
+  message(sprintf("  setwd(%s)\n", shQuote(normalizePath(app_dir, winslash = "\\"))))
+  message("  source(\"app.R\")\n\n")
+  message("[RDesk] Build your executable when ready:")
+  message(sprintf("  RDesk::build_app(app_dir = %s, app_name = %s)\n\n",
               shQuote(normalizePath(app_dir, winslash = "\\")), shQuote(name)))
 }
 
