@@ -1,11 +1,15 @@
 ## Resubmission (1.0.4)
 
-Changes in response to CRAN reviewer Konstanze Lauseker (2026-03-24):
+Responding to review by Konstanze Lauseker (2026-03-24) and 
+Uwe Ligges (2026-03-24).
 
 * Replaced \dontrun{} with \donttest{} or if(interactive()){} throughout.
   Functions opening native windows wrapped in if(interactive()){}.
   Long-running functions wrapped in \donttest{}.
   Fast safe examples unwrapped entirely.
+
+* Executable R code chunks added to all six vignettes and verified 
+  to run cleanly under R CMD check with eval=TRUE.
 
 * All examples and default paths now write to tempdir() only.
   No writes to user home filespace or getwd().
