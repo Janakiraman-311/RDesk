@@ -51,6 +51,9 @@ rdesk_stop_daemons <- function() {
 #' @param app_id Optional App ID used to associate a job with a specific app.
 #' @return Invisible job ID.
 #' @examples
+#' # Fast, non-interactive task check (safe to unwrap)
+#' rdesk_jobs_pending()
+#' 
 #' if (interactive()) {
 #'   # Run a long-running computation in the background
 #'   rdesk_async(

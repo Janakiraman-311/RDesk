@@ -16,6 +16,14 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(RDesk)
+# Verify RDesk is installed correctly
+packageVersion("RDesk")
+# Check that the example app is bundled (if existing)
+app_path <- system.file("templates/hello", package = "RDesk")
+if (nzchar(app_path)) {
+  file.exists(app_path)
+  list.files(app_path)
+}
 ```
 
 RDesk is built on a "Source-to-Binary" philosophy that combines the flexibility of R with the security and performance of native Windows APIs.

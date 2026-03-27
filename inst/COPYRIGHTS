@@ -1,0 +1,14 @@
+nlohmann/json (inst/include/nlohmann/json.hpp)
+Copyright (c) 2013-2022 Niels Lohmann
+License: MIT
+https://github.com/nlohmann/json
+
+webview (src/webview/webview.h)
+Copyright (c) 2017 Serge Zaitsev
+License: MIT
+https://github.com/webview/webview
+
+WebView2 SDK (src/webview2_sdk/)
+Copyright (c) Microsoft Corporation
+License: BSD-style (see src/webview2_sdk/LICENSE)
+https://developer.microsoft.com/microsoft-edge/webview2/

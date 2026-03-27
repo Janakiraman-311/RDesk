@@ -15,4 +15,3 @@ A list containing the validated message components, or NULL if invalid
 \description{
 Parse and validate an incoming RDesk IPC message
 }
-\keyword{internal}

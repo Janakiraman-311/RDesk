@@ -16,6 +16,9 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(RDesk)
+# Build a valid IPC message envelope
+msg <- rdesk_message("get_data", list(filter = "cyl == 6"))
+str(msg)
 ```
 
 Copy-paste recipes for the most common RDesk patterns.

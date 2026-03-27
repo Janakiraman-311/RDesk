@@ -6,7 +6,7 @@
 \usage{
 build_app(
   app_dir = ".",
-  out_dir = "dist",
+  out_dir = file.path(tempdir(), "dist"),
   app_name = NULL,
   version = NULL,
   r_version = NULL,

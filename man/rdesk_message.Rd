@@ -23,4 +23,3 @@ A list representing the standard JSON envelope
 \description{
 Construct a standard RDesk IPC message envelope
 }
-\keyword{internal}

@@ -16,6 +16,10 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(RDesk)
+# Convert a data frame for JSON serialisation
+result <- rdesk_df_to_list(head(mtcars, 3))
+length(result$rows)   # 3
+result$cols[1:3]      # first three column names
 ```
 
 If you know Shiny, you can learn RDesk in an afternoon.

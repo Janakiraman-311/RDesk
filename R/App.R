@@ -13,6 +13,12 @@ NULL
 #' Provides bidirectional native pipe communication between R and the UI.
 #'
 #' @examples
+#' # Safe logical check (unwrapped)
+#' app_dir <- system.file("templates/hello", package = "RDesk")
+#' if (nzchar(app_dir)) {
+#'   message("Built-in app directory: ", app_dir)
+#' }
+#' 
 #' if (interactive()) {
 #'   app <- App$new(title = "Car Visualizer", width = 1200, height = 800)
 #'   

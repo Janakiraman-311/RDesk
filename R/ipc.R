@@ -8,7 +8,7 @@ NULL
 #' @param payload A list representing the message data
 #' @param version The contract version (default "1.0")
 #' @return A list representing the standard JSON envelope
-#' @keywords internal
+#' @export
 rdesk_message <- function(type, payload = list(), version = getOption("rdesk.ipc_version", "1.0")) {
   msg <- list(
     id = paste0("msg_", format(Sys.time(), "%s%OS3"), "_", sample.int(9999, 1)),
@@ -35,7 +35,7 @@ rdesk_message <- function(type, payload = list(), version = getOption("rdesk.ipc
 #'
 #' @param raw_json The raw JSON string from the frontend
 #' @return A list containing the validated message components, or NULL if invalid
-#' @keywords internal
+#' @export
 rdesk_parse_message <- function(raw_json) {
   msg <- tryCatch(jsonlite::fromJSON(raw_json, simplifyVector = FALSE), 
                   error = function(e) NULL)

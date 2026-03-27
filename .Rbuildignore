@@ -5,6 +5,7 @@
 ^\.Rproj\.user$
 ^.*\.Rproj$
 ^\.agents$
+^MAINTENANCE\.md$
 ^\.r-lib/
 ^tests/smoke_test_run\.R$
 ^renv/

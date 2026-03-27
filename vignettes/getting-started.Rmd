@@ -14,6 +14,16 @@ knitr::opts_chunk$set(
 )
 ```
 
+```{r}
+# Verify RDesk is installed correctly
+packageVersion("RDesk")
+# Check that the example app is bundled (if existing)
+app_path <- system.file("templates/hello", package = "RDesk")
+if (nzchar(app_path)) {
+  file.exists(app_path)
+}
+```
+
 ## The "Last Mile" of R Deployment
 
 Data analysts build powerful tools in R, but sharing them with non-technical users is difficult. Shiny is excellent for web dashboards, but it requires a server and a steady network connection.

@@ -34,6 +34,9 @@ Invisible job ID.
 Automatically switches between 'mirai' (persistent daemons) and 'callr' (on-demand processes).
 }
 \examples{
+# Fast, non-interactive task check (safe to unwrap)
+rdesk_jobs_pending()
+
 if (interactive()) {
   # Run a long-running computation in the background
   rdesk_async(

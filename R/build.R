@@ -39,7 +39,7 @@
 #' }
 #' @export
 build_app <- function(app_dir = ".",
-                      out_dir  = "dist",
+                      out_dir  = file.path(tempdir(), "dist"),
                       app_name = NULL,
                       version  = NULL,
                       r_version = NULL,
@@ -476,7 +476,11 @@ rdesk_install_packages_to <- function(pkgs, lib_dir, r_version) {
 }
 
 rdesk_resolve_deps <- function(pkgs, avail) {
-  base_pkgs <- rownames(utils::installed.packages(priority = c("base", "recommended")))
+  base_pkgs <- c("base", "compiler", "datasets", "graphics", "grDevices", "grid", 
+                 "methods", "parallel", "splines", "stats", "stats4", "tcltk", 
+                 "tools", "utils", "MASS", "lattice", "boot", "class", "cluster", 
+                 "codetools", "foreign", "KernSmooth", "mgcv", "nlme", "nnet", 
+                 "rpart", "spatial", "survival")
   resolved  <- character(0)
   queue     <- pkgs
   while (length(queue) > 0) {
@@ -566,12 +570,14 @@ rdesk_resolve_launcher_bin_dir <- function(project_root) {
 
 rdesk_snapshot_bundle <- function(lib_dir, stage_root) {
   if (!requireNamespace("renv", quietly = TRUE)) return(invisible(NULL))
-  pkgs <- utils::installed.packages(lib.loc = lib_dir)
-  if (nrow(pkgs) == 0) return(invisible(NULL))
-  lock_entries <- lapply(seq_len(nrow(pkgs)), function(i) {
-    p <- pkgs[i, ]; list(Package = p[["Package"]], Version = p[["Version"]], Source = "Repository", Repository = "CRAN")
+  pkg_names <- list.dirs(lib_dir, full.names = FALSE, recursive = FALSE)
+  if (length(pkg_names) == 0) return(invisible(NULL))
+  
+  lock_entries <- lapply(pkg_names, function(p_name) {
+    ver <- as.character(utils::packageVersion(p_name, lib.loc = lib_dir))
+    list(Package = p_name, Version = ver, Source = "Repository", Repository = "CRAN")
   })
-  names(lock_entries) <- pkgs[, "Package"]
+  names(lock_entries) <- pkg_names
   lockfile <- list(R = list(Version = paste0(R.version$major, ".", R.version$minor), Repositories = list(list(Name = "CRAN", URL = "https://cloud.r-project.org"))), Packages = lock_entries)
   jsonlite::write_json(lockfile, file.path(stage_root, "renv.lock"), pretty = TRUE, auto_unbox = TRUE)
 }
