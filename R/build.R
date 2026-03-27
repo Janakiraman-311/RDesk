@@ -29,14 +29,12 @@
 #'   environment without performing the full build. Default FALSE.
 #' @return Path to the created zip file, invisibly.
 #' @examples
-#' \donttest{
 #' # Prepare an app directory (following scaffold example)
 #' app_path <- file.path(tempdir(), "MyApp")
 #' rdesk_create_app("MyApp", path = tempdir())
 #' 
-#' # Build the app in the temporary directory
-#' build_app(app_path, out_dir = tempdir())
-#' }
+#' # Perform a dry-run build (fast, no external binaries downloaded)
+#' build_app(app_path, out_dir = tempdir(), dry_run = TRUE)
 #' @export
 build_app <- function(app_dir = ".",
                       out_dir  = file.path(tempdir(), "dist"),

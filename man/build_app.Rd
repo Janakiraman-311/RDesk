@@ -71,12 +71,10 @@ Path to the created zip file, invisibly.
 Build a self-contained distributable from an RDesk application
 }
 \examples{
-\donttest{
 # Prepare an app directory (following scaffold example)
 app_path <- file.path(tempdir(), "MyApp")
 rdesk_create_app("MyApp", path = tempdir())
 
-# Build the app in the temporary directory
-build_app(app_path, out_dir = tempdir())
-}
+# Perform a dry-run build (fast, no external binaries downloaded)
+build_app(app_path, out_dir = tempdir(), dry_run = TRUE)
 }

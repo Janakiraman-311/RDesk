@@ -15,7 +15,6 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(RDesk)
 # Verify RDesk is installed correctly
 packageVersion("RDesk")
 # Check that the example app is bundled (if existing)

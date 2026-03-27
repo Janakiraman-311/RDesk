@@ -15,10 +15,9 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-library(RDesk)
 # Parse a valid IPC message
 raw <- '{"id":"msg_001","type":"get_data","version":"1.0","payload":{},"timestamp":1234567890}'
-msg <- rdesk_parse_message(raw)
+msg <- RDesk::rdesk_parse_message(raw)
 msg$type
 ```
 
