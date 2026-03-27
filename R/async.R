@@ -51,14 +51,14 @@ rdesk_stop_daemons <- function() {
 #' @param app_id Optional App ID used to associate a job with a specific app.
 #' @return Invisible job ID.
 #' @examples
-#' \dontrun{
-#' # Run a long-running computation in the background
-#' rdesk_async(
-#'   task = function(n) { Sys.sleep(2); sum(runif(n)) },
-#'   args = list(n = 1e6),
-#'   on_done = function(res) message("Task finished: ", res),
-#'   on_error = function(err) message("Task failed: ", err$message)
-#' )
+#' if (interactive()) {
+#'   # Run a long-running computation in the background
+#'   rdesk_async(
+#'     task = function(n) { Sys.sleep(2); sum(runif(n)) },
+#'     args = list(n = 1e6),
+#'     on_done = function(res) message("Task finished: ", res),
+#'     on_error = function(err) message("Task failed: ", err$message)
+#'   )
 #' }
 #' @export
 rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL,
@@ -278,10 +278,10 @@ rdesk_jobs_list <- function() {
 #' @return A wrapped handler function suitable for `app$on_message()`.
 #'
 #' @examples
-#' \dontrun{
-#' app$on_message("filter_cars", async(function(payload) {
-#'   mtcars[mtcars$cyl == payload$cylinders, ]
-#' }, app = app))
+#' if (interactive()) {
+#'   app$on_message("filter_cars", async(function(payload) {
+#'     mtcars[mtcars$cyl == payload$cylinders, ]
+#'   }, app = app))
 #' }
 #' @export
 async <- function(fn,

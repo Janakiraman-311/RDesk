@@ -19,11 +19,17 @@ rdesk_sanitize_log_component <- function(x) {
 #' Resolve the bundled log directory for an app
 #' @keywords internal
 rdesk_log_dir <- function(app_name = Sys.getenv("R_APP_NAME", "RDeskApp")) {
-  base_dir <- Sys.getenv("LOCALAPPDATA")
-  if (!nzchar(base_dir)) {
-    base_dir <- Sys.getenv("TEMP", "C:/Temp")
+  # If running as a standalone bundle, use LocalAppData
+  if (rdesk_is_bundle()) {
+    base_dir <- Sys.getenv("LOCALAPPDATA")
+    if (nzchar(base_dir)) {
+      return(file.path(base_dir, "RDesk", rdesk_sanitize_log_component(app_name)))
+    }
   }
-  file.path(base_dir, "RDesk", rdesk_sanitize_log_component(app_name))
+  
+  # Default/Fallback: Always use tempdir() per CRAN policy
+  # for non-bundled or check environments
+  file.path(tempdir(), "RDesk", rdesk_sanitize_log_component(app_name))
 }
 
 #' Log a message to the app's log file

@@ -43,9 +43,9 @@ before executing the task. It also snapshots currently loaded packages
 (excluding system packages) to recreate the environment.
 }
 \examples{
-\dontrun{
-app$on_message("filter_cars", async(function(payload) {
-  mtcars[mtcars$cyl == payload$cylinders, ]
-}, app = app))
+if (interactive()) {
+  app$on_message("filter_cars", async(function(payload) {
+    mtcars[mtcars$cyl == payload$cylinders, ]
+  }, app = app))
 }
 }

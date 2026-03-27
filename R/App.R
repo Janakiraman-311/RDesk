@@ -13,20 +13,20 @@ NULL
 #' Provides bidirectional native pipe communication between R and the UI.
 #'
 #' @examples
-#' \dontrun{
-#' app <- App$new(title = "Car Visualizer", width = 1200, height = 800)
-#' 
-#' app$on_ready(function() {
-#'   message("App is ready!")
-#' })
-#' 
-#' # Handle messages from UI
-#' app$on_message("get_data", function(payload) {
-#'   list(cars = mtcars[1:5, ])
-#' })
-#' 
-#' # Start the app
-#' app$run()
+#' if (interactive()) {
+#'   app <- App$new(title = "Car Visualizer", width = 1200, height = 800)
+#'   
+#'   app$on_ready(function() {
+#'     message("App is ready!")
+#'   })
+#'   
+#'   # Handle messages from UI
+#'   app$on_message("get_data", function(payload) {
+#'     list(cars = mtcars[1:5, ])
+#'   })
+#'   
+#'   # Start the app
+#'   app$run()
 #' }
 #' @export
 App <- R6::R6Class("App",

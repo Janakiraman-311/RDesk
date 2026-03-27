@@ -7,6 +7,17 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(RDesk)
+```
+
 # RDesk IPC Message Contract (v1.0)
 
 This document defines the standard JSON envelope used for all communication between the R backend and the HTML/JS frontend in RDesk applications.

@@ -7,6 +7,17 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(RDesk)
+```
+
 If you know Shiny, you can learn RDesk in an afternoon.
 Your R data logic moves across unchanged.
 What changes is the delivery layer -- instead of a browser,

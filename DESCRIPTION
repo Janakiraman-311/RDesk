@@ -1,11 +1,13 @@
 Package: RDesk
 Title: Native Desktop App Framework for 'R'
-Version: 1.0.3
+Version: 1.0.4
 Authors@R: 
-    person("Janakiraman", "G",
-           email = "janakiraman.bt@gmail.com",
-           role = c("aut", "cre"),
-           comment = c(ORCID = "0000-0001-6050-2318"))
+    c(person("Janakiraman", "G",
+             email = "janakiraman.bt@gmail.com",
+             role = c("aut", "cre"),
+             comment = c(ORCID = "0000-0001-6050-2318")),
+      person("Serge", "Zaitsev", role = "ctb",
+             comment = "Author of webview.h"))
 Description: Build native Windows desktop applications using 'R' and 
     'WebView2'. Provides a robust R6-based event loop, asynchronous 
     background task management via 'mirai' and 'callr', and a native 

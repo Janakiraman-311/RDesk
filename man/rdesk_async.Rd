@@ -34,13 +34,13 @@ Invisible job ID.
 Automatically switches between 'mirai' (persistent daemons) and 'callr' (on-demand processes).
 }
 \examples{
-\dontrun{
-# Run a long-running computation in the background
-rdesk_async(
-  task = function(n) { Sys.sleep(2); sum(runif(n)) },
-  args = list(n = 1e6),
-  on_done = function(res) message("Task finished: ", res),
-  on_error = function(err) message("Task failed: ", err$message)
-)
+if (interactive()) {
+  # Run a long-running computation in the background
+  rdesk_async(
+    task = function(n) { Sys.sleep(2); sum(runif(n)) },
+    args = list(n = 1e6),
+    on_done = function(res) message("Task finished: ", res),
+    on_error = function(err) message("Task failed: ", err$message)
+  )
 }
 }

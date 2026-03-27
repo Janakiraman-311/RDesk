@@ -38,11 +38,11 @@ The app includes a sidebar for filters, KPI cards, and an asynchronous
 ggplot2 charting engine fueled by mtcars (default).
 }
 \examples{
-\dontrun{
-# Create the Professional Hero Dashboard
-rdesk_create_app("MyDashboard")
-
-# Create with a specific theme
-rdesk_create_app("DarkDash", theme = "dark")
+if (interactive()) {
+  # Create the Professional Hero Dashboard in a temporary directory
+  rdesk_create_app("MyDashboard", path = tempdir())
+  
+  # Create with a specific theme
+  rdesk_create_app("DarkDash", path = tempdir(), theme = "dark")
 }
 }

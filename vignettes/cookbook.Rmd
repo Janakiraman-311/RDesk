@@ -7,6 +7,17 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(RDesk)
+```
+
 Copy-paste recipes for the most common RDesk patterns.
 
 ## Load a CSV with a file dialog

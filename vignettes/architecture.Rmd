@@ -7,6 +7,17 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(RDesk)
+```
+
 RDesk is built on a "Source-to-Binary" philosophy that combines the flexibility of R with the security and performance of native Windows APIs.
 
 ## The Three Components

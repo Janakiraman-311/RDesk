@@ -29,15 +29,13 @@
 #'   environment without performing the full build. Default FALSE.
 #' @return Path to the created zip file, invisibly.
 #' @examples
-#' \dontrun{
-#' # Build the current app in the 'MyApp' directory
-#' build_app("MyApp")
+#' \donttest{
+#' # Prepare an app directory (following scaffold example)
+#' app_path <- file.path(tempdir(), "MyApp")
+#' rdesk_create_app("MyApp", path = tempdir())
 #' 
-#' # Build with a specific R version and custom installer metadata
-#' build_app("MyApp", 
-#'           r_version = "4.4.2",
-#'           build_installer = TRUE,
-#'           publisher = "My Company")
+#' # Build the app in the temporary directory
+#' build_app(app_path, out_dir = tempdir())
 #' }
 #' @export
 build_app <- function(app_dir = ".",
@@ -57,7 +55,9 @@ build_app <- function(app_dir = ".",
                       prune_runtime = TRUE,
                       dry_run       = FALSE) {
 
-  options(timeout = max(1200, getOption("timeout")))
+  # Restore options on exit
+  old_opts <- options(timeout = max(1200, getOption("timeout")))
+  on.exit(options(old_opts), add = TRUE)
   portable_r_method <- match.arg(portable_r_method)
   app_dir <- normalizePath(app_dir, mustWork = TRUE)
   user_runtime_dir <- runtime_dir
@@ -242,8 +242,9 @@ build_app <- function(app_dir = ".",
     file.remove(zip_path)
   }
 
-  old_wd <- setwd(dirname(stage_root))
+  old_wd <- getwd()
   on.exit(setwd(old_wd), add = TRUE)
+  setwd(dirname(stage_root))
   zip::zip(zip_path, files = basename(stage_root), recurse = TRUE)
 
   size_mb <- round(file.info(zip_path)$size / 1024^2, 1)
@@ -295,9 +296,9 @@ rdesk_validate_build_inputs <- function(app_dir,
   core_pkgs <- c("R6", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "zip")
   all_pkgs  <- unique(c(core_pkgs, extra_pkgs))
   
-  missing <- all_pkgs[!all_pkgs %in% rownames(utils::installed.packages())]
-  if (length(missing) > 0 && !"RDesk" %in% missing) {
-    stop("[Validation Failed] The following required packages are not installed in your local R library:\n",
+  missing <- all_pkgs[!vapply(all_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing) > 0) {
+    stop("[Validation Failed] The following required packages are not available in your R library:\n",
          paste("  -", missing, collapse = "\n"),
          "\nPlease install them before building.")
   }

@@ -15,12 +15,12 @@
 #'
 #' @return Path to the created app directory, invisibly.
 #' @examples
-#' \dontrun{
-#' # Create the Professional Hero Dashboard
-#' rdesk_create_app("MyDashboard")
-#' 
-#' # Create with a specific theme
-#' rdesk_create_app("DarkDash", theme = "dark")
+#' if (interactive()) {
+#'   # Create the Professional Hero Dashboard in a temporary directory
+#'   rdesk_create_app("MyDashboard", path = tempdir())
+#'   
+#'   # Create with a specific theme
+#'   rdesk_create_app("DarkDash", path = tempdir(), theme = "dark")
 #' }
 #' @export
 rdesk_create_app <- function(name,
