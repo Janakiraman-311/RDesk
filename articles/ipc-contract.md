@@ -1,0 +1,116 @@
+# RDesk IPC Message Contract
+
+``` r
+# Parse a valid IPC message
+raw <- '{"id":"msg_001","type":"get_data","version":"1.0","payload":{},"timestamp":1234567890}'
+msg <- RDesk::rdesk_parse_message(raw)
+msg$type
+#> [1] "get_data"
+```
+
+## RDesk IPC Message Contract (v1.0)
+
+This document defines the standard JSON envelope used for all
+communication between the R backend and the HTML/JS frontend in RDesk
+applications.
+
+### The Message Envelope
+
+Every message sent across the native IPC bridge (WebView2 to
+stdin/stdout) must be a JSON object with the following structure:
+
+``` json
+{
+  "id": "msg_abc123",
+  "type": "action_name",
+  "version": "1.0",
+  "payload": { 
+    "key": "value" 
+  },
+  "timestamp": 1742123456.789
+}
+```
+
+#### Field Definitions
+
+- **`id`**: A unique string identifier for the message (e.g., for
+  tracing or request/response correlation).
+- **`type`**: The internal name of the message or action. This triggers
+  handlers on the receiving end.
+- **`version`**: The version of the message contract (currently “1.0”).
+- **`payload`**: A JSON object containing the actual data for the
+  message.
+- **`timestamp`**: Seconds since the Unix epoch (including decimal
+  fractions).
+
+### Usage in R
+
+When sending from R to the UI, use `app$send()`:
+
+``` r
+app$send("update_ui", list(status = "Success"))
+```
+
+RDesk automatically wraps your payload in the standard envelope before
+transmission.
+
+### Usage in JavaScript
+
+When sending from the UI to R, use `rdesk.send()`:
+
+``` javascript
+rdesk.send("button_click", { id: "submit_btn" });
+```
+
+The `rdesk.js` library automatically constructs the envelope with a
+unique ID and current timestamp.
+
+### Error Handling
+
+The parser
+[`rdesk_parse_message()`](https://janakiraman-311.github.io/RDesk/reference/rdesk_parse_message.md)
+is designed to be defensive. It will return `NULL` if: 1. The input is
+not valid JSON. 2. The envelope is missing required fields (`type` or
+`payload`).
+
+In these cases, a [`warning()`](https://rdrr.io/r/base/warning.html) is
+emitted with the specific failure reason.
+
+#### Defensive Pattern for Developers
+
+If you are building custom extensions or handlers, always check for
+`NULL` before processing:
+
+``` r
+msg <- rdesk_parse_message(raw_json)
+if (is.null(msg)) {
+  # Log error or silently ignore malformed traffic
+  return(invisible(NULL))
+}
+
+# Safely access msg$type and msg$payload here
+```
+
+### The async result convention
+
+When using
+[`async()`](https://janakiraman-311.github.io/RDesk/reference/async.md),
+the result is automatically sent back to the UI as a message of type
+`<original_type>_result`.
+
+For example:
+
+| R registers                             | JS sends                             | JS receives                          |
+|-----------------------------------------|--------------------------------------|--------------------------------------|
+| `on_message("filter_cars", async(...))` | `rdesk.send("filter_cars", payload)` | `rdesk.on("filter_cars_result", fn)` |
+| `on_message("run_model", async(...))`   | `rdesk.send("run_model", payload)`   | `rdesk.on("run_model_result", fn)`   |
+
+This convention means the JS developer always knows which event to
+listen for without reading the R code. It is consistent and predictable.
+
+#### Overriding the result type
+
+If you need a different result type, use
+[`rdesk_async()`](https://janakiraman-311.github.io/RDesk/reference/rdesk_async.md)
+directly (Tier 2) and call `app$send()` explicitly in your `on_done`
+callback.

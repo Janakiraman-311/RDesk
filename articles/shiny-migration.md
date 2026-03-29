@@ -1,0 +1,178 @@
+# Coming from Shiny
+
+``` r
+# Convert a data frame for JSON serialisation
+result <- RDesk::rdesk_df_to_list(head(mtcars, 3))
+length(result$rows)   # 3
+#> [1] 3
+result$cols[1:3]      # first three column names
+#> [1] "mpg"  "cyl"  "disp"
+```
+
+If you know Shiny, you can learn RDesk in an afternoon. Your R data
+logic moves across unchanged. What changes is the delivery layer –
+instead of a browser, you get a native Windows window.
+
+## The mental model shift
+
+Shiny uses a **reactive graph** – inputs change, outputs update
+automatically. RDesk uses **explicit message passing** – the UI sends a
+message, R handles it and pushes a result back.
+
+This feels more like writing an API handler than a Shiny server.
+
+## Side-by-side patterns
+
+### Responding to user input
+
+**Shiny**
+
+``` r
+server <- function(input, output, session) {
+  output$plot <- renderPlot({
+    filtered <- mtcars[mtcars$cyl == input$cyl, ]
+    plot(filtered$wt, filtered$mpg)
+  })
+}
+```
+
+**RDesk**
+
+``` r
+app$on_message("filter", async(function(payload) {
+  filtered <- mtcars[mtcars$cyl == payload$cyl, ]
+  list(chart = rdesk_plot_to_base64(
+    plot(filtered$wt, filtered$mpg)
+  ))
+}, app = app))
+```
+
+The key difference: RDesk does not re-run automatically. The UI
+explicitly calls `rdesk.send("filter", {cyl: 6})` and receives
+`filter_result` back.
+
+### Sending data to the UI
+
+**Shiny**
+
+``` r
+output$table <- renderTable({ mtcars })
+```
+
+**RDesk**
+
+``` r
+# In R -- push data explicitly
+app$send("table_data", list(
+  rows = lapply(seq_len(nrow(mtcars)), function(i) as.list(mtcars[i,])),
+  cols = names(mtcars)
+))
+```
+
+``` javascript
+// In JavaScript -- receive it
+rdesk.on("table_data", function(data) {
+  renderTable(data.rows, data.cols);
+});
+```
+
+### File downloads
+
+**Shiny**
+
+``` r
+output$download <- downloadHandler(
+  filename = "data.csv",
+  content  = function(file) write.csv(mtcars, file)
+)
+```
+
+**RDesk**
+
+``` r
+app$on_message("save_csv", function(payload) {
+  path <- app$dialog_save(
+    title   = "Save CSV",
+    filters = "CSV files (*.csv)|*.csv"
+  )
+  if (!is.null(path)) write.csv(mtcars, path, row.names = FALSE)
+})
+```
+
+### Native menus (no Shiny equivalent)
+
+``` r
+app$set_menu(list(
+  File = list(
+    "Open..."  = function() app$dialog_open(),
+    "Save..."  = function() app$dialog_save(),
+    "---",
+    "Exit"     = app$quit
+  ),
+  Help = list(
+    "About"    = function() app$toast("MyApp v1.0", type = "info")
+  )
+))
+```
+
+### Async processing
+
+**Shiny** (with future/promises)
+
+``` r
+library(future)
+plan(multisession)
+
+observeEvent(input$run, {
+  future({
+    slow_model(input$data)
+  }) %...>% (function(result) {
+    output$result <- renderText(result)
+  })
+})
+```
+
+**RDesk**
+
+``` r
+app$on_message("run_model", async(function(payload) {
+  slow_model(payload$data)
+}, app = app, loading_message = "Running model..."))
+```
+
+RDesk’s
+[`async()`](https://janakiraman-311.github.io/RDesk/reference/async.md)
+handles the loading overlay, cancellation, and result routing
+automatically.
+
+## What you can reuse unchanged
+
+Everything that does not touch Shiny inputs/outputs moves across
+directly:
+
+- All data loading and transformation code
+- All ggplot2 chart code (render with
+  [`rdesk_plot_to_base64()`](https://janakiraman-311.github.io/RDesk/reference/rdesk_plot_to_base64.md))
+- All statistical modelling code
+- All file reading and writing code
+- All helper functions
+
+## What you must rewrite
+
+| Shiny pattern        | RDesk equivalent                                                                                                     |
+|----------------------|----------------------------------------------------------------------------------------------------------------------|
+| `input$x`            | `payload$x` inside `on_message()`                                                                                    |
+| `reactive({...})`    | Call helper functions explicitly                                                                                     |
+| `renderPlot({...})`  | [`rdesk_plot_to_base64()`](https://janakiraman-311.github.io/RDesk/reference/rdesk_plot_to_base64.md) + `app$send()` |
+| `renderTable({...})` | `app$send()` with list of rows                                                                                       |
+| `observe({...})`     | `app$on_message()` handler                                                                                           |
+| `showNotification()` | `app$toast()`                                                                                                        |
+
+## Practical migration path
+
+1.  Keep all your data and modelling R files unchanged
+2.  Replace `ui.R` with `www/index.html` (plain HTML – no Shiny DSL)
+3.  Replace `server.R` handlers one by one using `app$on_message()`
+4.  Replace `renderPlot` calls with
+    `rdesk_plot_to_base64() + app$send()`
+5.  Run `source("app.R")` and test each handler as you migrate

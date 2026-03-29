@@ -1,0 +1,87 @@
+# Async & Background Tasks in RDesk
+
+``` r
+# RDesk async functions work safely in non-interactive mode
+RDesk::rdesk_jobs_pending()  # returns 0 when no jobs running
+#> [1] 0
+```
+
+## The three tiers of async in RDesk
+
+RDesk provides three levels of async support. Start at Tier 1. Move to
+Tier 2 or 3 only when you need something Tier 1 cannot do.
+
+![RDesk Loading Overlay & Progress
+Hook](../reference/figures/loading.png)
+
+RDesk Loading Overlay & Progress Hook
+
+### Tier 1 – async() wrapper (recommended)
+
+Wrap any message handler with
+[`async()`](https://janakiraman-311.github.io/RDesk/reference/async.md).
+RDesk handles everything else.
+
+``` r
+app$on_message("calculate_total", async(function(payload) {
+  # This runs in a background worker
+  result <- sum(payload$values)
+  list(total = result)
+}, loading_message = "Calculating..."))
+```
+
+**What async() does for you automatically:** - Runs your function in a
+background worker (non-blocking). - Shows a loading overlay with a
+cancel button. - Reloads your packages in the worker context. - Sends
+the result back as `<type>_result`. - Shows an error toast if something
+goes wrong.
+
+### Tier 2 – rdesk_async() (manual control)
+
+Use
+[`rdesk_async()`](https://janakiraman-311.github.io/RDesk/reference/rdesk_async.md)
+when you need manual control over the UI state or multiple progress
+updates:
+
+``` r
+app$on_message("long_job", function(payload) {
+  job_id <- rdesk_async(
+    task = function(x) { 
+       # Perform multiple steps, each reporting progress
+       for(i in 1:5) { 
+         Sys.sleep(1) 
+         # Note: You can send progress manually or 
+         # rely on the final on_done. 
+       }
+       x * 2 
+    },
+    args = list(x = 10),
+    on_done = function(res) {
+      # Hide overlay when task finishes
+      app$send("__loading__", list(active = FALSE))
+      app$send("job_finished", list(result = res))
+    }
+  )
+  # Show overlay with explicit message and job_id for cancellation
+  app$send("__loading__", list(
+    active = TRUE, 
+    message = "Starting long job...", 
+    job_id = job_id,
+    progress = 10 # Initial progress
+  ))
+})
+```
+
+### Tier 3 – mirai direct (expert use)
+
+Use [`mirai::mirai()`](https://mirai.r-lib.org/reference/mirai.html)
+directly when you need: - Custom daemon counts per task type. - Task
+chaining or pipelines. - Integration with other mirai-aware packages.
+
+## One rule that applies to all three tiers
+
+Background workers are completely isolated from the main R session. They
+cannot see your variables, your loaded data, or your functions unless
+you pass them explicitly through `args`.
+
+This is not a limitation – it makes your code reproducible and safe.

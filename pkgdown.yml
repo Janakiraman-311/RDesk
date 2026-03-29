@@ -1,0 +1,14 @@
+pandoc: 3.1.11
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  architecture: architecture.html
+  async-guide: async-guide.html
+  cookbook: cookbook.html
+  getting-started: getting-started.html
+  ipc-contract: ipc-contract.html
+  shiny-migration: shiny-migration.html
+last_built: 2026-03-29T06:27Z
+urls:
+  reference: https://janakiraman-311.github.io/RDesk/reference
+  article: https://janakiraman-311.github.io/RDesk/articles
