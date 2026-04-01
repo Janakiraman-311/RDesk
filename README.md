@@ -1,5 +1,6 @@
 # RDesk
 
+[![CRAN status](https://www.r-pkg.org/badges/version/RDesk)](https://CRAN.R-project.org/package=RDesk)
 [![R-CMD-check](https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml)
 [![build-app](https://github.com/Janakiraman-311/RDesk/actions/workflows/build-app.yml/badge.svg)](https://github.com/Janakiraman-311/RDesk/actions/workflows/build-app.yml)
 [![pkgdown](https://github.com/Janakiraman-311/RDesk/actions/workflows/pkgdown.yaml/badge.svg)](https://janakiraman-311.github.io/RDesk/)
@@ -13,12 +14,17 @@
 Get a professional dashboard running in seconds:
 
 ```r
-# 1. Install RDesk
-devtools::install_github("Janakiraman-311/RDesk")
+# 1. Install RDesk from CRAN
+install.packages("RDesk")
 
 # 2. Create a working dashboard
 RDesk::rdesk_create_app("MyDashboard")
 ```
+
+> **Install the development version from GitHub:**
+> ```r
+> devtools::install_github("Janakiraman-311/RDesk")
+> ```
 
 ## Why RDesk?
 

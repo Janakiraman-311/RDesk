@@ -1,3 +1,22 @@
+# RDesk 1.0.4 (2026-04-01) — First CRAN Release 🎉
+
+## CRAN compliance fixes
+
+* Replaced all `\dontrun{}` with `if(interactive()){}` or `\donttest{}` as
+  appropriate. Functions that open native windows are now wrapped in
+  `if(interactive()){}`.
+* Executable R code chunks added to all six vignettes and verified to run
+  cleanly under `R CMD check`.
+* All file-writing operations now default to `tempdir()`. No default paths
+  write to the user's home filespace.
+* `on.exit()` added immediately after every `setwd()` and `options()` call
+  inside `build_app()`.
+* Replaced all `installed.packages()` calls with `requireNamespace()` or
+  `system.file()`.
+* Added copyright holders for all vendored third-party code to `Authors@R`
+  with `cph` roles: Serge Zaitsev (webview.h), Niels Lohmann (nlohmann/json),
+  Microsoft Corporation (WebView2 SDK). Created `inst/COPYRIGHTS`.
+
 # RDesk 1.0.0 (2026-03-22)
 
 ## New features
