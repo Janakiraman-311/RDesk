@@ -1,6 +1,22 @@
 # Contributing to RDesk
 
-Thank you for your interest in RDesk.
+Thank you for your interest in RDesk!
+
+## Branch Strategy
+
+- **`main`**: Stable, CRAN-tagged releases ONLY. Direct pushes to this branch are prohibited.
+- **`dev`**: Active development branch. All internal work, features, and fixes happen here first.
+
+## How to Contribute
+
+1. Fork the repository
+2. Create a feature branch from `dev`:
+   ```bash
+   git checkout dev
+   git checkout -b feat/my-new-feature
+   ```
+3. Make your changes with clear, atomic commits.
+4. Open a Pull Request **targeting `dev`**, not `main`. PRs to `main` will only be merged from `dev` during a release cycle.
 
 ## Development setup
 
