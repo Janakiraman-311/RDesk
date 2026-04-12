@@ -12,13 +12,21 @@ template:
     in_header: |
       <meta name="description" content="Build native Windows desktop apps with R. Zero ports. Native WebView2. Ships as a single exe.">
 
+# Home configuration
 home:
   title: "RDesk - Native Desktop Apps for R"
   description: >
     Build standalone Windows desktop applications using R.
     Zero network ports. Native WebView2. Ships as a single exe.
     No R installation required on end-user machines.
-  links: ~
+  links:
+    - text: Member of R-bloggers
+      href: https://www.r-bloggers.com/
+
+# News configuration for RSS
+news:
+  index:
+    index_xml: true
 
 navbar:
   structure:
@@ -45,6 +53,18 @@ navbar:
         - text: "Architecture"
           href: articles/architecture.html
 
+articles:
+  - title: "User Guides"
+    contents:
+      - getting-started
+      - shiny-migration
+      - async-guide
+      - cookbook
+  - title: "Technical Reference"
+    contents:
+      - ipc-contract
+      - architecture
+
 reference:
   - title: "Scaffold"
     desc: "Create a new RDesk application"
@@ -68,7 +88,8 @@ reference:
     desc: "Helpers for plot conversion and data framing"
     contents: [rdesk_plot_to_base64, rdesk_df_to_list, rdesk_error_plot]
 
+
 footer:
   structure:
-    left: Developed by Janakiraman G.
-    right: Built with [pkgdown](https://pkgdown.r-lib.org) 2.1.1, Member of [R-bloggers](https://www.r-bloggers.com/)
+    left: developed_by
+    right: built_with
