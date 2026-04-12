@@ -1,5 +1,6 @@
 ---
 title: "Getting Started with RDesk"
+date: 2026-04-12
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Getting Started with RDesk}
