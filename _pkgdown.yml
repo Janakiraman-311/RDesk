@@ -70,9 +70,5 @@ reference:
 
 footer:
   structure:
-    left: developed_by
-    right: [built_with, rb]
-  components:
-    rb:
-      text: "Member of R-bloggers"
-      href: https://www.r-bloggers.com/
+    left: Developed by Janakiraman G.
+    right: Built with [pkgdown](https://pkgdown.r-lib.org) 2.1.1, Member of [R-bloggers](https://www.r-bloggers.com/)
