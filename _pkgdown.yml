@@ -30,7 +30,7 @@ news:
 
 navbar:
   structure:
-    left:  [intro, reference, articles]
+    left:  [intro, reference, articles, news]
     right: [github]
   components:
     intro:
