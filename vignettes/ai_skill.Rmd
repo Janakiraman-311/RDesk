@@ -1,8 +1,14 @@
+---
+title: "AI Coding Assistant"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{AI Coding Assistant}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
 # RDesk AI Skill File v1.0.4
 # For use with AI coding assistants working on RDesk applications
-# Package: https://cran.r-project.org/package=RDesk
-# Docs: https://janakiraman-311.github.io/RDesk/
-
 ---
 
 ## WHAT YOU ARE
