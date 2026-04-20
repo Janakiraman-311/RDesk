@@ -1,0 +1,858 @@
+# RDesk AI Skill File v1.0.4
+# For use with AI coding assistants working on RDesk applications
+# Package: https://cran.r-project.org/package=RDesk
+# Docs: https://janakiraman-311.github.io/RDesk/
+
+---
+
+## WHAT YOU ARE
+
+You are an expert assistant for the RDesk R package. RDesk builds native
+Windows desktop applications using R for logic and HTML/CSS/JS for the
+interface. You help developers build, debug, migrate, and extend RDesk apps.
+
+Before writing any code, read this entire file. Every section contains
+rules that affect correctness. Violating them produces bugs that are
+hard to diagnose.
+
+---
+
+## SECTION 1 — ARCHITECTURE OVERVIEW
+
+RDesk has five layers. Understand all five before touching any code.
+
+```
+Layer 5: App code         (R + HTML/JS — what developers write)
+Layer 4: Plugin API       (async(), rdesk_auto_update(), rdesk_watch())
+Layer 3: R Core API       (App R6 class — app$send, app$on_message)
+Layer 2: IPC bridge       (PostWebMessageAsString + stdin/stdout pipe)
+Layer 1: Native shell     (C++ launcher + WebView2 — never touch this)
+```
+
+RULE: Developers only write Layer 5. Never suggest modifying Layer 1 or 2.
+RULE: Layer 1 C++ is compiled automatically during install.packages(). 
+      Never suggest manual compilation.
+RULE: Communication between R and JavaScript is always explicit. 
+      There is no automatic reactivity. The developer must explicitly 
+      send and receive every message.
+
+### Process model
+
+```
+[rdesk-launcher.exe]          [R process]
+  WebView2 window    <-IPC->   App$run() event loop
+  HTML/CSS/JS UI               on_message() handlers
+  rdesk.js bridge              async() workers (mirai/callr)
+```
+
+The launcher and R are separate OS processes. They communicate via:
+- R to JS: app$send("type", payload) -> PostWebMessageAsString
+- JS to R: rdesk.send("type", payload) -> stdin JSON pipe
+
+Zero TCP ports are opened at any point. No httpuv. No WebSocket.
+
+---
+
+## SECTION 2 — IPC CONTRACT (NEVER BREAK THIS)
+
+Every message has this exact envelope. Both directions. Always.
+
+```json
+{
+  "id":        "msg_abc123",
+  "type":      "action_name",
+  "version":   "1.0",
+  "payload":   {},
+  "timestamp": 1234567890.123
+}
+```
+
+RULE: Never construct raw JSON manually. Always use:
+- R side:  app$send("type", list(...))   or   rdesk_message("type", list(...))
+- JS side: rdesk.send("type", {...})
+
+RULE: Handler return values are automatically wrapped in the envelope.
+      Return a plain list from on_message() handlers. Never return 
+      a pre-wrapped envelope.
+
+RULE: The result of a message of type "foo" arrives in JS as "foo_result".
+```javascript
+// Send from JS
+rdesk.send("get_data", { filter: "cyl == 6" });
+
+// Receive result in JS  
+rdesk.on("get_data_result", function(data) {
+  renderTable(data.rows, data.cols);
+});
+```
+
+RULE: System message types start with double underscore: __loading__,
+      __progress__, __reload_ui__. Never use __ prefix for app messages.
+
+---
+
+## SECTION 3 — APP STRUCTURE
+
+Every RDesk app has this exact structure. Never deviate.
+
+```
+MyApp/
+├── app.R              <- entry point, keep thin
+├── DESCRIPTION        <- app metadata
+├── R/
+│   ├── server.R       <- on_message() handlers (edit this most)
+│   ├── data.R         <- data loading and transformation
+│   └── plots.R        <- chart rendering helpers
+└── www/
+    ├── index.html     <- UI markup
+    ├── css/
+    │   └── style.css
+    └── js/
+        ├── app.js     <- UI event handling
+        └── rdesk.js   <- IPC bridge (NEVER edit this file)
+```
+
+### Minimal app.R
+
+```r
+app_dir <- tryCatch(
+  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) getwd()
+  else dirname(rstudioapi::getActiveDocumentContext()$path),
+  error = function(e) getwd()
+)
+
+library(RDesk)
+
+lapply(
+  list.files(file.path(app_dir, "R"), pattern = "\\.R$", full.names = TRUE),
+  source
+)
+
+app <- App$new(
+  title  = "My App",
+  width  = 1100L,
+  height = 740L,
+  www    = file.path(app_dir, "www")
+)
+
+init_handlers(app)
+app$run()
+```
+
+RULE: app.R must stay thin. All handler logic goes in R/server.R.
+RULE: Always source R/ files with lapply + list.files. Never use 
+      source() on individual files by name — it breaks hot reload.
+RULE: The function init_handlers(app) is the contract between app.R 
+      and server.R. Always define it in server.R.
+
+---
+
+## SECTION 4 — HANDLERS (on_message)
+
+### Basic handler
+
+```r
+# In R/server.R
+init_handlers <- function(app) {
+
+  app$on_ready(function() {
+    # Runs once when window is ready
+    # Set menu, send initial data here
+    df <- init_data()
+    app$send("data_ready", rdesk_df_to_list(df))
+  })
+
+  app$on_message("get_data", function(payload) {
+    df <- load_data(payload$filter)
+    rdesk_df_to_list(df)
+  })
+
+}
+```
+
+RULE: Every handler must return a value or NULL. 
+      The return value is sent back as type_result.
+RULE: Never call app$send() inside a plain on_message() handler to 
+      return the response. Return the list directly. 
+      app$send() is for pushing unsolicited updates.
+RULE: Payload fields arrive as R list elements: payload$field_name.
+      Never use payload[["field_name"]] — use $ accessor for clarity.
+
+### Accessing payload
+
+```r
+# JavaScript sends:
+# rdesk.send("filter", { column: "cyl", value: 6, ascending: true })
+
+app$on_message("filter", function(payload) {
+  col  <- payload$column     # "cyl"
+  val  <- payload$value      # 6
+  asc  <- payload$ascending  # TRUE
+  
+  df <- mtcars[mtcars[[col]] == val, ]
+  if (!asc) df <- df[nrow(df):1, ]
+  
+  rdesk_df_to_list(df)
+})
+```
+
+### on_ready handler
+
+```r
+app$on_ready(function() {
+  # Set native menu
+  app$set_menu(list(
+    File = list(
+      "Open..."  = function() app$send("open_file", list()),
+      "Save..."  = function() app$send("save_file", list()),
+      "---",
+      "Exit"     = app$quit
+    ),
+    Help = list(
+      "About"    = function() app$toast("MyApp v1.0", type = "info")
+    )
+  ))
+  
+  # Send initial data
+  app$send("init_data", list(
+    data    = rdesk_df_to_list(init_data()),
+    version = "1.0.0"
+  ))
+})
+```
+
+---
+
+## SECTION 5 — ASYNC ENGINE
+
+RDesk has three tiers of async. Use the right one.
+
+### Tier 1 — async() wrapper (use this for 95% of cases)
+
+```r
+app$on_message("heavy_task", async(function(payload) {
+  # Runs in background mirai/callr worker
+  # UI stays responsive
+  # Loading overlay shown automatically
+  result <- slow_computation(payload$data)
+  list(result = result, n = length(result))
+}, app = app, loading_message = "Computing..."))
+```
+
+RULE: async() captures the packages loaded at registration time and 
+      reloads them in the worker. If your handler uses a package, 
+      library() it before calling async() or add it to DESCRIPTION Imports.
+
+RULE: Do NOT access app$ methods inside an async() worker. 
+      The App object lives in the main process. Workers cannot reach it.
+      Return data from the worker. app$send() happens automatically.
+
+RULE: Do NOT use global variables inside async() workers. 
+      Pass everything via payload or capture in the closure explicitly.
+
+```r
+# WRONG - global variable access in worker
+my_data <- load_data()
+app$on_message("process", async(function(payload) {
+  process(my_data)  # my_data not available in worker
+}, app = app))
+
+# CORRECT - pass via payload or capture explicitly
+my_data <- load_data()
+app$on_message("process", async(function(payload) {
+  process(payload$data)  # sent from JS
+}, app = app))
+
+# OR - capture explicitly in closure
+local_data <- my_data
+app$on_message("process", async(function(payload) {
+  process(local_data)  # captured in closure, serialised to worker
+}, app = app))
+```
+
+### Tier 2 — rdesk_async() (explicit control)
+
+```r
+job_id <- rdesk_async(
+  task     = function(data) slow_model(data),
+  args     = list(data = my_data),
+  on_done  = function(result) app$send("model_done", result),
+  on_error = function(err)    app$toast(err$message, type = "error")
+)
+
+app$loading_start("Running model...", cancellable = TRUE, job_id = job_id)
+```
+
+### Tier 3 — mirai direct (expert use only)
+
+```r
+m <- mirai::mirai(
+  slow_fn(x),
+  slow_fn = slow_fn,
+  x = my_data
+)
+```
+
+### async_progress() — real-time updates from workers
+
+```r
+app$on_message("long_process", async(function(payload) {
+  items <- payload$items
+  for (i in seq_along(items)) {
+    process_item(items[[i]])
+    async_progress(
+      value   = round(i / length(items) * 100),
+      message = paste0("Processing ", i, " of ", length(items))
+    )
+  }
+  list(done = TRUE, processed = length(items))
+}, app = app, loading_message = "Starting..."))
+```
+
+---
+
+## SECTION 6 — JAVASCRIPT PATTERNS
+
+### rdesk.js API — complete reference
+
+```javascript
+// Send message to R, returns Promise
+rdesk.send("message_type", { key: "value" })
+  .then(function(result) { /* handle result */ })
+  .catch(function(err)   { /* handle error */ });
+
+// Listen for messages pushed from R
+rdesk.on("message_type", function(data) { /* handle */ });
+
+// Run code when app is ready
+rdesk.ready(function() {
+  rdesk.send("get_initial_data", {});
+});
+
+// Remove a listener
+rdesk.off("message_type");
+```
+
+### Standard UI patterns
+
+```javascript
+// Render a base64 chart from R
+rdesk.on("chart_result", function(data) {
+  document.getElementById("chart").src =
+    "data:image/png;base64," + data.chart;
+});
+
+// Render a table from R
+rdesk.on("data_result", function(data) {
+  var head = document.getElementById("thead");
+  var body = document.getElementById("tbody");
+  
+  head.innerHTML = "<tr>" + 
+    data.cols.map(function(c) { return "<th>" + c + "</th>"; }).join("") + 
+    "</tr>";
+    
+  body.innerHTML = data.rows.map(function(row) {
+    return "<tr>" + 
+      data.cols.map(function(c) { 
+        return "<td>" + (row[c] !== undefined ? row[c] : "") + "</td>"; 
+      }).join("") + 
+      "</tr>";
+  }).join("");
+});
+
+// Handle loading state
+rdesk.on("__loading__", function(state) {
+  var overlay = document.getElementById("loading-overlay");
+  if (overlay) overlay.style.display = state.active ? "flex" : "none";
+});
+
+// Send on button click
+document.getElementById("btn-refresh").addEventListener("click", function() {
+  rdesk.send("get_data", { filter: getCurrentFilter() });
+});
+```
+
+RULE: Always use rdesk.ready() to wrap any rdesk.send() calls that 
+      fire on page load. Without it the IPC bridge may not be 
+      initialised yet.
+
+RULE: Never use fetch(), XMLHttpRequest, or WebSocket to communicate 
+      with R. Only rdesk.send() and rdesk.on().
+
+RULE: rdesk.js is in www/js/rdesk.js. Never edit it. 
+      Never import it from a CDN — it must be the local copy.
+
+---
+
+## SECTION 7 — CHARTS AND DATA
+
+### Plot to base64
+
+```r
+# In R/plots.R
+make_scatter <- function(df, x_var = "wt", y_var = "mpg") {
+  p <- ggplot2::ggplot(df, ggplot2::aes(.data[[x_var]], .data[[y_var]])) +
+    ggplot2::geom_point(size = 3, alpha = 0.8, colour = "#378ADD") +
+    ggplot2::geom_smooth(method = "lm", se = FALSE,
+                          colour = "#1D9E75", linewidth = 0.8) +
+    ggplot2::theme_minimal(base_size = 13)
+  rdesk_plot_to_base64(p)
+}
+```
+
+```r
+# In handler
+app$on_message("get_chart", async(function(payload) {
+  df <- filter_data(payload)
+  list(chart = make_scatter(df, payload$x_var, payload$y_var))
+}, app = app))
+```
+
+```javascript
+// In app.js
+rdesk.on("get_chart_result", function(data) {
+  document.getElementById("main-chart").src =
+    "data:image/png;base64," + data.chart;
+});
+```
+
+### Data frame to list
+
+```r
+# rdesk_df_to_list() converts a data frame to JSON-serialisable list
+result <- rdesk_df_to_list(mtcars)
+# result$rows  -> list of row lists
+# result$cols  -> character vector of column names
+
+# In handler
+app$on_message("get_table", function(payload) {
+  df <- filter_data(payload)
+  rdesk_df_to_list(df)
+})
+```
+
+---
+
+## SECTION 8 — NATIVE FEATURES
+
+### File dialogs
+
+```r
+# Open file
+app$on_message("open_file", function(payload) {
+  path <- app$dialog_open(
+    title   = "Open Data File",
+    filters = "CSV files (*.csv)|*.csv|All files (*.*)|*.*"
+  )
+  if (is.null(path)) return(list(cancelled = TRUE))
+  
+  df <- utils::read.csv(path, stringsAsFactors = FALSE)
+  c(list(cancelled = FALSE, filename = basename(path)),
+    rdesk_df_to_list(df))
+})
+
+# Save file
+app$on_message("save_file", function(payload) {
+  path <- app$dialog_save(
+    title   = "Save Results",
+    filters = "CSV files (*.csv)|*.csv",
+    default = "results.csv"
+  )
+  if (is.null(path)) return(list(cancelled = TRUE))
+  
+  write.csv(reconstruct_df(payload$data), path, row.names = FALSE)
+  list(cancelled = FALSE, saved_to = basename(path))
+})
+```
+
+### Toasts and notifications
+
+```r
+app$toast("Operation complete", type = "success")  # green
+app$toast("File not found",     type = "error")    # red
+app$toast("Update available",   type = "info")     # blue
+app$toast("Check your inputs",  type = "warning")  # amber
+```
+
+### Loading overlay
+
+```r
+# Manual control (use async() instead when possible)
+app$loading_start("Processing data...", cancellable = TRUE, job_id = "job_1")
+app$loading_progress(45)
+app$loading_progress(90, message = "Almost done...")
+app$loading_done()
+```
+
+### Native menus
+
+```r
+app$set_menu(list(
+  File = list(
+    "New..."     = function() app$send("new_doc", list()),
+    "Open..."    = function() app$send("open_file", list()),
+    "---",
+    "Exit"       = app$quit
+  ),
+  View = list(
+    "Refresh"    = function() app$send("refresh", list()),
+    "Full screen"= function() app$maximize()
+  ),
+  Help = list(
+    "Documentation" = function() {
+      shell.exec("https://janakiraman-311.github.io/RDesk/")
+    },
+    "About"         = function() {
+      app$toast("MyApp v1.0.0 -- built with RDesk", type = "info")
+    }
+  )
+))
+```
+
+---
+
+## SECTION 9 — BUILD AND DISTRIBUTION
+
+### Build a distributable
+
+```r
+RDesk::build_app(
+  app_dir         = "path/to/MyApp",
+  app_name        = "MyApp",
+  out_dir         = tempdir(),        # or your dist folder
+  build_installer = TRUE              # creates .exe installer
+)
+# Output: dist/MyApp-1.0.0-setup.exe (68-200MB depending on packages)
+```
+
+### Detect bundle vs development mode
+
+```r
+if (rdesk_is_bundle()) {
+  # Running as distributed exe
+  config_path <- file.path(getwd(), "config.json")
+} else {
+  # Running in development via source("app.R")
+  config_path <- file.path(app_dir, "config.json")
+}
+```
+
+### Auto-update
+
+```r
+# In app.R, before app$run()
+rdesk_auto_update(
+  current_version = "1.0.0",
+  version_url     = "https://example.com/myapp/latest.txt",
+  download_url    = "https://example.com/myapp/MyApp-setup.exe",
+  app             = app
+)
+```
+
+Host a plain text file at version_url containing only the version 
+string e.g. "1.1.0". RDesk checks silently on launch and downloads 
+and installs the update if a newer version is available.
+
+---
+
+## SECTION 10 — SHINY MIGRATION REFERENCE
+
+### Pattern mapping
+
+| Shiny pattern         | RDesk equivalent                        |
+|-----------------------|-----------------------------------------|
+| input$x               | payload$x inside on_message()           |
+| reactive({...})       | plain R function called explicitly      |
+| renderPlot({...})     | rdesk_plot_to_base64() + return list    |
+| renderTable({...})    | rdesk_df_to_list() + return list        |
+| observe({...})        | app$on_message() handler                |
+| observeEvent(input$x) | app$on_message("x_changed", ...)        |
+| showNotification()    | app$toast()                             |
+| withProgress()        | async() with loading_message=           |
+| downloadHandler()     | app$dialog_save() in on_message()       |
+| fileInput()           | app$dialog_open() in on_message()       |
+| updateSelectInput()   | app$send("update_select", list(...))    |
+| session$sendMessage() | app$send("type", payload)               |
+| shinyjs::show()       | app$send("show_element", list(id=...)) |
+
+### Migration sequence
+
+1. Copy all pure R functions (data loading, modelling, helpers) unchanged
+2. Map every input$x to a JS rdesk.send("x_changed", {value: ...})
+3. Map every render*() to an on_message() that returns the data
+4. Rewrite ui.R as www/index.html using plain HTML
+5. Replace renderPlot with rdesk_plot_to_base64() in handlers
+6. Replace renderTable with rdesk_df_to_list() in handlers
+7. Replace fileInput/downloadHandler with dialog_open/dialog_save
+8. Wrap slow handlers in async()
+9. Add native menu with app$set_menu() in on_ready()
+
+### Complete migration example
+
+```r
+# SHINY server.R
+server <- function(input, output, session) {
+  filtered <- reactive({
+    mtcars[mtcars$cyl == input$cyl_filter, ]
+  })
+  output$scatter <- renderPlot({
+    ggplot2::ggplot(filtered(), ggplot2::aes(wt, mpg)) +
+      ggplot2::geom_point()
+  })
+  output$table <- renderTable({ filtered() })
+}
+```
+
+```r
+# RDESK R/server.R
+init_handlers <- function(app) {
+
+  app$on_ready(function() {
+    app$send("data_ready", rdesk_df_to_list(mtcars))
+  })
+
+  app$on_message("filter_changed", async(function(payload) {
+    df <- mtcars[mtcars$cyl == payload$cyl_filter, ]
+    p  <- ggplot2::ggplot(df, ggplot2::aes(wt, mpg)) +
+            ggplot2::geom_point()
+    list(
+      chart = rdesk_plot_to_base64(p),
+      table = rdesk_df_to_list(df)
+    )
+  }, app = app))
+
+}
+```
+
+```javascript
+// RDESK www/js/app.js
+rdesk.ready(function() {
+  rdesk.send("get_data", {});
+});
+
+document.getElementById("cyl-filter").addEventListener("change", function() {
+  rdesk.send("filter_changed", { cyl_filter: parseInt(this.value) });
+});
+
+rdesk.on("filter_changed_result", function(data) {
+  document.getElementById("chart").src =
+    "data:image/png;base64," + data.chart;
+  renderTable(data.table.rows, data.table.cols);
+});
+```
+
+---
+
+## SECTION 11 — COMMON MISTAKES AND FIXES
+
+### Mistake 1 — calling app$ inside async() worker
+
+```r
+# WRONG
+app$on_message("task", async(function(payload) {
+  result <- compute(payload)
+  app$toast("Done!")      # ERROR: app not available in worker
+  app$send("done", result) # ERROR: same reason
+}, app = app))
+
+# CORRECT
+app$on_message("task", async(function(payload) {
+  result <- compute(payload)
+  list(result = result)   # return value is sent automatically
+}, app = app))
+# toast after completion: use on_done callback in rdesk_async()
+```
+
+### Mistake 2 — forgetting flush(stdout())
+
+```r
+# WRONG - in bundled mode, messages may buffer
+cat(jsonlite::toJSON(msg), "\n")
+
+# CORRECT - always flush after writing to stdout
+cat(jsonlite::toJSON(msg), "\n")
+flush(stdout())
+
+# Note: app$send() handles this automatically.
+# Only matters if you write raw cat() calls.
+```
+
+### Mistake 3 — sourcing individual R files by name
+
+```r
+# WRONG - breaks hot reload and is fragile
+source("R/server.R")
+source("R/data.R")
+
+# CORRECT - sources all files, order-safe
+lapply(
+  list.files(file.path(app_dir, "R"), pattern = "\\.R$", full.names = TRUE),
+  source
+)
+```
+
+### Mistake 4 — writing to getwd() in examples or defaults
+
+```r
+# WRONG - CRAN policy violation
+build_app(app_dir = "MyApp", out_dir = "dist")
+
+# CORRECT - always write to tempdir() in examples
+build_app(app_dir = "MyApp", out_dir = file.path(tempdir(), "dist"))
+```
+
+### Mistake 5 — using installed.packages()
+
+```r
+# WRONG - slow, CRAN policy violation
+if ("ggplot2" %in% installed.packages()[,"Package"]) { ... }
+
+# CORRECT
+if (requireNamespace("ggplot2", quietly = TRUE)) { ... }
+```
+
+### Mistake 6 — no on.exit() after setwd()
+
+```r
+# WRONG
+setwd(build_dir)
+# ... do work ...
+setwd(original_dir)  # never runs if error occurs
+
+# CORRECT
+oldwd <- getwd()
+on.exit(setwd(oldwd), add = TRUE)
+setwd(build_dir)
+```
+
+---
+
+## SECTION 12 — DEVELOPMENT WORKFLOW
+
+### Daily development loop
+
+```r
+# 1. Open project in RStudio
+# 2. Source the app
+source("app.R")
+# Window opens
+
+# 3. Make changes to R/server.R or www/
+# 4. Close window, re-source
+# With hot reload (Phase 2):
+# rdesk_watch(app)  # auto-reloads on file change
+```
+
+### Testing handlers without a window
+
+```r
+# Set CI mode to test handlers without launching a window
+options(rdesk.ci_mode = TRUE)
+library(RDesk)
+
+# Handlers can be unit tested
+source("R/server.R")
+# test individual functions from data.R and plots.R directly
+```
+
+### Build verification before distribution
+
+```r
+# Always verify before sending to users
+pkg <- build_app(
+  app_dir  = "MyApp",
+  app_name = "MyApp",
+  out_dir  = tempdir()
+)
+# Test the output ZIP manually before building installer
+```
+
+---
+
+## SECTION 13 — QUICK REFERENCE CARD
+
+```r
+# Create new app
+RDesk::rdesk_create_app("MyApp")
+
+# Core app setup
+app <- App$new(title = "Title", width = 1100L, height = 740L, www = "www/")
+app$on_ready(function() { ... })
+app$on_message("type", function(payload) { list(...) })
+app$run()
+
+# Send data to UI
+app$send("type", list(key = value))
+
+# Async handler
+app$on_message("type", async(function(payload) {
+  list(result = compute(payload))
+}, app = app, loading_message = "Working..."))
+
+# Chart
+rdesk_plot_to_base64(ggplot_object)
+
+# Table
+rdesk_df_to_list(data_frame)
+
+# IPC message
+rdesk_message("type", list(key = value))
+rdesk_parse_message(json_string)
+
+# Dialogs
+app$dialog_open(title = "Open", filters = "CSV|*.csv")
+app$dialog_save(title = "Save", filters = "CSV|*.csv")
+app$dialog_folder(title = "Select folder")
+
+# Notifications
+app$toast("message", type = "success|error|info|warning")
+app$notify("title", "body")
+
+# Loading
+app$loading_start("message", cancellable = TRUE, job_id = "id")
+app$loading_progress(50)
+app$loading_done()
+
+# Jobs
+rdesk_async(task, args, on_done, on_error)
+rdesk_cancel_job("job_id")
+rdesk_jobs_pending()
+
+# Build
+build_app(app_dir, app_name, out_dir = tempdir(), build_installer = FALSE)
+
+# Detect mode
+rdesk_is_bundle()  # TRUE in distributed app, FALSE in development
+
+# Updates
+rdesk_auto_update(current_version, version_url, download_url, app)
+
+# JavaScript
+rdesk.send("type", payload)          # returns Promise
+rdesk.on("type", function(data){})   # listen for messages
+rdesk.ready(function(){})            # run when app ready
+rdesk.off("type")                    # remove listener
+```
+
+---
+
+## SECTION 14 — PACKAGE INFORMATION
+
+```
+Package:    RDesk
+Version:    1.0.4
+CRAN:       https://cran.r-project.org/package=RDesk
+GitHub:     https://github.com/Janakiraman-311/RDesk
+Docs:       https://janakiraman-311.github.io/RDesk/
+Maintainer: Janakiraman G <janakiraman.bt@gmail.com>
+License:    MIT
+OS:         Windows 10 or later only (v1.0.x)
+Requires:   Rtools44+, WebView2 Runtime
+
+Install:    install.packages("RDesk")
+Dev:        devtools::install_github("Janakiraman-311/RDesk")
+```
+
+---
+
+END OF SKILL FILE
