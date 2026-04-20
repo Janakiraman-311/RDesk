@@ -54,7 +54,7 @@ navbar:
           href: articles/architecture.html
         - text: "---"
         - text: "AI Coding Assistant"
-          href: articles/ai-coding-skill.html
+          href: articles/ai_skill.html
 
 articles:
   - title: "User Guides"
@@ -67,7 +67,7 @@ articles:
     contents:
       - ipc-contract
       - architecture
-      - ai-coding-skill
+      - ai_skill
 
 reference:
   - title: "Scaffold"
