@@ -52,7 +52,7 @@ or real-time collaborative tools — use Shiny for those.
 
 *   **🔒 Zero-Port IPC**: Native bidirectional pipes between R and the UI. No firewall issues or port conflicts.
 *   **⚡ Async by Default**: Built-in background task processing via `mirai`. The UI never freezes, even during heavy R computations.
-*   **📦 Portable Runtime**: Packages a minimal R distribution into your `.exe`. Your users don't need to install R.
+*   **📦 Portable Runtime**: `build_app()` copies your exact R installation into the bundle — same version as your packages — so there are zero version-mismatch crashes. Your users don't need to install R.
 *   **🎨 Modern Web UI**: Use HTML/JS/CSS for the interface while keeping 100% of your logic in R.
 *   **🛠 Professional Scaffolding**: Generate dashboards with sidebar navigation, Dark Mode, and auto-wired charts in one command.
 
@@ -77,6 +77,7 @@ Visit the full documentation at **[janakiraman-311.github.io/RDesk](https://jana
 *   [**Coming from Shiny**](https://janakiraman-311.github.io/RDesk/articles/shiny-migration.html) — A side-by-side guide to mapping your Shiny knowledge to RDesk.
 *   [**Async Guide**](https://janakiraman-311.github.io/RDesk/articles/async-guide.html) — Mastering background tasks and progress overlays.
 *   [**Cookbook**](https://janakiraman-311.github.io/RDesk/articles/cookbook.html) — Copy-paste recipes for common desktop patterns.
+*   [**The Long Road to Native R Desktop Apps**](https://janakiraman-311.github.io/RDesk/articles/rdesk-article.html) — The history of R desktop deployment and why RDesk is different.
 
 ## License
 

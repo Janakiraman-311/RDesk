@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-# RDesk AI Skill File v1.0.4
+# RDesk AI Skill File v1.0.5
 # For use with AI coding assistants working on RDesk applications
 ---
 
@@ -527,8 +527,11 @@ RDesk::build_app(
   app_name        = "MyApp",
   out_dir         = tempdir(),        # or your dist folder
   build_installer = TRUE              # creates .exe installer
+  # runtime_dir = NULL (default)     # copies YOUR R version automatically
+  # runtime_dir = "download"         # legacy: downloads R from CRAN (not recommended)
 )
-# Output: dist/MyApp-1.0.0-setup.exe (68-200MB depending on packages)
+# Output: dist/MyApp-1.0.0-setup.exe
+# Runtime: your exact R version is bundled — no version mismatch with renv
 ```
 
 ### Detect bundle vs development mode
@@ -846,7 +849,7 @@ rdesk.off("type")                    # remove listener
 
 ```
 Package:    RDesk
-Version:    1.0.4
+Version:    1.0.5
 CRAN:       https://cran.r-project.org/package=RDesk
 GitHub:     https://github.com/Janakiraman-311/RDesk
 Docs:       https://janakiraman-311.github.io/RDesk/
@@ -857,6 +860,12 @@ Requires:   Rtools44+, WebView2 Runtime
 
 Install:    install.packages("RDesk")
 Dev:        devtools::install_github("Janakiraman-311/RDesk")
+
+Key v1.0.5 change:
+  build_app() now copies the developer's installed R as the runtime
+  by default (runtime_dir = NULL). This eliminates the version mismatch
+  between renv-locked packages and the previously downloaded R 4.4.2.
+  Use runtime_dir = "download" to restore the old download behaviour.
 ```
 
 ---
