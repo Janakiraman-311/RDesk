@@ -46,12 +46,14 @@ jobs:
           # The check will automatically trigger src/Makevars.win via R CMD INSTALL
           if (!requireNamespace("rcmdcheck", quietly = TRUE)) install.packages("rcmdcheck")
           res <- rcmdcheck::rcmdcheck(
-            args = c("--no-manual", "--as-cran"),
-            error_on = "error",
+            args     = c("--no-manual", "--as-cran"),
+            error_on = "warning",   # fail on warnings OR errors (0 warnings expected)
             check_dir = "check"
           )
-          if (length(res$errors) > 0) {
-            stop("Check failed with errors")
+          # Expected: 0 errors, 0 warnings, 1 note (-mwindows flag, pre-approved by CRAN)
+          n_notes <- length(res$notes)
+          if (n_notes > 1) {
+            stop("Unexpected notes (expected 1 for -mwindows, got ", n_notes, ")")
           }
         shell: Rscript {0}
 

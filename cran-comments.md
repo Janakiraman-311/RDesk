@@ -16,10 +16,15 @@ CRAN acceptance of 1.0.4.
 
 ### R CMD check results
 
-0 errors | 0 warnings | 2 notes
+0 errors | 0 warnings | 1 note
 
-* Previously published package -- standard note.
-* `-mwindows` flag: confirmed acceptable by Uwe Ligges (2026-03-24).
+* `-mwindows` compilation flag: confirmed acceptable by Uwe Ligges (2026-03-24).
+  Required to suppress a Windows console window for the native GUI launcher.
+
+Note: `devtools::check()` emits a harmless Quarto/TMPDIR warning on Windows
+("running command quarto TMPDIR=... had status 1"). This is a Windows-only
+`devtools` quirk with environment variable quoting; it does not affect the
+check result and does not occur on CRAN's Linux servers.
 
 ## Acronyms and Technical Terms
 
