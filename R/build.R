@@ -386,14 +386,59 @@ rdesk_detect_r_home <- function() {
 #' (Tcl/Tk, docs, tests) that are already pruned by \code{rdesk_prune_runtime()}.
 #' @keywords internal
 rdesk_copy_r_runtime <- function(r_home, dest_dir) {
-  dirs_to_copy <- c("bin", "library", "etc", "modules", "include")
-  for (d in dirs_to_copy) {
+  # ---- bin/ : copy only x64 executables, skip i386 -------------------------
+  bin_src  <- file.path(r_home, "bin")
+  bin_dest <- file.path(dest_dir, "bin")
+  if (dir.exists(bin_src)) {
+    message("[RDesk]   Copying bin/ (x64 only)")
+    dir.create(bin_dest, recursive = TRUE, showWarnings = FALSE)
+    # Copy top-level bin files (R.exe, Rscript.exe, etc.)
+    top_files <- list.files(bin_src, full.names = TRUE, recursive = FALSE)
+    top_files <- top_files[!file.info(top_files)$isdir]
+    file.copy(top_files, bin_dest, overwrite = TRUE)
+    # Copy only x64 subdirectory, not i386
+    x64_src  <- file.path(bin_src, "x64")
+    x64_dest <- file.path(bin_dest, "x64")
+    if (dir.exists(x64_src)) {
+      dir.create(x64_dest, recursive = TRUE, showWarnings = FALSE)
+      file.copy(list.files(x64_src, full.names = TRUE), x64_dest, overwrite = TRUE)
+    }
+  }
+
+  # ---- library/ : copy only base + recommended packages --------------------
+  lib_src  <- file.path(r_home, "library")
+  lib_dest <- file.path(dest_dir, "library")
+  if (dir.exists(lib_src)) {
+    message("[RDesk]   Copying library/ (base + recommended only)")
+    dir.create(lib_dest, recursive = TRUE, showWarnings = FALSE)
+    pkgs <- list.dirs(lib_src, recursive = FALSE, full.names = TRUE)
+    for (p in pkgs) {
+      desc_path <- file.path(p, "DESCRIPTION")
+      keep <- FALSE
+      if (file.exists(desc_path)) {
+        d <- tryCatch(read.dcf(desc_path), error = function(e) NULL)
+        if (!is.null(d) && "Priority" %in% colnames(d)) {
+          priority <- trimws(as.character(d[1, "Priority"]))
+          keep <- priority %in% c("base", "recommended")
+        }
+      }
+      # Also keep 'translations' which has no Priority but ships with R
+      if (!keep && basename(p) == "translations") keep <- TRUE
+      if (keep) {
+        file.copy(p, lib_dest, recursive = TRUE, overwrite = TRUE)
+      }
+    }
+  }
+
+  # ---- etc/, modules/, include/ : copy fully (small, essential) ------------
+  for (d in c("etc", "modules", "include")) {
     src <- file.path(r_home, d)
     if (dir.exists(src)) {
       message("[RDesk]   Copying ", d, "/")
       file.copy(src, dest_dir, recursive = TRUE, overwrite = TRUE)
     }
   }
+
   invisible(dest_dir)
 }
 
