@@ -38,13 +38,19 @@ build_app(
 RDesk's own dependencies are always included automatically.}
 
 \item{portable_r_method}{How to provision the bundled R runtime when
-\code{runtime_dir} is not supplied. \code{"extract_only"} requires standalone 7-Zip
-and never launches the R installer. \code{"installer"} allows the legacy silent
-installer path explicitly.}
+\code{runtime_dir = "download"} is used explicitly. \code{"extract_only"} requires
+standalone 7-Zip and never launches the R installer. \code{"installer"} allows
+the legacy silent installer path explicitly.}
 
-\item{runtime_dir}{Optional path to an existing portable R runtime root
-containing \verb{bin/}. When supplied, RDesk copies this runtime directly and
-skips the download/extract step.}
+\item{runtime_dir}{Controls which R runtime is bundled with the app.
+\itemize{
+\item \code{NULL} (default) -- copies the developer's currently running R
+installation. Guarantees the bundled packages and the runtime are the
+same R version, eliminating renv version-mismatch crashes.
+\item A filesystem path -- copies that R installation root directly.
+\item \code{"download"} -- downloads a portable R installer from CRAN
+(legacy behaviour; requires network; risks version mismatch with renv).
+}}
 
 \item{overwrite}{If TRUE, overwrite existing output. Default FALSE.}
 

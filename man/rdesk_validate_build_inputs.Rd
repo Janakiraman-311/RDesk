@@ -9,7 +9,8 @@ rdesk_validate_build_inputs(
   extra_pkgs,
   build_installer = FALSE,
   portable_r_method = c("extract_only", "installer"),
-  runtime_dir = NULL
+  runtime_dir = NULL,
+  use_download = FALSE
 )
 }
 \arguments{
