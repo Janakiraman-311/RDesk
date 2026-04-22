@@ -16,15 +16,22 @@ CRAN acceptance of 1.0.4.
 
 ### R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 1 note (win-builder) / up to 2 notes (local)
 
-* `-mwindows` compilation flag: confirmed acceptable by Uwe Ligges (2026-03-24).
-  Required to suppress a Windows console window for the native GUI launcher.
+**Note 1** — `-mwindows` compilation flag:  
+Confirmed acceptable by Uwe Ligges (2026-03-24). Required to suppress a  
+Windows console window for the native GUI launcher binary.
 
-Note: `devtools::check()` emits a harmless Quarto/TMPDIR warning on Windows
-("running command quarto TMPDIR=... had status 1"). This is a Windows-only
-`devtools` quirk with environment variable quoting; it does not affect the
-check result and does not occur on CRAN's Linux servers.
+**Note 2** — `unable to verify current time` (local only):  
+Appears only when the local machine cannot reach an NTP time server  
+(firewall/offline). This note did NOT appear on win-builder (R-devel  
+Windows server). CRAN servers have unrestricted internet access and will  
+not see this note.
+
+`devtools::check()` also emits a harmless Quarto/TMPDIR warning on Windows  
+("running command quarto TMPDIR=... had status 1"). This is a Windows-only  
+`devtools` quirk; it does not affect the check result and does not occur  
+on CRAN's Linux servers.
 
 ## Acronyms and Technical Terms
 
