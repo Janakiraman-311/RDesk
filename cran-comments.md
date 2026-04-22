@@ -1,42 +1,25 @@
-## Resubmission (1.0.4)
+## Resubmission (1.0.5)
 
-Responding to review by Konstanze Lauseker (2026-03-24) and 
-Uwe Ligges (2026-03-24).
+This is a patch update fixing a production bug discovered after the initial
+CRAN acceptance of 1.0.4.
 
-* Replaced \dontrun{} with \donttest{} or if(interactive()){} throughout.
-  Functions opening native windows wrapped in if(interactive()){}.
-  Long-running functions wrapped in \donttest{}.
-  Fast safe examples unwrapped entirely.
+### Change summary
 
-* Executable R code chunks added to all six vignettes and verified 
-  to run cleanly under R CMD check with eval=TRUE.
+* `build_app()` now copies the developer's installed R as the app runtime
+  by default (`runtime_dir = NULL`), instead of downloading a fixed R 4.4.2
+  portable build. This eliminates crashes caused by a version mismatch between
+  the downloaded R runtime and packages compiled for the developer's current
+  R version (e.g. 4.5.x via renv).
+* The legacy download behaviour is preserved via `runtime_dir = "download"`
+  for backwards compatibility in CI/air-gapped environments.
+* Added two internal helpers: `rdesk_detect_r_home()` and `rdesk_copy_r_runtime()`.
 
-* All examples and default paths now write to tempdir() only.
-  No writes to user home filespace or getwd().
-
-* Added on.exit() immediately after every setwd() and options()
-  call in R/build.R with add = TRUE.
-
-* Replaced all installed.packages() calls with requireNamespace(),
-  system.file(), or utils::packageVersion() as appropriate.
-
-* Added executable R code chunks to all six vignettes. Each chunk
-  runs in under 5 seconds without opening windows or writing files.
-
-* Added copyright holders for all vendored third-party code to
-  Authors@R with cph roles: Serge Zaitsev (webview.h), Niels Lohmann
-  (nlohmann/json), Microsoft Corporation (WebView2 SDK).
-  Created inst/COPYRIGHTS listing licenses for all vendored components.
-
-* Removed all non-portable pragmas (`#pragma GCC diagnostic`) from 
-  vendored C++ headers (`webview.h` and `json.hpp`).
-
-## R CMD check results
+### R CMD check results
 
 0 errors | 0 warnings | 2 notes
 
-* New submission -- expected.
-* -mwindows flag: confirmed acceptable by Uwe Ligges (2026-03-24).
+* Previously published package -- standard note.
+* `-mwindows` flag: confirmed acceptable by Uwe Ligges (2026-03-24).
 
 ## Acronyms and Technical Terms
 
