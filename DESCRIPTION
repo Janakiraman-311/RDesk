@@ -1,6 +1,6 @@
 Package: RDesk
 Title: Native Desktop App Framework for 'R'
-Version: 1.0.4
+Version: 1.0.5
 Authors@R: c(
     person("Janakiraman", "G",
            email = "janakiraman.bt@gmail.com",

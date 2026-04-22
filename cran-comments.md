@@ -1,42 +1,37 @@
-## Resubmission (1.0.4)
+## Resubmission (1.0.5)
 
-Responding to review by Konstanze Lauseker (2026-03-24) and 
-Uwe Ligges (2026-03-24).
+This is a patch update fixing a production bug discovered after the initial
+CRAN acceptance of 1.0.4.
 
-* Replaced \dontrun{} with \donttest{} or if(interactive()){} throughout.
-  Functions opening native windows wrapped in if(interactive()){}.
-  Long-running functions wrapped in \donttest{}.
-  Fast safe examples unwrapped entirely.
+### Change summary
 
-* Executable R code chunks added to all six vignettes and verified 
-  to run cleanly under R CMD check with eval=TRUE.
+* `build_app()` now copies the developer's installed R as the app runtime
+  by default (`runtime_dir = NULL`), instead of downloading a fixed R 4.4.2
+  portable build. This eliminates crashes caused by a version mismatch between
+  the downloaded R runtime and packages compiled for the developer's current
+  R version (e.g. 4.5.x via renv).
+* The legacy download behaviour is preserved via `runtime_dir = "download"`
+  for backwards compatibility in CI/air-gapped environments.
+* Added two internal helpers: `rdesk_detect_r_home()` and `rdesk_copy_r_runtime()`.
 
-* All examples and default paths now write to tempdir() only.
-  No writes to user home filespace or getwd().
+### R CMD check results
 
-* Added on.exit() immediately after every setwd() and options()
-  call in R/build.R with add = TRUE.
+0 errors | 0 warnings | 1 note (win-builder) / up to 2 notes (local)
 
-* Replaced all installed.packages() calls with requireNamespace(),
-  system.file(), or utils::packageVersion() as appropriate.
+**Note 1** — `-mwindows` compilation flag:  
+Confirmed acceptable by Uwe Ligges (2026-03-24). Required to suppress a  
+Windows console window for the native GUI launcher binary.
 
-* Added executable R code chunks to all six vignettes. Each chunk
-  runs in under 5 seconds without opening windows or writing files.
+**Note 2** — `unable to verify current time` (local only):  
+Appears only when the local machine cannot reach an NTP time server  
+(firewall/offline). This note did NOT appear on win-builder (R-devel  
+Windows server). CRAN servers have unrestricted internet access and will  
+not see this note.
 
-* Added copyright holders for all vendored third-party code to
-  Authors@R with cph roles: Serge Zaitsev (webview.h), Niels Lohmann
-  (nlohmann/json), Microsoft Corporation (WebView2 SDK).
-  Created inst/COPYRIGHTS listing licenses for all vendored components.
-
-* Removed all non-portable pragmas (`#pragma GCC diagnostic`) from 
-  vendored C++ headers (`webview.h` and `json.hpp`).
-
-## R CMD check results
-
-0 errors | 0 warnings | 2 notes
-
-* New submission -- expected.
-* -mwindows flag: confirmed acceptable by Uwe Ligges (2026-03-24).
+`devtools::check()` also emits a harmless Quarto/TMPDIR warning on Windows  
+("running command quarto TMPDIR=... had status 1"). This is a Windows-only  
+`devtools` quirk; it does not affect the check result and does not occur  
+on CRAN's Linux servers.
 
 ## Acronyms and Technical Terms
 

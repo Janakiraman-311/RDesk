@@ -55,6 +55,9 @@ navbar:
         - text: "---"
         - text: "AI Coding Assistant"
           href: articles/ai_skill.html
+        - text: "---"
+        - text: "Why RDesk?"
+          href: articles/rdesk-article.html
 
 articles:
   - title: "User Guides"
@@ -68,6 +71,9 @@ articles:
       - ipc-contract
       - architecture
       - ai_skill
+  - title: "Background Reading"
+    contents:
+      - rdesk-article
 
 reference:
   - title: "Scaffold"

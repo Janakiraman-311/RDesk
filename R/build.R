@@ -11,12 +11,18 @@
 #' @param include_packages Character vector of extra CRAN packages to bundle.
 #'   RDesk's own dependencies are always included automatically.
 #' @param portable_r_method How to provision the bundled R runtime when
-#'   `runtime_dir` is not supplied. `"extract_only"` requires standalone 7-Zip
-#'   and never launches the R installer. `"installer"` allows the legacy silent
-#'   installer path explicitly.
-#' @param runtime_dir Optional path to an existing portable R runtime root
-#'   containing `bin/`. When supplied, RDesk copies this runtime directly and
-#'   skips the download/extract step.
+#'   `runtime_dir = "download"` is used explicitly. `"extract_only"` requires
+#'   standalone 7-Zip and never launches the R installer. `"installer"` allows
+#'   the legacy silent installer path explicitly.
+#' @param runtime_dir Controls which R runtime is bundled with the app.
+#'   \itemize{
+#'     \item `NULL` (default) -- copies the developer's currently running R
+#'       installation. Guarantees the bundled packages and the runtime are the
+#'       same R version, eliminating renv version-mismatch crashes.
+#'     \item A filesystem path -- copies that R installation root directly.
+#'     \item `"download"` -- downloads a portable R installer from CRAN
+#'       (legacy behaviour; requires network; risks version mismatch with renv).
+#'   }
 #' @param overwrite If TRUE, overwrite existing output. Default FALSE.
 #' @param build_installer If TRUE, also build a Windows installer (.exe) using InnoSetup.
 #' @param publisher Documentation for the application publisher (used in installer).
@@ -58,10 +64,13 @@ build_app <- function(app_dir = ".",
   on.exit(options(old_opts), add = TRUE)
   portable_r_method <- match.arg(portable_r_method)
   app_dir <- normalizePath(app_dir, mustWork = TRUE)
-  user_runtime_dir <- runtime_dir
-  if (!is.null(user_runtime_dir)) {
-    user_runtime_dir <- normalizePath(path.expand(user_runtime_dir), mustWork = TRUE)
-  }
+  # Normalise runtime_dir:
+  #   NULL      -> auto-detect (copy developer's R)
+  #   "download" -> legacy download behaviour
+  #   <path>    -> copy that path directly
+  use_download <- identical(runtime_dir, "download")
+  user_runtime_dir <- if (use_download || is.null(runtime_dir)) NULL else
+    normalizePath(path.expand(runtime_dir), mustWork = TRUE)
 
   if (dry_run) {
     message("\n[RDesk] DRY RUN: Validating app structure...")
@@ -104,7 +113,8 @@ build_app <- function(app_dir = ".",
     extra_pkgs = include_packages,
     build_installer = build_installer,
     portable_r_method = portable_r_method,
-    runtime_dir = user_runtime_dir
+    runtime_dir = user_runtime_dir,
+    use_download = use_download
   )
 
   if (is.null(r_version))
@@ -139,29 +149,36 @@ build_app <- function(app_dir = ".",
   dir.create(bin_stage)
   rdesk_copy_dir(bin_src, bin_stage)
 
-  # ---- Step 3: Download and extract portable R -----------------------------
+  # ---- Step 3: Provision R runtime -----------------------------------------
   stage_runtime_dir <- file.path(stage_root, "runtime", "R")
   dir.create(stage_runtime_dir, recursive = TRUE)
-  actual_r_version <- r_version
-  
+
   if (!is.null(user_runtime_dir)) {
-    message("[RDesk] Step 3/6 - copying provided portable R runtime...")
-    rdesk_copy_dir(user_runtime_dir, stage_runtime_dir)
-    if (prune_runtime) {
-      rdesk_prune_runtime(stage_runtime_dir)
-    }
-  } else {
-    message("[RDesk] Step 3/6 - provisioning portable R ", r_version, "...")
-    actual_r_version <- rdesk_fetch_portable_r(
+    # Explicit path supplied by developer
+    message("[RDesk] Step 3/6 - copying provided R runtime: ", user_runtime_dir)
+    rdesk_copy_r_runtime(user_runtime_dir, stage_runtime_dir)
+    if (prune_runtime) rdesk_prune_runtime(stage_runtime_dir)
+
+  } else if (use_download) {
+    # Explicit "download" sentinel — legacy behaviour
+    message("[RDesk] Step 3/6 - downloading portable R ", r_version, " (legacy mode)...")
+    message("[RDesk]   NOTE: Consider using the default (runtime_dir = NULL) to avoid")
+    message("[RDesk]   version-mismatch crashes between the downloaded R and your renv packages.")
+    r_version <- rdesk_fetch_portable_r(
       r_version = r_version,
-      dest_dir = stage_runtime_dir,
-      prune = prune_runtime,
-      method = portable_r_method
+      dest_dir  = stage_runtime_dir,
+      prune     = prune_runtime,
+      method    = portable_r_method
     )
+
+  } else {
+    # Default: copy the developer's own R installation
+    r_home <- rdesk_detect_r_home()
+    message("[RDesk] Step 3/6 - copying your R ", r_version, " installation as app runtime...")
+    message("[RDesk]   This guarantees renv packages and the runtime are the same version.")
+    rdesk_copy_r_runtime(r_home, stage_runtime_dir)
+    if (prune_runtime) rdesk_prune_runtime(stage_runtime_dir)
   }
-  
-  # Update r_version to the one actually provisioned
-  r_version <- actual_r_version
 
   # ---- Step 4: Bundle packages ---------------------------------------------
   message("[RDesk] Step 4/6 - bundling R packages...")
@@ -279,22 +296,21 @@ rdesk_validate_build_inputs <- function(app_dir,
                                         extra_pkgs,
                                         build_installer = FALSE,
                                         portable_r_method = c("extract_only", "installer"),
-                                        runtime_dir = NULL) {
+                                        runtime_dir = NULL,
+                                        use_download = FALSE) {
   portable_r_method <- match.arg(portable_r_method)
   message("[RDesk] Pre-flight validation...")
-  
+
   # 1. Essential files
   if (!file.exists(file.path(app_dir, "app.R")))
     stop("[Validation Failed] app.R not found in: ", app_dir)
-    
   if (!dir.exists(file.path(app_dir, "www")))
     stop("[Validation Failed] www/ directory not found in: ", app_dir)
-    
+
   # 2. Package check
   core_pkgs <- c("R6", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "zip")
   all_pkgs  <- unique(c(core_pkgs, extra_pkgs))
-  
-  missing <- all_pkgs[!vapply(all_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  missing   <- all_pkgs[!vapply(all_pkgs, requireNamespace, logical(1), quietly = TRUE)]
   if (length(missing) > 0) {
     stop("[Validation Failed] The following required packages are not available in your R library:\n",
          paste("  -", missing, collapse = "\n"),
@@ -302,27 +318,36 @@ rdesk_validate_build_inputs <- function(app_dir,
   }
 
   # 3. Rtools check (needed for stub compilation)
-  tryCatch({
-    rdesk_find_gpp()
-  }, error = function(e) {
+  tryCatch(rdesk_find_gpp(), error = function(e) {
     stop("[Validation Failed] Rtools (g++) is required to build the launcher stub.\n",
          "Error: ", e$message)
   })
 
-  # 3b. Portable R provisioning strategy
+  # 3b. Runtime provisioning validation
   if (!is.null(runtime_dir)) {
+    # Explicit path supplied — must contain bin/
     if (!dir.exists(file.path(runtime_dir, "bin"))) {
-      stop("[Validation Failed] runtime_dir must point to an R runtime root containing bin/.\n",
+      stop("[Validation Failed] runtime_dir must point to an R installation root containing bin/.\n",
            "Provided path: ", runtime_dir)
     }
-  } else if (portable_r_method == "extract_only") {
+  } else if (use_download && portable_r_method == "extract_only") {
+    # Download path requested — check for 7-Zip
     sevenzip <- rdesk_find_7zip()
     if (is.null(sevenzip)) {
-        message("[RDesk]   Warning: Standalone 7-Zip not found.")
-        message("[RDesk]   Switching to portable_r_method='installer' (no extra tools needed).")
-        # Update the calling environment's method (kludge for this call)
-        assign("portable_r_method", "installer", envir = parent.frame())
+      message("[RDesk]   Warning: Standalone 7-Zip not found.")
+      message("[RDesk]   Switching to portable_r_method='installer' (no extra tools needed).")
+      assign("portable_r_method", "installer", envir = parent.frame())
     }
+  } else {
+    # Default auto-detect path — validate R.home() is accessible
+    r_home <- R.home()
+    if (!dir.exists(file.path(r_home, "bin"))) {
+      stop("[Validation Failed] Cannot locate your R installation at R.home(): ", r_home,
+           "\nIf this is unexpected, supply runtime_dir = R.home() explicitly.")
+    }
+    message("[RDesk]   Runtime: your R ",
+            paste0(R.version$major, ".", R.version$minor),
+            " at ", r_home)
   }
 
   # 4. InnoSetup check
@@ -340,6 +365,82 @@ rdesk_validate_build_inputs <- function(app_dir,
 }
 
 # ---- Internal helpers --------------------------------------------------------
+
+#' Auto-detect the current R installation root
+#' @keywords internal
+rdesk_detect_r_home <- function() {
+  r_home    <- R.home()
+  r_version <- paste0(R.version$major, ".", R.version$minor)
+  if (!dir.exists(file.path(r_home, "bin"))) {
+    stop("[RDesk] rdesk_detect_r_home: R.home() returned '" , r_home,
+         "' but bin/ was not found there. Supply runtime_dir explicitly.")
+  }
+  message("[RDesk] Detected R ", r_version, " at: ", r_home)
+  r_home
+}
+
+#' Copy an R installation into the bundle staging directory
+#'
+#' Copies `bin/`, `library/`, `etc/`, `modules/`, and `include/` from
+#' \code{r_home} into \code{dest_dir}. Skips heavyweight directories
+#' (Tcl/Tk, docs, tests) that are already pruned by \code{rdesk_prune_runtime()}.
+#' @keywords internal
+rdesk_copy_r_runtime <- function(r_home, dest_dir) {
+  # ---- bin/ : copy only x64 executables, skip i386 -------------------------
+  bin_src  <- file.path(r_home, "bin")
+  bin_dest <- file.path(dest_dir, "bin")
+  if (dir.exists(bin_src)) {
+    message("[RDesk]   Copying bin/ (x64 only)")
+    dir.create(bin_dest, recursive = TRUE, showWarnings = FALSE)
+    # Copy top-level bin files (R.exe, Rscript.exe, etc.)
+    top_files <- list.files(bin_src, full.names = TRUE, recursive = FALSE)
+    top_files <- top_files[!file.info(top_files)$isdir]
+    file.copy(top_files, bin_dest, overwrite = TRUE)
+    # Copy only x64 subdirectory, not i386
+    x64_src  <- file.path(bin_src, "x64")
+    x64_dest <- file.path(bin_dest, "x64")
+    if (dir.exists(x64_src)) {
+      dir.create(x64_dest, recursive = TRUE, showWarnings = FALSE)
+      file.copy(list.files(x64_src, full.names = TRUE), x64_dest, overwrite = TRUE)
+    }
+  }
+
+  # ---- library/ : copy only base + recommended packages --------------------
+  lib_src  <- file.path(r_home, "library")
+  lib_dest <- file.path(dest_dir, "library")
+  if (dir.exists(lib_src)) {
+    message("[RDesk]   Copying library/ (base + recommended only)")
+    dir.create(lib_dest, recursive = TRUE, showWarnings = FALSE)
+    pkgs <- list.dirs(lib_src, recursive = FALSE, full.names = TRUE)
+    for (p in pkgs) {
+      desc_path <- file.path(p, "DESCRIPTION")
+      keep <- FALSE
+      if (file.exists(desc_path)) {
+        d <- tryCatch(read.dcf(desc_path), error = function(e) NULL)
+        if (!is.null(d) && "Priority" %in% colnames(d)) {
+          priority <- trimws(as.character(d[1, "Priority"]))
+          keep <- priority %in% c("base", "recommended")
+        }
+      }
+      # Also keep 'translations' which has no Priority but ships with R
+      if (!keep && basename(p) == "translations") keep <- TRUE
+      if (keep) {
+        file.copy(p, lib_dest, recursive = TRUE, overwrite = TRUE)
+      }
+    }
+  }
+
+  # ---- etc/, modules/, include/ : copy fully (small, essential) ------------
+  for (d in c("etc", "modules", "include")) {
+    src <- file.path(r_home, d)
+    if (dir.exists(src)) {
+      message("[RDesk]   Copying ", d, "/")
+      file.copy(src, dest_dir, recursive = TRUE, overwrite = TRUE)
+    }
+  }
+
+  invisible(dest_dir)
+}
 
 rdesk_copy_dir <- function(from, to) {
   dirs <- list.dirs(from, recursive = TRUE, full.names = TRUE)
