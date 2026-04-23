@@ -1,83 +1,96 @@
 # RDesk
 
-[![CRAN status](https://www.r-pkg.org/badges/version/RDesk)](https://CRAN.R-project.org/package=RDesk)
-[![R-CMD-check](https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml)
-[![build-app](https://github.com/Janakiraman-311/RDesk/actions/workflows/build-app.yml/badge.svg)](https://github.com/Janakiraman-311/RDesk/actions/workflows/build-app.yml)
-[![pkgdown](https://github.com/Janakiraman-311/RDesk/actions/workflows/pkgdown.yaml/badge.svg)](https://janakiraman-311.github.io/RDesk/)
+<p align="center">
+  <img src="man/figures/logo.png" width="180" alt="RDesk hex logo"/>
+</p>
 
-![RDesk Dashboard](man/figures/landing.png)
+<p align="center">
+  <a href="https://CRAN.R-project.org/package=RDesk"><img src="https://www.r-pkg.org/badges/version/RDesk" alt="CRAN status"/></a>
+  <a href="https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml"><img src="https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml/badge.svg" alt="R-CMD-check"/></a>
+  <a href="https://janakiraman-311.github.io/RDesk/"><img src="https://github.com/Janakiraman-311/RDesk/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"/></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"/>
+  <img src="https://img.shields.io/badge/platform-Windows-informational" alt="Windows only"/>
+</p>
 
-**RDesk** is a framework for building native Windows desktop applications with R. It turns your logic into a standalone `.exe` that runs on any machine—no R installation required by the end-user.
+<p align="center">
+  <strong>Build native Windows desktop apps with R — zero ports, one installer, no R needed by your users.</strong>
+</p>
+
+---
+
+**RDesk** turns your R analysis into a standalone Windows application. No Shiny server. No browser tabs. No IT conversations about ports. Your users get a real `.exe` that double-clicks like any other desktop tool — and it works entirely offline.
 
 ## Quick Start
 
-Get a professional dashboard running in seconds:
-
 ```r
-# 1. Install RDesk from CRAN
+# Install from CRAN
 install.packages("RDesk")
 
-# 2. Create a working dashboard
-RDesk::rdesk_create_app("MyDashboard")
+# Scaffold a professional dashboard
+RDesk::rdesk_create_app("MyApp")
+
+# Run it immediately
+source("MyApp/app.R")
 ```
 
-> **Install the development version from GitHub:**
+When you are ready to ship:
+
+```r
+RDesk::build_app(
+  app_dir         = "MyApp",
+  app_name        = "MyApp",
+  build_installer = TRUE
+)
+# → dist/MyApp-1.0.0-setup.exe  (~200 MB, self-contained)
+```
+
+Send the `.exe` to anyone on Windows. They double-click it. Done. No R required.
+
+> **Development version:**
 > ```r
 > devtools::install_github("Janakiraman-311/RDesk")
 > ```
 
 ## Why RDesk?
 
-RDesk solves the "Last Mile" problem of R deployment. Instead of a browser URL, you give your users a familiar Windows tool.
+| | Shiny | RInno (archived) | Electron + R | **RDesk** |
+|:---|:---:|:---:|:---:|:---:|
+| Network ports required | ✅ Yes | ✅ Yes | ✅ Yes | ❌ **Zero** |
+| Works fully offline | ❌ No | ⚠️ Partial | ⚠️ Partial | ✅ **Yes** |
+| Native file dialogs & menus | ❌ No | ❌ No | ⚠️ Via JS | ✅ **Yes** |
+| Distribution format | Server URL | Installer | Installer | **ZIP or .exe** |
+| Bundle size | Server-side | 350 MB+ | 350–500 MB | **~200 MB** |
+| Skills required | R | R + Electron | R + Node.js | **R only** |
 
-| Feature | Shiny | RDesk |
-|:---|:---|:---|
-| **Delivery** | Browser + Server | **Native .exe** |
-| **Network Ports** | Yes (httpuv) | **Zero (Native Pipe)** |
-| **Offline Use** | No | **Yes** |
-| **Distribution** | Deploy to Cloud | **Single ZIP or Installer** |
-| **User Experience** | Website-like | **Desktop Native** |
+## Core Features
 
-## Who uses RDesk?
+- **🔒 Zero-Port IPC** — R and the UI communicate via native stdin/stdout pipes and Win32 messages. No TCP stack. No firewall rules. Passes enterprise security audits that Shiny deployments fail.
+- **⚡ Async by Default** — Three-tier async engine built on `mirai`. Pre-warmed daemon pools start tasks in milliseconds, not seconds. Loading overlays and progress bars are one line of code.
+- **📦 Version-Safe Runtime** — `build_app()` copies your exact R installation into the bundle, guaranteeing the runtime and your `renv`-locked packages are always the same version. No more ABI crashes.
+- **🎨 Modern Web UI** — Write your interface in plain HTML/CSS/JS. Keep 100% of your logic in R. No React. No Webpack. No build pipeline.
+- **🛠 Professional Scaffolding** — `rdesk_create_app()` generates a full working dashboard — sidebar, charts, async workers, dark mode — that runs immediately. No blank-template frustration.
+- **🔄 Auto-Update** — One function silently checks for updates on launch and installs them. Your distributed users always run the latest version.
 
-- Data analysts building internal tools that cannot live on a server
-- Consultants distributing one-off analysis tools to clients
-- Teams replacing Excel macros with proper R-powered apps
-- Organisations that need offline, zero-IT-involvement deployment
+## Who It's For
 
-Not the right fit for web applications, cross-platform needs, 
-or real-time collaborative tools — use Shiny for those.
+RDesk is built for R developers who need to put a real tool in the hands of people who don't use R.
 
-## Core Benefits
+- **Pharma & clinical** — distribute data review or validation tools to investigators without IT involvement
+- **Consulting** — hand a client a branded analysis tool without exposing your model or code
+- **Internal teams** — replace aging Excel macros with proper statistics, distributed as a familiar `.exe`
+- **Anyone** who has been told "we can't open a port for your Shiny app"
 
-*   **🔒 Zero-Port IPC**: Native bidirectional pipes between R and the UI. No firewall issues or port conflicts.
-*   **⚡ Async by Default**: Built-in background task processing via `mirai`. The UI never freezes, even during heavy R computations.
-*   **📦 Portable Runtime**: `build_app()` copies your exact R installation into the bundle — same version as your packages — so there are zero version-mismatch crashes. Your users don't need to install R.
-*   **🎨 Modern Web UI**: Use HTML/JS/CSS for the interface while keeping 100% of your logic in R.
-*   **🛠 Professional Scaffolding**: Generate dashboards with sidebar navigation, Dark Mode, and auto-wired charts in one command.
+## Documentation
 
-## Distribute Your Work
+Full documentation at **[janakiraman-311.github.io/RDesk](https://janakiraman-311.github.io/RDesk/)**
 
-Building a professional installer is a single command away:
-
-```r
-RDesk::build_app(
-  app_dir         = "MyDashboard",
-  app_name        = "SalesTool",
-  build_installer = TRUE
-)
-# Output: dist/SalesTool-1.0.0-setup.exe
-```
-
-## Learn More
-
-Visit the full documentation at **[janakiraman-311.github.io/RDesk](https://janakiraman-311.github.io/RDesk/)**
-
-*   [**Getting Started**](https://janakiraman-311.github.io/RDesk/articles/getting-started.html) — From zero to your first native app.
-*   [**Coming from Shiny**](https://janakiraman-311.github.io/RDesk/articles/shiny-migration.html) — A side-by-side guide to mapping your Shiny knowledge to RDesk.
-*   [**Async Guide**](https://janakiraman-311.github.io/RDesk/articles/async-guide.html) — Mastering background tasks and progress overlays.
-*   [**Cookbook**](https://janakiraman-311.github.io/RDesk/articles/cookbook.html) — Copy-paste recipes for common desktop patterns.
-*   [**The Long Road to Native R Desktop Apps**](https://janakiraman-311.github.io/RDesk/articles/rdesk-article.html) — The history of R desktop deployment and why RDesk is different.
+| Guide | What it covers |
+|:---|:---|
+| [Getting Started](https://janakiraman-311.github.io/RDesk/articles/getting-started.html) | From `install.packages()` to your first native app |
+| [Coming from Shiny](https://janakiraman-311.github.io/RDesk/articles/shiny-migration.html) | Side-by-side mapping of every Shiny pattern to RDesk |
+| [Async Guide](https://janakiraman-311.github.io/RDesk/articles/async-guide.html) | Background tasks, progress overlays, cancellation |
+| [Cookbook](https://janakiraman-311.github.io/RDesk/articles/cookbook.html) | Copy-paste recipes for common desktop patterns |
+| [Why RDesk?](https://janakiraman-311.github.io/RDesk/articles/rdesk-article.html) | The history of R desktop deployment |
 
 ## License
 

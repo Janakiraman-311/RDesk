@@ -1,27 +1,93 @@
 url: https://janakiraman-311.github.io/RDesk/
 
 title: RDesk
+logo: man/figures/logo.png
 
 template:
   bootstrap: 5
-  bootswatch: flatly
   bslib:
-    primary: "#2C3E50"
-    border-radius: 0.5rem
+    # Brand palette — charcoal + gold
+    primary:          "#1a1a2e"
+    secondary:        "#F5C518"
+    success:          "#1D9E75"
+    info:             "#378ADD"
+    warning:          "#F5C518"
+    danger:           "#e74c3c"
+    # Typography
+    base_font:        {google: "Inter"}
+    heading_font:     {google: "Inter"}
+    code_font:        {google: "JetBrains Mono"}
+    font-size-base:   "1rem"
+    # Layout
+    border-radius:    "0.5rem"
+    navbar-bg:        "#1a1a2e"
+    navbar-fg:        "#ffffff"
+    navbar-brand-color: "#F5C518"
+    # Card / surface
+    body-bg:          "#f8f9fa"
+    body-color:       "#1a1a2e"
+    headings-color:   "#1a1a2e"
+    link-color:       "#1a1a2e"
+    link-hover-color: "#F5C518"
   includes:
     in_header: |
-      <meta name="description" content="Build native Windows desktop apps with R. Zero ports. Native WebView2. Ships as a single exe.">
+      <meta name="description" content="RDesk — Build native Windows desktop apps with R. Zero ports. Ships as a single exe. No R required on end-user machines.">
+      <meta property="og:title" content="RDesk — Native Desktop Apps for R">
+      <meta property="og:description" content="Turn your R analysis into a native Windows desktop app. Zero network ports. One-click installer. No R needed by users.">
+      <meta name="twitter:card" content="summary">
+      <style>
+        /* ── Navbar ─────────────────────────────────────────── */
+        .navbar-brand img { height: 48px; }
+        .navbar { box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+        .navbar .nav-link { font-weight: 500; letter-spacing: 0.01em; }
+        .navbar .nav-link:hover { color: #F5C518 !important; }
 
-# Home configuration
+        /* ── Hero (home page) ───────────────────────────────── */
+        .template-home .contents { padding-top: 0; }
+
+        /* ── Feature badges in README ───────────────────────── */
+        .section.level2 h2 {
+          border-bottom: 3px solid #F5C518;
+          padding-bottom: 0.4rem;
+          margin-top: 2rem;
+        }
+
+        /* ── Code blocks ────────────────────────────────────── */
+        pre { border-left: 4px solid #F5C518; border-radius: 0.4rem; }
+
+        /* ── Reference page cards ───────────────────────────── */
+        .ref-index .card { border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.07); transition: box-shadow 0.2s; }
+        .ref-index .card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.14); }
+        .ref-index h2 { color: #1a1a2e; border-left: 4px solid #F5C518; padding-left: 0.7rem; }
+
+        /* ── Article index cards ────────────────────────────── */
+        .articles-index .card { border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+
+        /* ── Footer ─────────────────────────────────────────── */
+        footer { background: #1a1a2e; color: #adb5bd; border-top: 3px solid #F5C518; margin-top: 3rem; padding: 1.5rem 0; }
+        footer a { color: #F5C518; }
+        footer a:hover { color: #ffffff; }
+
+        /* ── Tables ─────────────────────────────────────────── */
+        table th { background: #1a1a2e; color: #F5C518; }
+        table { border-radius: 0.4rem; overflow: hidden; }
+
+        /* ── Pkgdown logo on home ───────────────────────────── */
+        .pkg-logo img { max-height: 180px; }
+      </style>
+
 home:
-  title: "RDesk - Native Desktop Apps for R"
+  title: "RDesk — Native Desktop Apps for R"
   description: >
-    Build standalone Windows desktop applications using R.
-    Zero network ports. Native WebView2. Ships as a single exe.
-    No R installation required on end-user machines.
+    Ship your R analysis as a native Windows .exe — zero ports, no server, no R needed by your users.
+    One command creates the app. One command builds the installer.
   links:
-    - text: Member of R-bloggers
+    - text: "📦 CRAN"
+      href: https://cran.r-project.org/package=RDesk
+    - text: "📰 R-bloggers"
       href: https://www.r-bloggers.com/
+    - text: "💬 Posit Community"
+      href: https://community.posit.co/
 
 # News configuration for RSS
 news:
@@ -29,9 +95,10 @@ news:
     index_xml: true
 
 navbar:
+  bg: dark
   structure:
     left:  [intro, reference, articles, news]
-    right: [github]
+    right: [cran, github]
   components:
     intro:
       text: "Get started"
@@ -39,6 +106,7 @@ navbar:
     articles:
       text: "Guides"
       menu:
+        - text: "── User Guides ──────────────"
         - text: "Get started"
           href: articles/getting-started.html
         - text: "Coming from Shiny"
@@ -47,59 +115,68 @@ navbar:
           href: articles/async-guide.html
         - text: "Cookbook"
           href: articles/cookbook.html
-        - text: "---"
+        - text: "── Technical ────────────────"
         - text: "IPC contract"
           href: articles/ipc-contract.html
         - text: "Architecture"
           href: articles/architecture.html
-        - text: "---"
+        - text: "── Resources ────────────────"
         - text: "AI Coding Assistant"
           href: articles/ai_skill.html
-        - text: "---"
         - text: "Why RDesk?"
           href: articles/rdesk-article.html
+    cran:
+      icon: fa-cube
+      href: https://cran.r-project.org/package=RDesk
+      aria-label: CRAN
+    github:
+      icon: fa-github
+      href: https://github.com/Janakiraman-311/RDesk
+      aria-label: GitHub
 
 articles:
   - title: "User Guides"
+    desc: "Everything you need to build and ship your first RDesk app."
     contents:
       - getting-started
       - shiny-migration
       - async-guide
       - cookbook
   - title: "Technical Reference"
+    desc: "Deep dives into architecture and the IPC protocol."
     contents:
       - ipc-contract
       - architecture
       - ai_skill
   - title: "Background Reading"
+    desc: "The story of R desktop deployment and why RDesk is different."
     contents:
       - rdesk-article
 
 reference:
   - title: "Scaffold"
-    desc: "Create a new RDesk application"
+    desc: "Create a new RDesk application from a professional template."
     contents: [rdesk_create_app]
-  - title: "Core application"
-    desc: "Create and run desktop application windows"
+  - title: "Core Application"
+    desc: "Create, configure, and run native desktop application windows."
     contents: [App, rdesk_service, rdesk_is_bundle]
-  - title: "Async engine"
-    desc: "Background task execution without blocking the UI"
+  - title: "Async Engine"
+    desc: "Run background tasks without freezing the UI — built on mirai."
     contents: [async, rdesk_async, rdesk_cancel_job, rdesk_jobs_pending, rdesk_jobs_list]
-  - title: "Updates"
-    desc: "Auto-update your distributed app"
+  - title: "Auto-Update"
+    desc: "Keep distributed apps up to date automatically."
     contents: [rdesk_auto_update]
-  - title: "Build & distribute"
-    desc: "Package your app for distribution"
+  - title: "Build & Distribute"
+    desc: "Package your app into a self-contained ZIP or Windows installer."
     contents: [build_app]
   - title: "IPC Communication"
-    desc: "Helpers for the standard RDesk message protocol"
+    desc: "Low-level helpers for the RDesk message envelope protocol."
     contents: [rdesk_message, rdesk_parse_message]
-  - title: "Utilities & Serialization"
-    desc: "Helpers for plot conversion and data framing"
+  - title: "Utilities & Serialisation"
+    desc: "Convert plots and data frames for transport over the IPC bridge."
     contents: [rdesk_plot_to_base64, rdesk_df_to_list, rdesk_error_plot]
-
 
 footer:
   structure:
-    left: developed_by
+    left:  developed_by
     right: built_with
