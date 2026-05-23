@@ -28,6 +28,8 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
 
+      - uses: r-lib/actions/setup-pandoc@v2
+
       # ── Install check dependencies directly (no renv restore in CI) ────────
       # renv::restore() is skipped because:
       #   1. renv.lock tracks dev packages (devtools, pkgdown, etc.) that
