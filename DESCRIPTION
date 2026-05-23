@@ -61,6 +61,7 @@ Suggests:
     ggplot2,
     dplyr,
     rstudioapi,
-    pkgdown
+    pkgdown,
+    mori
 VignetteBuilder: knitr
 Config/testthat/edition: 3

@@ -1,3 +1,19 @@
+# RDesk 1.1.0 (dev)
+
+## New features
+
+* `mori` is now listed in `Suggests`. Apps that load large datasets and
+  dispatch repeated `async()` workers can optionally use `mori::share()` to
+  place data in OS-level shared memory (Win32 file mapping on Windows), sending
+  ~300 bytes to each worker instead of a full serialised copy. The `async()`
+  wrapper requires no code changes — mori's ALTREP objects serialise as their
+  shared memory handle transparently. See the new Cookbook recipe
+  *"Share large datasets across async workers with mori"* for a complete
+  before/after example and benchmark context (~42% wall-clock improvement in
+  the benchmark on 8-worker parallel operations against large data).
+
+---
+
 # RDesk 1.0.5 (2026-04-22) — Runtime Fix
 
 ## Bug fixes
