@@ -12,6 +12,19 @@
   before/after example and benchmark context (~42% wall-clock improvement in
   the benchmark on 8-worker parallel operations against large data).
 
+## Bug fixes
+
+* `build_app()` now strips development artifacts from the bundled `app/`
+  directory before packaging. Previously, if the developer's workspace
+  contained an `renv` setup, the bundled `.Rprofile` would source
+  `renv/activate.R` on startup, hijacking `.libPaths()` away from the
+  bundle's `packages/library/` and causing an immediate **Error Code 1**
+  crash. The following paths are now permanently excluded from the bundle:
+  `.Rprofile`, `.Renviron`, `renv/`, `renv.lock`, `.git/`, `.gitignore`,
+  `.gitattributes`, `.Rproj.user/`, `.Rhistory`, `.RData`, `tests/`,
+  `.DS_Store`. A message is printed during build listing what was excluded.
+  Apps built without these artifacts are unaffected.
+
 ---
 
 # RDesk 1.0.5 (2026-04-22) — Runtime Fix
