@@ -2,7 +2,7 @@ name: R-CMD-check
 
 on:
   push:
-    branches: [ main, "*" ]
+    branches: [ main, dev, "**" ]
   pull_request:
     branches: [ main ]
 
@@ -11,12 +11,12 @@ jobs:
     runs-on: windows-latest
     env:
       RENV_PATHS_LIBRARY: renv/library
-      RENV_CONFIG_AUTOLOADER_ENABLED: false
+      RENV_CONFIG_AUTOLOADER_ENABLED: "false"
       RENV_CONFIG_SNAPSHOT_TYPE: explicit
       RENV_CONFIG_BIOCONDUCTOR_VERSION: ""
-      # Disable CRAN incoming checks in CI — these are submission-time
-      # checks only. Without these, the CI fails with 'Insufficient
-      # package version' once the package is already published on CRAN.
+      # Disable CRAN incoming checks — submission-time only.
+      # Without these the CI fails with 'Insufficient package version'
+      # once 1.0.5 is already live on CRAN.
       _R_CHECK_CRAN_INCOMING_REMOTE_: "FALSE"
       _R_CHECK_CRAN_INCOMING_: "FALSE"
 
@@ -28,37 +28,52 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
 
-      - name: Cache renv packages
+      # ── Install check dependencies directly (no renv restore in CI) ────────
+      # renv::restore() is skipped because:
+      #   1. renv.lock tracks dev packages (devtools, pkgdown, etc.) that
+      #      are large and slow to install for a check-only job.
+      #   2. The renv library path is for the developer's machine; CI
+      #      installs fresh from RSPM every run (cached below).
+      - name: Cache R packages
         uses: actions/cache@v4
         with:
-          path: renv/library
-          key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
-          restore-keys: renv-${{ runner.os }}-
+          path: ${{ env.R_LIBS_USER }}
+          key: r-pkgs-${{ runner.os }}-${{ hashFiles('DESCRIPTION') }}
+          restore-keys: r-pkgs-${{ runner.os }}-
 
-      - name: Restore renv environment
+      - name: Install package dependencies
         run: |
-          if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
           options(repos = c(CRAN = "https://cloud.r-project.org"))
-          renv::restore(prompt = FALSE, clean = FALSE)
+          # Install hard Imports from DESCRIPTION
+          pkg_deps <- c(
+            "R6", "jsonlite", "digest", "processx", "callr",
+            "mirai", "base64enc", "zip"
+          )
+          install.packages(pkg_deps, quiet = TRUE)
+          # Install check tools
+          install.packages(c("rcmdcheck", "withr"), quiet = TRUE)
         shell: Rscript {0}
-
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::rcmdcheck, any::withr
 
       - name: Run R-CMD-check
         run: |
-          if (!requireNamespace("rcmdcheck", quietly = TRUE)) install.packages("rcmdcheck")
           res <- rcmdcheck::rcmdcheck(
             args      = c("--no-manual", "--as-cran"),
-            error_on  = "error",   # warnings suppressed: CRAN incoming checks disabled via env
+            error_on  = "error",
             check_dir = "check"
           )
-          if (length(res$errors) > 0) stop("R CMD check failed with errors")
-          # Expected notes: 1 (-mwindows, pre-approved). Warn if extra notes appear.
-          n_notes <- length(res$notes)
-          if (n_notes > 1) {
-            message("Note: ", n_notes, " notes found (expected 1 for -mwindows). Review check/")
+          if (length(res$errors) > 0) {
+            cat(paste(res$errors, collapse = "\n"))
+            stop("R CMD check failed with errors")
+          }
+          # Expected: 1 note (-mwindows, pre-approved by CRAN).
+          # Print any notes so they are visible in the log.
+          if (length(res$notes) > 0) {
+            cat("Notes:\n")
+            cat(paste(res$notes, collapse = "\n"))
+          }
+          if (length(res$warnings) > 0) {
+            cat("Warnings:\n")
+            cat(paste(res$warnings, collapse = "\n"))
           }
         shell: Rscript {0}
 
