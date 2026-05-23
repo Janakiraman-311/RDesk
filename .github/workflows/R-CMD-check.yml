@@ -19,6 +19,7 @@ jobs:
       # once 1.0.5 is already live on CRAN.
       _R_CHECK_CRAN_INCOMING_REMOTE_: "FALSE"
       _R_CHECK_CRAN_INCOMING_: "FALSE"
+      _R_CHECK_FORCE_SUGGESTS_: "FALSE"
 
     steps:
       - uses: actions/checkout@v4
