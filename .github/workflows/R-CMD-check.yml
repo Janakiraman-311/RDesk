@@ -43,14 +43,15 @@ jobs:
 
       - name: Install package dependencies
         run: |
-          options(repos = c(CRAN = "https://cloud.r-project.org"))
-          # Install hard Imports from DESCRIPTION
-          pkg_deps <- c(
+          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
+          # Hard Imports from DESCRIPTION
+          install.packages(c(
             "R6", "jsonlite", "digest", "processx", "callr",
             "mirai", "base64enc", "zip"
-          )
-          install.packages(pkg_deps, quiet = TRUE)
-          # Install check tools
+          ), quiet = TRUE)
+          # Vignette builder (required by R CMD check even though in Suggests)
+          install.packages(c("knitr", "rmarkdown"), quiet = TRUE)
+          # Check tools
           install.packages(c("rcmdcheck", "withr"), quiet = TRUE)
         shell: Rscript {0}
 
