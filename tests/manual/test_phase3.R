@@ -39,7 +39,7 @@ app$on_ready(function() {
     ),
     Help = list(
       "About" = function() {
-        app$notify("RDesk", "Version 0.1.0 — the first native R desktop framework")
+        app$notify("RDesk", "Version 0.1.0 - the first native R desktop framework")
       }
     )
   ))

@@ -14,7 +14,7 @@ jobs:
       RENV_CONFIG_AUTOLOADER_ENABLED: "false"
       RENV_CONFIG_SNAPSHOT_TYPE: explicit
       RENV_CONFIG_BIOCONDUCTOR_VERSION: ""
-      # Disable CRAN incoming checks — submission-time only.
+      # Disable CRAN incoming checks - submission-time only.
       # Without these the CI fails with 'Insufficient package version'
       # once 1.0.5 is already live on CRAN.
       _R_CHECK_CRAN_INCOMING_REMOTE_: "FALSE"

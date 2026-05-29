@@ -160,7 +160,7 @@ build_app <- function(app_dir = ".",
     if (prune_runtime) rdesk_prune_runtime(stage_runtime_dir)
 
   } else if (use_download) {
-    # Explicit "download" sentinel — legacy behaviour
+    # Explicit "download" sentinel - legacy behaviour
     message("[RDesk] Step 3/6 - downloading portable R ", r_version, " (legacy mode)...")
     message("[RDesk]   NOTE: Consider using the default (runtime_dir = NULL) to avoid")
     message("[RDesk]   version-mismatch crashes between the downloaded R and your renv packages.")
@@ -325,13 +325,13 @@ rdesk_validate_build_inputs <- function(app_dir,
 
   # 3b. Runtime provisioning validation
   if (!is.null(runtime_dir)) {
-    # Explicit path supplied — must contain bin/
+    # Explicit path supplied - must contain bin/
     if (!dir.exists(file.path(runtime_dir, "bin"))) {
       stop("[Validation Failed] runtime_dir must point to an R installation root containing bin/.\n",
            "Provided path: ", runtime_dir)
     }
   } else if (use_download && portable_r_method == "extract_only") {
-    # Download path requested — check for 7-Zip
+    # Download path requested - check for 7-Zip
     sevenzip <- rdesk_find_7zip()
     if (is.null(sevenzip)) {
       message("[RDesk]   Warning: Standalone 7-Zip not found.")
@@ -339,7 +339,7 @@ rdesk_validate_build_inputs <- function(app_dir,
       assign("portable_r_method", "installer", envir = parent.frame())
     }
   } else {
-    # Default auto-detect path — validate R.home() is accessible
+    # Default auto-detect path - validate R.home() is accessible
     r_home <- R.home()
     if (!dir.exists(file.path(r_home, "bin"))) {
       stop("[Validation Failed] Cannot locate your R installation at R.home(): ", r_home,

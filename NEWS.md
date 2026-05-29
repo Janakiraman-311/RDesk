@@ -6,7 +6,7 @@
   dispatch repeated `async()` workers can optionally use `mori::share()` to
   place data in OS-level shared memory (Win32 file mapping on Windows), sending
   ~300 bytes to each worker instead of a full serialised copy. The `async()`
-  wrapper requires no code changes — mori's ALTREP objects serialise as their
+  wrapper requires no code changes - mori's ALTREP objects serialise as their
   shared memory handle transparently. See the new Cookbook recipe
   *"Share large datasets across async workers with mori"* for a complete
   before/after example and benchmark context (~42% wall-clock improvement in
@@ -27,7 +27,7 @@
 
 ---
 
-# RDesk 1.0.5 (2026-04-22) — Runtime Fix
+# RDesk 1.0.5 (2026-04-22) - Runtime Fix
 
 ## Bug fixes
 
@@ -50,7 +50,7 @@
   air-gapped scenarios via `runtime_dir = "download"`. A warning is
   printed advising users to prefer the default to avoid version mismatch.
 
-# RDesk 1.0.4 (2026-04-01) — First CRAN Release 🎉
+# RDesk 1.0.4 (2026-04-01) - First CRAN Release 🎉
 
 ## CRAN compliance fixes
 

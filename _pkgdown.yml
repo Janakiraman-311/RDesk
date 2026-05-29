@@ -6,7 +6,7 @@ logo: man/figures/logo.png
 template:
   bootstrap: 5
   bslib:
-    # Brand palette — charcoal + gold
+    # Brand palette - charcoal + gold
     primary:          "#1a1a2e"
     secondary:        "#F5C518"
     success:          "#1D9E75"
@@ -31,8 +31,8 @@ template:
     link-hover-color: "#F5C518"
   includes:
     in_header: |
-      <meta name="description" content="RDesk — Build native Windows desktop apps with R. Zero ports. Ships as a single exe. No R required on end-user machines.">
-      <meta property="og:title" content="RDesk — Native Desktop Apps for R">
+      <meta name="description" content="RDesk - Build native Windows desktop apps with R. Zero ports. Ships as a single exe. No R required on end-user machines.">
+      <meta property="og:title" content="RDesk - Native Desktop Apps for R">
       <meta property="og:description" content="Turn your R analysis into a native Windows desktop app. Zero network ports. One-click installer. No R needed by users.">
       <meta name="twitter:card" content="summary">
       <style>
@@ -77,9 +77,9 @@ template:
       </style>
 
 home:
-  title: "RDesk — Native Desktop Apps for R"
+  title: "RDesk - Native Desktop Apps for R"
   description: >
-    Ship your R analysis as a native Windows .exe — zero ports, no server, no R needed by your users.
+    Ship your R analysis as a native Windows .exe - zero ports, no server, no R needed by your users.
     One command creates the app. One command builds the installer.
   links:
     - text: "📦 CRAN"
@@ -161,7 +161,7 @@ reference:
     desc: "Create, configure, and run native desktop application windows."
     contents: [App, rdesk_service, rdesk_is_bundle]
   - title: "Async Engine"
-    desc: "Run background tasks without freezing the UI — built on mirai."
+    desc: "Run background tasks without freezing the UI - built on mirai."
     contents: [async, rdesk_async, rdesk_cancel_job, rdesk_jobs_pending, rdesk_jobs_list]
   - title: "Auto-Update"
     desc: "Keep distributed apps up to date automatically."

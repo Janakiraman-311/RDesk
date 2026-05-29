@@ -18,11 +18,11 @@ CRAN acceptance of 1.0.4.
 
 0 errors | 0 warnings | 1 note (win-builder) / up to 2 notes (local)
 
-**Note 1** — `-mwindows` compilation flag:  
+**Note 1** - `-mwindows` compilation flag:  
 Confirmed acceptable by Uwe Ligges (2026-03-24). Required to suppress a  
 Windows console window for the native GUI launcher binary.
 
-**Note 2** — `unable to verify current time` (local only):  
+**Note 2** - `unable to verify current time` (local only):  
 Appears only when the local machine cannot reach an NTP time server  
 (firewall/offline). This note did NOT appear on win-builder (R-devel  
 Windows server). CRAN servers have unrestricted internet access and will  

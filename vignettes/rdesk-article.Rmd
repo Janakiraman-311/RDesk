@@ -1,15 +1,15 @@
 ---
-title: "The Long Road to Native R Desktop Apps — and Why RDesk Changes Everything"
+title: "The Long Road to Native R Desktop Apps - and Why RDesk Changes Everything"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{The Long Road to Native R Desktop Apps — and Why RDesk Changes Everything}
+  %\VignetteIndexEntry{The Long Road to Native R Desktop Apps - and Why RDesk Changes Everything}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
 There is a question that every R developer eventually asks.
 
-They have built something genuinely useful — a model, a dashboard, an
+They have built something genuinely useful - a model, a dashboard, an
 analysis tool that saves their team hours every week. Their colleagues
 want to use it. But their colleagues do not have R installed. Their IT
 department will not install R. The server request has been sitting in a
@@ -20,7 +20,7 @@ someone who does not use R?**
 
 The R community has been trying to answer this question for over a decade.
 The story of those attempts is worth telling, because understanding why
-they all fell short explains exactly why RDesk exists — and why it is
+they all fell short explains exactly why RDesk exists - and why it is
 the first answer that actually works.
 
 ---
@@ -30,7 +30,7 @@ the first answer that actually works.
 In April 2014, a researcher named Lee Pang published a blog post titled
 "Deploying Self-Contained R Apps to the Desktop." He had a practical
 problem: he built R applications for colleagues who could not install R
-on their machines. His solution was ingenious for its time — bundle a
+on their machines. His solution was ingenious for its time - bundle a
 portable R executable alongside the Shiny app, launch Shiny in the
 background, and open the result in the user's default web browser.
 
@@ -50,12 +50,12 @@ It was not a desktop app. It was a Shiny app with extra steps.
 ## 2017: RInno and the Electron Experiment
 
 Three years later, a package called **RInno** arrived on CRAN. The idea
-was more ambitious — wrap the Shiny app in Electron, the framework
+was more ambitious - wrap the Shiny app in Electron, the framework
 that powers VS Code, Slack, and Discord, and produce a real Windows
 installer.
 
 For a brief window it seemed promising. But the problems multiplied
-quickly. Electron bundles a complete copy of Chromium — adding 150MB to
+quickly. Electron bundles a complete copy of Chromium - adding 150MB to
 every application before you write a single line of R code. The Shiny
 server still ran inside the Electron shell, still opened a port, still
 required httpuv. Zombie R processes accumulated silently when apps
@@ -63,7 +63,7 @@ crashed or were closed unexpectedly.
 
 RInno was archived on 2025-06-12 as issues were not corrected despite
 reminders. By the time it was archived, its GitHub issues were full of
-developers reporting crashes on modern R versions — the same version
+developers reporting crashes on modern R versions - the same version
 mismatch problem that DesktopDeployR had never solved either.
 
 The R community had tried twice. Both times the answer was the same:
@@ -79,7 +79,7 @@ the same unexamined assumption: **the GUI must be served over HTTP**.
 DesktopDeployR served Shiny over localhost. RInno served Shiny inside
 Electron over localhost. Both required a TCP port. Both exposed that port
 to the local network. Both inherited every limitation of browser-based
-delivery — no native menus, no system tray, no file dialogs, no
+delivery - no native menus, no system tray, no file dialogs, no
 offline-first guarantee, no way to pass enterprise security audits.
 
 Nobody asked whether the HTTP assumption was necessary. It was simply
@@ -88,7 +88,7 @@ inherited from Shiny, which inherited it from the web.
 Meanwhile, in the broader software world, desktop frameworks were
 undergoing a quiet revolution. Microsoft released **WebView2** as a stable
 production API in 2021. WebView2 is the rendering engine of Microsoft
-Edge — the same Chromium-based engine — but exposed as a native Windows
+Edge - the same Chromium-based engine - but exposed as a native Windows
 control that can be embedded in any application. And critically, WebView2
 has a feature that changes everything: **virtual hostname file serving**.
 
@@ -103,7 +103,7 @@ RDesk before 2024.
 
 ---
 
-## What RInside Got Right — and Why It Was Not Enough
+## What RInside Got Right - and Why It Was Not Enough
 
 There is one more chapter in this story that deserves mention.
 
@@ -112,8 +112,8 @@ approach. Instead of serving R over a network, it embeds the R interpreter
 directly inside a C++ application. No ports. No HTTP. The C++ code calls
 R functions directly via `parseEvalQ()`.
 
-This is architecturally clean. But for an R developer — which is most of
-the people asking "how do I distribute this?" — RInside is the wrong answer.
+This is architecturally clean. But for an R developer - which is most of
+the people asking "how do I distribute this?" - RInside is the wrong answer.
 You have to write C++. You have to manage the embedded R interpreter
 lifecycle. The tool that solves the distribution problem must be writable
 by an R developer using only R.
@@ -133,7 +133,7 @@ The answer has five parts.
 **First: zero ports by design.** RDesk uses WebView2's virtual hostname
 API to serve the `www/` folder. Static assets load directly from disk
 with no HTTP server involved. Dynamic communication between R and the UI
-uses stdin/stdout pipes and `PostWebMessageAsString` — a direct Win32
+uses stdin/stdout pipes and `PostWebMessageAsString` - a direct Win32
 message, not a network call. Running `netstat` on a RDesk app shows nothing.
 
 **Second: R is in charge.** In RDesk, R is the main process. The
@@ -147,7 +147,7 @@ handles loading overlays, cancellation, and result routing automatically.
 
 **Fourth: genuine distribution.** `build_app()` produces a self-contained
 distributable. As of v1.0.5, it copies the developer's own installed R as
-the runtime — guaranteeing the package versions and the runtime always
+the runtime - guaranteeing the package versions and the runtime always
 match. No more version-mismatch crashes.
 
 **Fifth: one command to start.** `rdesk_create_app("MyApp")` generates a
@@ -176,14 +176,14 @@ minutes.
 RDesk was built for a specific kind of developer and a specific kind
 of situation.
 
-You are an R developer. You have built something genuinely useful —
+You are an R developer. You have built something genuinely useful -
 a model scoring tool, a data quality dashboard, a report generator,
 a clinical data viewer. Your colleagues want to use it. But they are
 not R users. They are clinicians, analysts, finance teams, operations
 managers. They have Windows laptops.
 
 Shiny is the wrong answer. A Shiny app requires a server, a URL, and
-a browser — and every one of those requirements is a conversation with
+a browser - and every one of those requirements is a conversation with
 IT that might not go anywhere.
 
 RDesk gives you a `.exe` installer. IT understands installers. Silent
@@ -228,7 +228,7 @@ practical cookbook are at:
 
 ## A Note on What Comes Next
 
-RDesk v1.0 is Windows-only. This is an honest architectural constraint —
+RDesk v1.0 is Windows-only. This is an honest architectural constraint -
 WebView2 is a Microsoft technology and the native launcher uses Win32
 APIs.
 

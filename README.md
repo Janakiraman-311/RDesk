@@ -13,12 +13,12 @@
 </p>
 
 <p align="center">
-  <strong>Build native Windows desktop apps with R — zero ports, one installer, no R needed by your users.</strong>
+  <strong>Build native Windows desktop apps with R - zero ports, one installer, no R needed by your users.</strong>
 </p>
 
 ---
 
-**RDesk** turns your R analysis into a standalone Windows application. No Shiny server. No browser tabs. No IT conversations about ports. Your users get a real `.exe` that double-clicks like any other desktop tool — and it works entirely offline.
+**RDesk** turns your R analysis into a standalone Windows application. No Shiny server. No browser tabs. No IT conversations about ports. Your users get a real `.exe` that double-clicks like any other desktop tool - and it works entirely offline.
 
 ## Quick Start
 
@@ -64,20 +64,20 @@ Send the `.exe` to anyone on Windows. They double-click it. Done. No R required.
 
 ## Core Features
 
-- **🔒 Zero-Port IPC** — R and the UI communicate via native stdin/stdout pipes and Win32 messages. No TCP stack. No firewall rules. Passes enterprise security audits that Shiny deployments fail.
-- **⚡ Async by Default** — Three-tier async engine built on `mirai`. Pre-warmed daemon pools start tasks in milliseconds, not seconds. Loading overlays and progress bars are one line of code.
-- **📦 Version-Safe Runtime** — `build_app()` copies your exact R installation into the bundle, guaranteeing the runtime and your `renv`-locked packages are always the same version. No more ABI crashes.
-- **🎨 Modern Web UI** — Write your interface in plain HTML/CSS/JS. Keep 100% of your logic in R. No React. No Webpack. No build pipeline.
-- **🛠 Professional Scaffolding** — `rdesk_create_app()` generates a full working dashboard — sidebar, charts, async workers, dark mode — that runs immediately. No blank-template frustration.
-- **🔄 Auto-Update** — One function silently checks for updates on launch and installs them. Your distributed users always run the latest version.
+- **🔒 Zero-Port IPC** - R and the UI communicate via native stdin/stdout pipes and Win32 messages. No TCP stack. No firewall rules. Passes enterprise security audits that Shiny deployments fail.
+- **⚡ Async by Default** - Three-tier async engine built on `mirai`. Pre-warmed daemon pools start tasks in milliseconds, not seconds. Loading overlays and progress bars are one line of code.
+- **📦 Version-Safe Runtime** - `build_app()` copies your exact R installation into the bundle, guaranteeing the runtime and your `renv`-locked packages are always the same version. No more ABI crashes.
+- **🎨 Modern Web UI** - Write your interface in plain HTML/CSS/JS. Keep 100% of your logic in R. No React. No Webpack. No build pipeline.
+- **🛠 Professional Scaffolding** - `rdesk_create_app()` generates a full working dashboard - sidebar, charts, async workers, dark mode - that runs immediately. No blank-template frustration.
+- **🔄 Auto-Update** - One function silently checks for updates on launch and installs them. Your distributed users always run the latest version.
 
 ## Who It's For
 
 RDesk is built for R developers who need to put a real tool in the hands of people who don't use R.
 
-- **Pharma & clinical** — distribute data review or validation tools to investigators without IT involvement
-- **Consulting** — hand a client a branded analysis tool without exposing your model or code
-- **Internal teams** — replace aging Excel macros with proper statistics, distributed as a familiar `.exe`
+- **Pharma & clinical** - distribute data review or validation tools to investigators without IT involvement
+- **Consulting** - hand a client a branded analysis tool without exposing your model or code
+- **Internal teams** - replace aging Excel macros with proper statistics, distributed as a familiar `.exe`
 - **Anyone** who has been told "we can't open a port for your Shiny app"
 
 ## Documentation

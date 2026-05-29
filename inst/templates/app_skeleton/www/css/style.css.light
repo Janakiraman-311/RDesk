@@ -1,4 +1,4 @@
-/* {{APP_NAME}} — Light Theme */
+/* {{APP_NAME}} - Light Theme */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {

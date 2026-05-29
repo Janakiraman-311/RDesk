@@ -95,6 +95,6 @@ app$on_message("heavy_task", async(function(msg) {
 
 ## Next Steps
 
-*   [**Coming from Shiny**](shiny-migration.html) — Map your existing Shiny knowledge to the RDesk mental model.
-*   [**Cookbook**](cookbook.html) — Common recipes for file dialogs, charts, and native menus.
-*   [**Async Guide**](async-guide.html) — Deep dive into background task management.
+*   [**Coming from Shiny**](shiny-migration.html) - Map your existing Shiny knowledge to the RDesk mental model.
+*   [**Cookbook**](cookbook.html) - Common recipes for file dialogs, charts, and native menus.
+*   [**Async Guide**](async-guide.html) - Deep dive into background task management.

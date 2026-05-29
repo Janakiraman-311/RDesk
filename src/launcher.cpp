@@ -222,7 +222,7 @@ static std::string open_file_dialog(const std::string& title,
 
     // Convert filter string (pairs separated by \0, double-\0 terminated)
     std::wstring wfilter = widen(filter_str);
-    // Replace literal \0 markers — R sends "|" as separator for null bytes
+    // Replace literal \0 markers - R sends "|" as separator for null bytes
     for (auto& c : wfilter) if (c == L'|') c = L'\0';
     ofn.lpstrFilter = wfilter.empty() ? nullptr : wfilter.c_str();
 
@@ -813,7 +813,7 @@ static void stdin_reader() {
         process_command(line);
         if (g_quit.load()) break;
     }
-    // stdin closed — terminate window
+    // stdin closed - terminate window
     g_quit.store(true);
     webview::webview* wv = nullptr;
     {

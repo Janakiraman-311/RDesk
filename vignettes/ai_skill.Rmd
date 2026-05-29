@@ -23,16 +23,16 @@ hard to diagnose.
 
 ---
 
-## SECTION 1 — ARCHITECTURE OVERVIEW
+## SECTION 1 - ARCHITECTURE OVERVIEW
 
 RDesk has five layers. Understand all five before touching any code.
 
 ```
-Layer 5: App code         (R + HTML/JS — what developers write)
+Layer 5: App code         (R + HTML/JS - what developers write)
 Layer 4: Plugin API       (async(), rdesk_auto_update(), rdesk_watch())
-Layer 3: R Core API       (App R6 class — app$send, app$on_message)
+Layer 3: R Core API       (App R6 class - app$send, app$on_message)
 Layer 2: IPC bridge       (PostWebMessageAsString + stdin/stdout pipe)
-Layer 1: Native shell     (C++ launcher + WebView2 — never touch this)
+Layer 1: Native shell     (C++ launcher + WebView2 - never touch this)
 ```
 
 RULE: Developers only write Layer 5. Never suggest modifying Layer 1 or 2.
@@ -59,7 +59,7 @@ Zero TCP ports are opened at any point. No httpuv. No WebSocket.
 
 ---
 
-## SECTION 2 — IPC CONTRACT (NEVER BREAK THIS)
+## SECTION 2 - IPC CONTRACT (NEVER BREAK THIS)
 
 Every message has this exact envelope. Both directions. Always.
 
@@ -97,7 +97,7 @@ RULE: System message types start with double underscore: __loading__,
 
 ---
 
-## SECTION 3 — APP STRUCTURE
+## SECTION 3 - APP STRUCTURE
 
 Every RDesk app has this exact structure. Never deviate.
 
@@ -147,13 +147,13 @@ app$run()
 
 RULE: app.R must stay thin. All handler logic goes in R/server.R.
 RULE: Always source R/ files with lapply + list.files. Never use 
-      source() on individual files by name — it breaks hot reload.
+      source() on individual files by name - it breaks hot reload.
 RULE: The function init_handlers(app) is the contract between app.R 
       and server.R. Always define it in server.R.
 
 ---
 
-## SECTION 4 — HANDLERS (on_message)
+## SECTION 4 - HANDLERS (on_message)
 
 ### Basic handler
 
@@ -182,7 +182,7 @@ RULE: Never call app$send() inside a plain on_message() handler to
       return the response. Return the list directly. 
       app$send() is for pushing unsolicited updates.
 RULE: Payload fields arrive as R list elements: payload$field_name.
-      Never use payload[["field_name"]] — use $ accessor for clarity.
+      Never use payload[["field_name"]] - use $ accessor for clarity.
 
 ### Accessing payload
 
@@ -229,11 +229,11 @@ app$on_ready(function() {
 
 ---
 
-## SECTION 5 — ASYNC ENGINE
+## SECTION 5 - ASYNC ENGINE
 
 RDesk has three tiers of async. Use the right one.
 
-### Tier 1 — async() wrapper (use this for 95% of cases)
+### Tier 1 - async() wrapper (use this for 95% of cases)
 
 ```r
 app$on_message("heavy_task", async(function(payload) {
@@ -276,7 +276,7 @@ app$on_message("process", async(function(payload) {
 }, app = app))
 ```
 
-### Tier 2 — rdesk_async() (explicit control)
+### Tier 2 - rdesk_async() (explicit control)
 
 ```r
 job_id <- rdesk_async(
@@ -289,7 +289,7 @@ job_id <- rdesk_async(
 app$loading_start("Running model...", cancellable = TRUE, job_id = job_id)
 ```
 
-### Tier 3 — mirai direct (expert use only)
+### Tier 3 - mirai direct (expert use only)
 
 ```r
 m <- mirai::mirai(
@@ -299,7 +299,7 @@ m <- mirai::mirai(
 )
 ```
 
-### async_progress() — real-time updates from workers
+### async_progress() - real-time updates from workers
 
 ```r
 app$on_message("long_process", async(function(payload) {
@@ -317,9 +317,9 @@ app$on_message("long_process", async(function(payload) {
 
 ---
 
-## SECTION 6 — JAVASCRIPT PATTERNS
+## SECTION 6 - JAVASCRIPT PATTERNS
 
-### rdesk.js API — complete reference
+### rdesk.js API - complete reference
 
 ```javascript
 // Send message to R, returns Promise
@@ -386,11 +386,11 @@ RULE: Never use fetch(), XMLHttpRequest, or WebSocket to communicate
       with R. Only rdesk.send() and rdesk.on().
 
 RULE: rdesk.js is in www/js/rdesk.js. Never edit it. 
-      Never import it from a CDN — it must be the local copy.
+      Never import it from a CDN - it must be the local copy.
 
 ---
 
-## SECTION 7 — CHARTS AND DATA
+## SECTION 7 - CHARTS AND DATA
 
 ### Plot to base64
 
@@ -439,7 +439,7 @@ app$on_message("get_table", function(payload) {
 
 ---
 
-## SECTION 8 — NATIVE FEATURES
+## SECTION 8 - NATIVE FEATURES
 
 ### File dialogs
 
@@ -517,7 +517,7 @@ app$set_menu(list(
 
 ---
 
-## SECTION 9 — BUILD AND DISTRIBUTION
+## SECTION 9 - BUILD AND DISTRIBUTION
 
 ### Build a distributable
 
@@ -531,7 +531,7 @@ RDesk::build_app(
   # runtime_dir = "download"         # legacy: downloads R from CRAN (not recommended)
 )
 # Output: dist/MyApp-1.0.0-setup.exe
-# Runtime: your exact R version is bundled — no version mismatch with renv
+# Runtime: your exact R version is bundled - no version mismatch with renv
 ```
 
 ### Detect bundle vs development mode
@@ -564,7 +564,7 @@ and installs the update if a newer version is available.
 
 ---
 
-## SECTION 10 — SHINY MIGRATION REFERENCE
+## SECTION 10 - SHINY MIGRATION REFERENCE
 
 ### Pattern mapping
 
@@ -652,9 +652,9 @@ rdesk.on("filter_changed_result", function(data) {
 
 ---
 
-## SECTION 11 — COMMON MISTAKES AND FIXES
+## SECTION 11 - COMMON MISTAKES AND FIXES
 
-### Mistake 1 — calling app$ inside async() worker
+### Mistake 1 - calling app$ inside async() worker
 
 ```r
 # WRONG
@@ -672,7 +672,7 @@ app$on_message("task", async(function(payload) {
 # toast after completion: use on_done callback in rdesk_async()
 ```
 
-### Mistake 2 — forgetting flush(stdout())
+### Mistake 2 - forgetting flush(stdout())
 
 ```r
 # WRONG - in bundled mode, messages may buffer
@@ -686,7 +686,7 @@ flush(stdout())
 # Only matters if you write raw cat() calls.
 ```
 
-### Mistake 3 — sourcing individual R files by name
+### Mistake 3 - sourcing individual R files by name
 
 ```r
 # WRONG - breaks hot reload and is fragile
@@ -700,7 +700,7 @@ lapply(
 )
 ```
 
-### Mistake 4 — writing to getwd() in examples or defaults
+### Mistake 4 - writing to getwd() in examples or defaults
 
 ```r
 # WRONG - CRAN policy violation
@@ -710,7 +710,7 @@ build_app(app_dir = "MyApp", out_dir = "dist")
 build_app(app_dir = "MyApp", out_dir = file.path(tempdir(), "dist"))
 ```
 
-### Mistake 5 — using installed.packages()
+### Mistake 5 - using installed.packages()
 
 ```r
 # WRONG - slow, CRAN policy violation
@@ -720,7 +720,7 @@ if ("ggplot2" %in% installed.packages()[,"Package"]) { ... }
 if (requireNamespace("ggplot2", quietly = TRUE)) { ... }
 ```
 
-### Mistake 6 — no on.exit() after setwd()
+### Mistake 6 - no on.exit() after setwd()
 
 ```r
 # WRONG
@@ -736,7 +736,7 @@ setwd(build_dir)
 
 ---
 
-## SECTION 12 — DEVELOPMENT WORKFLOW
+## SECTION 12 - DEVELOPMENT WORKFLOW
 
 ### Daily development loop
 
@@ -778,7 +778,7 @@ pkg <- build_app(
 
 ---
 
-## SECTION 13 — QUICK REFERENCE CARD
+## SECTION 13 - QUICK REFERENCE CARD
 
 ```r
 # Create new app
@@ -845,7 +845,7 @@ rdesk.off("type")                    # remove listener
 
 ---
 
-## SECTION 14 — PACKAGE INFORMATION
+## SECTION 14 - PACKAGE INFORMATION
 
 ```
 Package:    RDesk

@@ -193,14 +193,14 @@ if (rdesk_is_bundle()) {
 If your app loads a large dataset and multiple async handlers access it
 repeatedly, the default RDesk pattern serialises the full dataset to
 every worker on every call. For a 200 MB data frame that is 200 MB of
-copying — every single time.
+copying - every single time.
 
 [mori](https://shikokuchuo.net/mori/) eliminates this by placing the
 object once in OS-level shared memory (Win32 file mapping on Windows).
 Every `async()` worker then maps the same physical pages via R's ALTREP
-framework — transmitting ~300 bytes instead of the full dataset.
+framework - transmitting ~300 bytes instead of the full dataset.
 
-**Before — data serialised to every worker on every call:**
+**Before - data serialised to every worker on every call:**
 
 ```r
 large_df <- utils::read.csv("clinical_data.csv")  # 200 MB
@@ -212,7 +212,7 @@ app$on_message("analyse", async(function(payload) {
 }, app = app))
 ```
 
-**After — data placed in shared memory once, workers map it directly:**
+**After - data placed in shared memory once, workers map it directly:**
 
 ```r
 if (requireNamespace("mori", quietly = TRUE)) {
@@ -228,7 +228,7 @@ app$on_message("analyse", async(function(payload) {
 }, app = app))
 ```
 
-The `async()` wrapper requires no changes — mori's ALTREP objects
+The `async()` wrapper requires no changes - mori's ALTREP objects
 serialise as their shared memory handle rather than their contents,
 so the integration is transparent to RDesk internals.
 
@@ -236,8 +236,8 @@ so the integration is transparent to RDesk internals.
 
 Benchmarks show a ~42% wall-clock improvement on repeated parallel
 operations against large shared data (8.6 s → 5.0 s across 8 workers).
-For a RDesk app doing repeated async analysis — clinical datasets,
-financial time series, large CSVs — users feel this difference.
+For a RDesk app doing repeated async analysis - clinical datasets,
+financial time series, large CSVs - users feel this difference.
 
 **Install mori:**
 
@@ -247,10 +247,10 @@ install.packages("mori")   # CRAN, v0.2.0+
 
 **Constraints:**
 
-- Workers must run on the same machine — mori shares RAM, not network bytes.
+- Workers must run on the same machine - mori shares RAM, not network bytes.
   This is not a limitation for RDesk, which is a single-machine desktop tool.
 - Shared memory is garbage-collected automatically when the last R
-  reference is dropped — no manual cleanup required.
+  reference is dropped - no manual cleanup required.
 - Requires R >= 4.3.
 
 **See also:** [mori documentation](https://shikokuchuo.net/mori/)

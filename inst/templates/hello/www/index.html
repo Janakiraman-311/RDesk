@@ -90,7 +90,7 @@
       log("WebSocket connected to R backend");
     });
 
-    // Button handlers — send messages to R
+    // Button handlers - send messages to R
     function sendPing() {
       rdesk.send("ping", { ts: Date.now() });
       log("Sent: ping");
