@@ -241,6 +241,14 @@
             document.getElementById('directoryPath').value = data.path;
         });
 
+        rdesk.on('init_inputs', (data) => {
+            if (data.study_id) {
+                document.getElementById('studyID').value = data.study_id;
+            }
+            if (data.directory) {
+                document.getElementById('directoryPath').value = data.directory;
+            }
+        });
 
         rdesk.on('results', (data) => {
             document.getElementById('fileInfoCard').classList.remove('hidden');

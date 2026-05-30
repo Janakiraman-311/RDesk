@@ -68,8 +68,20 @@ tryCatch({
     www = file.path(app_dir, "www")
   )
 
+  # Enable hot reload in development mode!
+  if (is_dev && !nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+    rdesk_watch(app)
+  }
+
   const_parmCD <- "STSTDTC"
   const_filename <- "ts.xpt"
+
+  # Initial data dispatch on startup - populate saved inputs!
+  app$on_ready(function() {
+    saved_study_id <- app$prefs$get("study_id", "")
+    saved_dir <- app$recent$get("export_dir", "C:/Test")
+    app$send("init_inputs", list(study_id = saved_study_id, directory = saved_dir))
+  })
 
   app$on_message("pick_folder", function(payload) {
     path <- app$dialog_open("Select Export Directory")
@@ -79,24 +91,27 @@ tryCatch({
     }
   })
 
-  app$on_message("export", function(input) {
+  # Asynchronous export with real-time progress reporting!
+  app$on_message("export", async(function(input) {
     if (is.null(input$studyID) || trimws(input$studyID) == "") {
-      app$toast("Error: Study ID is mandatory.", type = "error")
-      return()
+      stop("Study ID is mandatory.")
     }
 
     selected_directory <- input$directoryPath
     if (is.null(selected_directory) || selected_directory == "") {
-      app$toast("Error: Invalid directory path.", type = "error")
-      return()
+      stop("Invalid directory path.")
     }
 
-    app$loading_start("Generating TS domain...")
-
+    # Step 1: Initialize directory
+    RDesk::async_progress(10, "Validating output directory...")
+    Sys.sleep(0.4)
     if (!dir.exists(selected_directory)) {
       tryCatch(dir.create(selected_directory, recursive = TRUE), error = function(e) {})
     }
 
+    # Step 2: Prepare transport data structure
+    RDesk::async_progress(40, "Preparing SAS transport metadata...")
+    Sys.sleep(0.4)
     full_file_path <- file.path(selected_directory, const_filename)
 
     ts_val <- ""
@@ -115,17 +130,20 @@ tryCatch({
       stringsAsFactors = FALSE
     )
 
-    label(data) <- "Trial Summary"
-    label(data[["STUDYID"]]) <- "Study Identifier"
-    label(data[["TSPARMCD"]]) <- "Trial Summary Parameter Short Name"
-    label(data[["TSVAL"]]) <- "Parameter Value"
-    label(data[["TSVALNF"]]) <- "Parameter Null Flavor"
+    Hmisc::label(data) <- "Trial Summary"
+    Hmisc::label(data[["STUDYID"]]) <- "Study Identifier"
+    Hmisc::label(data[["TSPARMCD"]]) <- "Trial Summary Parameter Short Name"
+    Hmisc::label(data[["TSVAL"]]) <- "Parameter Value"
+    Hmisc::label(data[["TSVALNF"]]) <- "Parameter Null Flavor"
 
-    write_xpt(data, path = full_file_path, version = 5)
+    # Step 3: Write xpt file
+    RDesk::async_progress(70, "Writing SAS Version 5 XPT file...")
+    Sys.sleep(0.4)
+    haven::write_xpt(data, path = full_file_path, version = 5)
 
-    app$loading_done()
-    app$toast("Export successful!", type = "success")
-
+    # Step 4: Finalize metadata
+    RDesk::async_progress(95, "Reading metadata for validation...")
+    Sys.sleep(0.3)
     info <- file.info(full_file_path)
     info_str <- paste(
       "File Size: ", info$size, " bytes\n",
@@ -147,10 +165,23 @@ tryCatch({
       "</tbody></table>"
     )
 
-    app$send("results", list(
+    list(
       info = info_str,
-      table_html = table_html
-    ))
+      table_html = table_html,
+      study_id = input$studyID,
+      export_dir = selected_directory
+    )
+  }, app = app, loading_message = "Exporting data..."))
+
+  # Register a post-export callback to persist settings in main thread!
+  app$on_message("export_result", function(payload) {
+    if (!is.null(payload$study_id)) {
+      app$prefs$set("study_id", payload$study_id)
+    }
+    if (!is.null(payload$export_dir)) {
+      app$recent$set("export_dir", payload$export_dir)
+    }
+    app$send("results", payload)
   })
 
   app$run()

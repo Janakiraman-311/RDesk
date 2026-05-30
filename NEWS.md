@@ -1,7 +1,11 @@
-# RDesk 1.1.0 (dev)
+# RDesk 1.5.0.1 (dev)
 
 ## New features
 
+* **Live Hot Reload**: Added `rdesk_watch()` to dynamically watch and load changes in UI assets (`www/`) and R scripts (`R/`) during development without restarting the app.
+* **Async Progress API**: Added `async_progress()` wrapper enabling background tasks to securely communicate progress updates back to the WebView2 loading screen.
+* **Multi-User Windows Storage Isolation**: Implemented `rdesk_storage()` key-value managers (`app$prefs`, `app$recent`, `app$shared`) automatically mapping settings to `%APPDATA%`, `%LOCALAPPDATA%`, and `%PROGRAMDATA%` with permissions checks and temp fallbacks.
+* **Hardened Single Instance Lock**: launcher now detects duplicate launches, restores minimized windows, and brings the active window to the foreground before exiting the duplicate instance.
 * `mori` is now listed in `Suggests`. Apps that load large datasets and
   dispatch repeated `async()` workers can optionally use `mori::share()` to
   place data in OS-level shared memory (Win32 file mapping on Windows), sending

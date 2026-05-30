@@ -20,6 +20,8 @@
 
 **RDesk** packages your R analysis into a standalone Windows application. By eliminating the need for an HTTP server, RDesk runs fully offline and provides your users with a self-contained `.exe` that launches a native desktop interface.
 
+📖 **Read the Published Article:** [The Evolution of Local R Applications: Bridging the Desktop Deployment Gap](https://medium.com/@janakiraman.bt/the-evolution-of-local-r-applications-bridging-the-desktop-deployment-gap-79ee42069e5a) — A deep dive into the history, challenges, and architecture behind local R app deployments.
+
 ## Quick Start
 
 ```r
