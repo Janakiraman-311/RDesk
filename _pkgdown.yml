@@ -84,10 +84,6 @@ home:
   links:
     - text: "📦 CRAN"
       href: https://cran.r-project.org/package=RDesk
-    - text: "📰 R-bloggers"
-      href: https://www.r-bloggers.com/
-    - text: "💬 Posit Community"
-      href: https://community.posit.co/
 
 # News configuration for RSS
 news:
