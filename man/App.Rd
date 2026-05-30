@@ -29,6 +29,17 @@ if (interactive()) {
   app$run()
 }
 }
+\section{Public fields}{
+\if{html}{\out{<div class="r6-fields">}}
+\describe{
+\item{\code{prefs}}{Preferences storage manager (roaming user data)}
+
+\item{\code{recent}}{Recent items storage manager (local user data)}
+
+\item{\code{shared}}{Shared data storage manager (machine-wide data)}
+}
+\if{html}{\out{</div>}}
+}
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
@@ -65,6 +76,7 @@ if (interactive()) {
 \item \href{#method-App-set_tray}{\code{App$set_tray()}}
 \item \href{#method-App-remove_tray}{\code{App$remove_tray()}}
 \item \href{#method-App-service}{\code{App$service()}}
+\item \href{#method-App-watch}{\code{App$watch()}}
 \item \href{#method-App-quit}{\code{App$quit()}}
 \item \href{#method-App-get_dir}{\code{App$get_dir()}}
 \item \href{#method-App-run}{\code{App$run()}}
@@ -721,6 +733,26 @@ Service this app's pending native events
 \if{html}{\out{<div class="r">}}\preformatted{App$service()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+The App instance (invisible)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-App-watch"></a>}}
+\if{latex}{\out{\hypertarget{method-App-watch}{}}}
+\subsection{Method \code{watch()}}{
+Enable or disable live hot reloading for this application
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{App$watch(enabled = TRUE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{enabled}}{Logical. If TRUE, enables hot reload.}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Returns}{
 The App instance (invisible)
 }

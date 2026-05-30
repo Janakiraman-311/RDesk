@@ -72,14 +72,20 @@ rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL,
   # Generate a unique job ID
   job_id  <- paste0("job_", digest::digest(runif(1), algo = "crc32"))
   backend <- getOption("rdesk.async_backend", "callr")
+  
+  # Create a unique progress file for this background job
+  progress_file <- tempfile(pattern = paste0("rdesk_progress_", job_id, "_"), fileext = ".json")
 
   if (backend == "mirai" && requireNamespace("mirai", quietly = TRUE)) {
     # mirai path - submit to persistent daemon pool
-    # We use .expr to execute the task with provided args
     m <- mirai::mirai(
-      .expr = do.call(task, args),
-      task  = task,
-      args  = args
+      .expr = {
+        options(rdesk.progress_file = .progress_file)
+        do.call(.task, .args)
+      },
+      .task  = task,
+      .args  = args,
+      .progress_file = progress_file
     )
     .rdesk_jobs[[job_id]] <- list(
       job      = m,
@@ -88,11 +94,20 @@ rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL,
       on_error = on_error,
       started  = Sys.time(),
       timeout_sec = timeout_sec,
-      app_id = app_id
+      app_id = app_id,
+      progress_file = progress_file,
+      last_progress = NULL
     )
   } else {
     # callr fallback - on-demand process spawning
-    job <- callr::r_bg(task, args = args, supervise = TRUE)
+    job <- callr::r_bg(
+      func = function(.task, .args, .progress_file) {
+        options(rdesk.progress_file = .progress_file)
+        do.call(.task, .args)
+      },
+      args = list(.task = task, .args = args, .progress_file = progress_file),
+      supervise = TRUE
+    )
     
     .rdesk_jobs[[job_id]] <- list(
       job      = job,
@@ -101,7 +116,9 @@ rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL,
       on_error = on_error,
       started  = Sys.time(),
       timeout_sec = timeout_sec,
-      app_id = app_id
+      app_id = app_id,
+      progress_file = progress_file,
+      last_progress = NULL
     )
   }
   
@@ -122,6 +139,9 @@ rdesk_poll_jobs <- function() {
     
     # Strictly validate that entry is a list and contains a job
     if (!is.list(entry) || is.null(entry[["job"]])) {
+      if (is.list(entry) && !is.null(entry[["progress_file"]]) && file.exists(entry[["progress_file"]])) {
+        unlink(entry[["progress_file"]])
+      }
       rm(list = id, envir = .rdesk_jobs)
       next
     }
@@ -141,6 +161,35 @@ rdesk_poll_jobs <- function() {
       next
     }
 
+    # Poll for progress updates
+    progress_file <- entry[["progress_file"]]
+    if (!is.null(progress_file) && file.exists(progress_file)) {
+      progress_data <- tryCatch({
+        lines <- readLines(progress_file, warn = FALSE)
+        if (length(lines) > 0) {
+          jsonlite::fromJSON(lines[length(lines)], simplifyVector = TRUE)
+        } else {
+          NULL
+        }
+      }, error = function(e) NULL)
+
+      if (!is.null(progress_data) && !is.null(progress_data$progress)) {
+        last_progress <- entry[["last_progress"]]
+        if (is.null(last_progress) || progress_data$timestamp > last_progress$timestamp) {
+          entry[["last_progress"]] <- progress_data
+          .rdesk_jobs[[id]] <- entry  # Cache in the job entry
+          
+          # Send to Frontend UI
+          if (!is.null(entry[["app_id"]])) {
+            app_obj <- .rdesk_apps[[entry[["app_id"]]]]
+            if (!is.null(app_obj)) {
+              app_obj$loading_progress(progress_data$progress, progress_data$message)
+            }
+          }
+        }
+      }
+    }
+
     # Check completion based on backend API
     is_done <- if (backend == "mirai") {
       !mirai::unresolved(job)
@@ -154,6 +203,11 @@ rdesk_poll_jobs <- function() {
 
     # Job finished - remove from registry first to avoid re-polling
     rm(list = id, envir = .rdesk_jobs)
+
+    # Clean up progress file
+    if (!is.null(progress_file) && file.exists(progress_file)) {
+      unlink(progress_file)
+    }
 
     # Extract result or error based on backend
     if (backend == "mirai") {
@@ -196,6 +250,11 @@ rdesk_cancel_job <- function(job_id) {
   if (exists(job_id, envir = .rdesk_jobs)) {
     entry <- .rdesk_jobs[[job_id]]
     backend <- entry[["backend"]]
+    
+    # Clean up progress file
+    if (!is.null(entry[["progress_file"]]) && file.exists(entry[["progress_file"]])) {
+      unlink(entry[["progress_file"]])
+    }
     
     if (backend == "mirai") {
       # mirai has no direct 'kill' for tasks already in a persistent daemon.
@@ -396,4 +455,36 @@ async <- function(fn,
   attr(wrapper, "loading_message") <- loading_message
 
   wrapper
+}
+
+#' Update progress of a background async task
+#'
+#' @description
+#' `async_progress` allows a long-running background task to send progress updates back
+#' to the main application thread. The main thread will automatically capture these
+#' updates and refresh the UI loading overlay.
+#'
+#' @param value Numeric value from 0 to 100 representing the progress percentage.
+#' @param message Optional character string describing the current step/state.
+#' @return Invisible `TRUE` if progress was written, `FALSE` otherwise.
+#' @export
+async_progress <- function(value, message = NULL) {
+  progress_file <- getOption("rdesk.progress_file")
+  if (is.null(progress_file) || !nzchar(progress_file)) return(invisible(FALSE))
+  
+  # Format progress payload
+  payload <- list(
+    progress = as.numeric(value),
+    message = if (is.null(message)) jsonlite::unbox("") else jsonlite::unbox(message),
+    timestamp = as.numeric(Sys.time())
+  )
+  
+  # Write progress to the temporary file atomically
+  tryCatch({
+    writeLines(jsonlite::toJSON(payload, auto_unbox = TRUE), progress_file)
+    invisible(TRUE)
+  }, error = function(e) {
+    warning("[RDesk] Failed to write progress: ", e$message)
+    invisible(FALSE)
+  })
 }

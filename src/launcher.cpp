@@ -867,7 +867,14 @@ int main(int argc, char* argv[]) {
     std::wstring mutex_name = L"Local\\RDesk_Instance_" + std::to_wstring(title_hash);
     HANDLE hMutex = CreateMutexW(NULL, TRUE, mutex_name.c_str());
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        // App already running. Focus existing? For now, just exit.
+        // App already running. Focus existing window and exit.
+        HWND hwndExisting = FindWindowW(nullptr, widen(title).c_str());
+        if (hwndExisting) {
+            if (IsIconic(hwndExisting)) {
+                ShowWindow(hwndExisting, SW_RESTORE);
+            }
+            SetForegroundWindow(hwndExisting);
+        }
         if (hMutex) CloseHandle(hMutex);
         return 0;
     }

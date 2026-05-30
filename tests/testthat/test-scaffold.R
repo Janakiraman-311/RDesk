@@ -55,6 +55,6 @@ test_that("scaffolded app is correctly structured", {
 test_that("duplicate directory prevention works", {
   withr::with_tempdir({
     dir.create("DuplicateApp")
-    expect_error(rdesk_create_app("DuplicateApp", open = FALSE), "already exists")
+    expect_error(rdesk_create_app("DuplicateApp", path = ".", open = FALSE), "already exists")
   })
 })
