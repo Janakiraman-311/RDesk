@@ -173,9 +173,15 @@ reference:
   - title: "Core Application"
     desc: "Create, configure, and run native desktop application windows."
     contents: [App, rdesk_service, rdesk_is_bundle]
+  - title: "Developer Velocity"
+    desc: "Live hot reloading of R modules and UI code."
+    contents: [rdesk_watch]
   - title: "Async Engine"
     desc: "Run background tasks without freezing the UI - built on mirai."
-    contents: [async, rdesk_async, rdesk_cancel_job, rdesk_jobs_pending, rdesk_jobs_list]
+    contents: [async, async_progress, rdesk_async, rdesk_cancel_job, rdesk_jobs_pending, rdesk_jobs_list]
+  - title: "Multi-User Storage"
+    desc: "Isolated JSON-backed key-value stores mapping dynamically to user and system folders."
+    contents: [RDeskStorage, rdesk_storage]
   - title: "Auto-Update"
     desc: "Keep distributed apps up to date automatically."
     contents: [rdesk_auto_update]
