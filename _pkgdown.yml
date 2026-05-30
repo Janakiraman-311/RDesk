@@ -35,6 +35,20 @@ template:
       <meta property="og:title" content="RDesk - Native Desktop Apps for R">
       <meta property="og:description" content="Turn your R analysis into a native Windows desktop app. Zero network ports. One-click installer. No R needed by users.">
       <meta name="twitter:card" content="summary">
+      <!-- Mermaid JS -->
+      <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        document.addEventListener('DOMContentLoaded', () => {
+          const blocks = document.querySelectorAll('pre.mermaid code');
+          blocks.forEach((block) => {
+            const div = document.createElement('div');
+            div.className = 'mermaid';
+            div.textContent = block.textContent;
+            block.parentElement.replaceWith(div);
+          });
+          mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { primaryColor: '#f8f9fa', primaryBorderColor: '#1a1a2e', lineColor: '#1a1a2e', tertiaryColor: '#F5C518' } });
+        });
+      </script>
       <style>
         /* ── Navbar ─────────────────────────────────────────── */
         .navbar-brand img { height: 48px; }
