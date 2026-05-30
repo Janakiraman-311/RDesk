@@ -116,6 +116,8 @@ navbar:
           href: articles/ipc-contract.html
         - text: "Architecture"
           href: articles/architecture.html
+        - text: "mirai Integration"
+          href: articles/mirai-integration.html
         - text: "── Resources ────────────────"
         - text: "AI Coding Assistant"
           href: articles/ai_skill.html
@@ -144,6 +146,7 @@ articles:
       - ipc-contract
       - architecture
       - ai_skill
+      - mirai-integration
   - title: "Background Reading"
     desc: "The story of R desktop deployment and why RDesk is different."
     contents:
