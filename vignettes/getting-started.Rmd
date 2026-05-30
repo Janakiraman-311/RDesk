@@ -25,34 +25,34 @@ if (nzchar(app_path)) {
 }
 ```
 
-## The "Last Mile" of R Deployment
+## Desktop Deployment for R
 
 Data analysts build powerful tools in R, but sharing them with non-technical users is difficult. Shiny is excellent for web dashboards, but it requires a server and a steady network connection.
 
-**RDesk** solves this by turning your R code into a **native Windows desktop application**. It runs as a standalone `.exe` with zero network overhead and no server required.
+**RDesk** solves this by packaging your R code into a **native Windows desktop application**. It runs as a standalone `.exe` with zero network overhead and no server required.
 
 ## 1. Installation
 
 RDesk works out-of-the-box on modern Windows systems. You only need **R** and **Rtools** installed.
 
 ```r
-# Install from GitHub
-# devtools::install_github("Janakiraman-311/RDesk")
+# Install from CRAN
+install.packages("RDesk")
 library(RDesk)
 ```
 
-## 2. Your First App (The One-Click Way)
+## 2. Your First App (Automated Scaffolding)
 
-The fastest way to build an RDesk application is using the built-in scaffolding tool. This generates a professional dashboard with a sidebar, KPI cards, and an asynchronous charting engine.
+The fastest way to build an RDesk application is using the built-in scaffolding tool. This generates a functional dashboard template featuring a sidebar, KPI cards, and an asynchronous charting engine.
 
 ```r
 library(RDesk)
 
-# Create a professional dashboard in a new directory
+# Create a dashboard template in a new directory
 RDesk::rdesk_create_app("MyDashboard")
 ```
 
-![RDesk Hero Dashboard](../man/figures/landing.png)
+![RDesk Dashboard](../man/figures/landing.png)
 
 Navigate to the `MyDashboard` folder and run `app.R` to see the results.
 
@@ -68,11 +68,11 @@ The core value of RDesk is the ability to turn your R code into a standalone `.e
 # Build a portable ZIP bundle
 RDesk::build_app(
   app_dir  = "MyDashboard",
-  app_name = "MyProfessionalApp"
+  app_name = "MyFirstApp"
 )
 ```
 
-The resulting `.zip` file in the `dist/` folder contains exactly what you need to distribute your tool. The end-user simply unzips and runs `MyProfessionalApp.exe`.
+The resulting `.zip` file in the `dist/` folder contains exactly what you need to distribute your tool. The end-user simply unzips and runs `MyFirstApp.exe`.
 
 ### Using renv for reproducibility
 
@@ -81,10 +81,10 @@ If your project uses `renv`, commit your `renv.lock` in the project root. RDesk'
 ## 4. Key Concepts
 
 ### Zero-Port IPC
-Zero ports, zero firewall issues. Communication happens over standard input/output using a high-speed JSON protocol.
+Zero network ports, zero firewall issues. Communication happens over standard input/output using a high-speed JSON protocol.
 
 ### Async Processing
-Use the `async()` wrapper to run heavy R tasks without freezing the UI:
+Use the `async()` wrapper to run heavy R tasks without blocking the UI event loop:
 
 ```r
 app$on_message("heavy_task", async(function(msg) {

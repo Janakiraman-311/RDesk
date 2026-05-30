@@ -31,7 +31,7 @@ template:
     link-hover-color: "#F5C518"
   includes:
     in_header: |
-      <meta name="description" content="RDesk - Build native Windows desktop apps with R. Zero ports. Ships as a single exe. No R required on end-user machines.">
+      <meta name="description" content="RDesk - Package R analyses into self-contained Windows desktop applications with zero network port requirements.">
       <meta property="og:title" content="RDesk - Native Desktop Apps for R">
       <meta property="og:description" content="Turn your R analysis into a native Windows desktop app. Zero network ports. One-click installer. No R needed by users.">
       <meta name="twitter:card" content="summary">
@@ -79,8 +79,8 @@ template:
 home:
   title: "RDesk - Native Desktop Apps for R"
   description: >
-    Ship your R analysis as a native Windows .exe - zero ports, no server, no R needed by your users.
-    One command creates the app. One command builds the installer.
+    Package R analyses as standalone Windows .exe desktop applications. Operates offline without network ports or server processes.
+    One command creates the app scaffold. One command builds the installer.
   links:
     - text: "📦 CRAN"
       href: https://cran.r-project.org/package=RDesk
