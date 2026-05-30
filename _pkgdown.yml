@@ -136,21 +136,21 @@ articles:
   - title: "User Guides"
     desc: "Everything you need to build and ship your first RDesk app."
     contents:
-      - getting-started
-      - shiny-migration
-      - async-guide
-      - cookbook
+      - "getting-started"
+      - "shiny-migration"
+      - "async-guide"
+      - "cookbook"
   - title: "Technical Reference"
     desc: "Deep dives into architecture and the IPC protocol."
     contents:
-      - ipc-contract
-      - architecture
-      - ai_skill
-      - mirai-integration
+      - "ipc-contract"
+      - "architecture"
+      - "ai_skill"
+      - "mirai-integration"
   - title: "Background Reading"
     desc: "The story of R desktop deployment and why RDesk is different."
     contents:
-      - rdesk-article
+      - "rdesk-article"
 
 reference:
   - title: "Scaffold"
