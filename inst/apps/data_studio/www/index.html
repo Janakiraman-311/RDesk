@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <title>Data Intelligence Studio</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1 class="app-title">Data Intelligence Studio</h1>
+      <p class="app-sub">Built with RDesk</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-btn active" data-panel="overview">
+        Overview
+      </button>
+      <button class="nav-btn" data-panel="distributions">
+        Distributions
+      </button>
+      <button class="nav-btn" data-panel="correlations">
+        Correlations
+      </button>
+      <button class="nav-btn" data-panel="outliers">
+        Outliers
+      </button>
+      <button class="nav-btn" data-panel="variables">
+        Variables
+      </button>
+    </nav>
+
+
+
+    <div class="sidebar-footer">
+      <button id="btn-open" class="btn-primary">
+        Open dataset...
+      </button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <header class="content-header">
+      <div id="dataset-info" class="dataset-info hidden">
+        <span id="dataset-name" class="dataset-name"></span>
+        <span id="dataset-dims" class="dataset-dims"></span>
+      </div>
+      <div id="no-data-prompt" class="no-data-prompt-container">
+        <p class="no-data-prompt">Open a CSV or RDS file to begin analysis</p>
+        <button id="btn-sample" class="btn-sample-data">
+          Load complex sample dataset
+        </button>
+      </div>
+      <div class="header-actions">
+        <button id="btn-profile" class="btn-action hidden">
+          Full profile
+        </button>
+        <button id="btn-export" class="btn-action hidden">
+          Export report
+        </button>
+      </div>
+    </header>
+
+    <!-- Overview panel -->
+    <section id="panel-overview" class="panel active">
+      <div class="kpi-grid" id="kpi-grid"></div>
+      <div class="chart-card">
+        <img id="overview-chart" class="chart-img" alt="" />
+      </div>
+    </section>
+
+    <!-- Distributions panel -->
+    <section id="panel-distributions" class="panel hidden">
+      <div class="chart-card full">
+        <img id="dist-chart" class="chart-img" alt="" />
+      </div>
+    </section>
+
+    <!-- Correlations panel -->
+    <section id="panel-correlations" class="panel hidden">
+      <div class="chart-card">
+        <img id="corr-chart" class="chart-img" alt="" />
+      </div>
+      <div class="table-card">
+        <h3 class="card-title">Top correlations</h3>
+        <table id="corr-table">
+          <thead id="corr-thead"></thead>
+          <tbody id="corr-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Outliers panel -->
+    <section id="panel-outliers" class="panel hidden">
+      <div class="chart-card">
+        <img id="outlier-chart" class="chart-img" alt="" />
+      </div>
+      <div class="table-card">
+        <h3 class="card-title">Outlier summary</h3>
+        <table id="outlier-table">
+          <thead id="outlier-thead"></thead>
+          <tbody id="outlier-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Variables panel -->
+    <section id="panel-variables" class="panel hidden">
+      <div class="table-card full">
+        <h3 class="card-title">Variable summary</h3>
+        <table id="var-table">
+          <thead id="var-thead"></thead>
+          <tbody id="var-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h2 class="modal-title">Settings</h2>
+      
+      <div class="form-group">
+        <label for="settings-theme">Theme</label>
+        <select id="settings-theme" class="form-control">
+          <option value="light">Light Mode</option>
+          <option value="dark">Dark Mode</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="settings-corr">Correlation Method</label>
+        <select id="settings-corr" class="form-control">
+          <option value="pearson">Pearson (Linear)</option>
+          <option value="spearman">Spearman (Rank)</option>
+          <option value="kendall">Kendall (Tau)</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="settings-outlier">Outlier Threshold (IQR multiplier)</label>
+        <select id="settings-outlier" class="form-control">
+          <option value="1.5">1.5 IQR (Standard)</option>
+          <option value="3.0">3.0 IQR (Extreme)</option>
+        </select>
+      </div>
+      
+      <div class="modal-actions">
+        <button id="btn-settings-cancel" class="btn-secondary">Cancel</button>
+        <button id="btn-settings-save" class="btn-primary">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/rdesk.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

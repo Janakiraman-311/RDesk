@@ -90,7 +90,7 @@ build_app <- function(app_dir = ".",
     return(invisible(TRUE))
   }
 
-  # Auto-detect metadata from DESCRIPTION if possible
+  # Auto-detect metadata and dependencies from DESCRIPTION if possible
   desc_path <- file.path(app_dir, "DESCRIPTION")
   if (file.exists(desc_path)) {
     desc <- read.dcf(desc_path)
@@ -101,6 +101,19 @@ build_app <- function(app_dir = ".",
     if (is.null(version) && "Version" %in% colnames(desc)) {
       version <- as.character(desc[1, "Version"])
     }
+    # Auto-detect package dependencies from DESCRIPTION
+    detected_pkgs <- character(0)
+    for (field in c("Depends", "Imports", "Suggests")) {
+      if (field %in% colnames(desc)) {
+        val <- as.character(desc[1, field])
+        # Clean up version numbers, e.g. "haven (>= 2.0.0)"
+        val_clean <- gsub("\\([^)]+\\)", "", val)
+        pkgs <- trimws(unlist(strsplit(val_clean, ",")))
+        pkgs <- pkgs[pkgs != "" & pkgs != "R" & pkgs != "RDesk"]
+        detected_pkgs <- c(detected_pkgs, pkgs)
+      }
+    }
+    include_packages <- unique(c(include_packages, detected_pkgs))
   }
 
   # Fallbacks

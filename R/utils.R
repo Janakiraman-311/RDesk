@@ -127,10 +127,10 @@ rdesk_resolve_www <- function(www_dir) {
   }
 
   # 4. INST/APPS SCAN (Dev fallback)
-  # If we provide "ts_creator" or "www", look inside the project structure
+  # If we provide "data_studio" or "www", look inside the project structure
   apps_root <- file.path(getwd(), "inst", "apps")
   if (dir.exists(apps_root)) {
-    # Check if www_dir IS one of the apps (e.g. App$new(www="ts_creator"))
+    # Check if www_dir IS one of the apps (e.g. App$new(www="data_studio"))
     app_p <- file.path(apps_root, www_dir, "www")
     if (dir.exists(app_p)) return(app_p)
     

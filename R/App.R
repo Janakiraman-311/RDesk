@@ -608,6 +608,7 @@ App <- R6::R6Class("App",
     .send_queue  = list(),
     .command_queue = list(),
     .menu_actions  = new.env(parent = emptyenv()), # Stores the action ID -> function mapping for menus and tray menus
+    .menu_callbacks = NULL,
     .pending_dialogs = list(),  # req_id -> result or NULL
     .tray_callback = NULL,      # Function(button)
     .hotkey_callbacks = NULL,

@@ -1,0 +1,7 @@
+AppName: DataIntelligenceStudio
+Version: 1.0.0
+RDeskVersion: 1.1.0
+Depends: ggplot2, dplyr
+Description: Complex demonstration app showing async profiling,
+    native menus, per-user storage, file dialogs, multiple chart
+    types, and table rendering.

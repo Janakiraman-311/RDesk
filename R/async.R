@@ -21,6 +21,14 @@ rdesk_start_daemons <- function() {
   # Cap at 2 workers for CRAN compliance (avoid Note on CPU vs Elapsed time)
   n <- min(2L, max(1L, parallel::detectCores(logical = FALSE) - 1L))
   mirai::daemons(n)
+
+  # Sync library paths to daemon workers so they can load bundled packages
+  tryCatch({
+    mirai::everywhere(.libPaths(.lib_paths), .lib_paths = .libPaths())
+  }, error = function(e) {
+    warning("[RDesk] Failed to configure library paths on mirai daemons: ", e$message)
+  })
+
   message("[RDesk] mirai daemon pool started: ", n, " workers")
   invisible(n)
 }
@@ -80,12 +88,12 @@ rdesk_async <- function(task, args = list(), on_done = NULL, on_error = NULL,
     # mirai path - submit to persistent daemon pool
     m <- mirai::mirai(
       .expr = {
-        options(rdesk.progress_file = .progress_file)
-        do.call(.task, .args)
+        options(rdesk.progress_file = progress_file_path)
+        do.call(task_fn, task_args)
       },
-      .task  = task,
-      .args  = args,
-      .progress_file = progress_file
+      task_fn  = task,
+      task_args  = args,
+      progress_file_path = progress_file
     )
     .rdesk_jobs[[job_id]] <- list(
       job      = m,
@@ -212,7 +220,7 @@ rdesk_poll_jobs <- function() {
     # Extract result or error based on backend
     if (backend == "mirai") {
       result <- job$data
-      if (inherits(result, "mirai_error")) {
+      if (inherits(result, "miraiError") || inherits(result, "mirai_error") || inherits(result, "errorValue")) {
         if (is.function(entry[["on_error"]])) {
           tryCatch(entry[["on_error"]](simpleError(as.character(result))),
             error = function(e) warning("[RDesk] on_error handler failed: ", e$message))

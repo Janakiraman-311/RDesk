@@ -70,12 +70,12 @@ rdesk.on("run_model_result", function (payload) {
   const n = coefs.term.length;
   for (let i = 0; i < n; i++) {
     const tr = document.createElement("tr");
-    const pval = coefs.p.value[i];
+    const pval = coefs.p_value[i];
     const pstr = pval < 0.001 ? "< 0.001" : pval.toFixed(4);
     tr.innerHTML = `
       <td><code>${coefs.term[i]}</code></td>
       <td>${coefs.estimate[i].toFixed(4)}</td>
-      <td>${coefs.std.error[i].toFixed(4)}</td>
+      <td>${coefs.std_error[i].toFixed(4)}</td>
       <td style="color: ${pval < 0.05 ? 'var(--success)' : 'inherit'}">${pstr}</td>
     `;
     tbody.appendChild(tr);
@@ -85,6 +85,17 @@ rdesk.on("run_model_result", function (payload) {
 // ── shared ────────────────────────────────────────────────────────────────
 rdesk.on("__trigger__", function (payload) {
   if (payload.action === "nav") switchSection(payload.target);
+});
+
+rdesk.on("init_ui_state", function (payload) {
+  if (payload.plot_type) {
+    const selector = payload.plot_type === 'scatter' ? '.toggle-btn:nth-child(1)' : '.toggle-btn:nth-child(2)';
+    const btn = document.querySelector('.toggle-group ' + selector);
+    if (btn) {
+      btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  }
 });
 
 rdesk.ready(function () {

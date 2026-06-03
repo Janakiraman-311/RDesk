@@ -82,6 +82,22 @@ RDesk is built for R developers who need to package a local statistical or data 
 - **Internal teams** - transition complex spreadsheet macros to structured R scripts packaged as a familiar `.exe`
 - **Standalone deployment** - build apps for environments where local network port binding is constrained or unavailable
 
+## Example apps
+
+Two apps ship with RDesk demonstrating different complexity levels.
+
+**CarsAnalyser** — minimal working dashboard
+```r
+app_dir <- system.file("apps/mtcars_dashboard", package = "RDesk")
+source(file.path(app_dir, "app.R"))
+```
+
+**Data Intelligence Studio** — full-featured data profiling tool
+```r
+app_dir <- system.file("apps/data_studio", package = "RDesk")
+source(file.path(app_dir, "app.R"))
+```
+
 ## Documentation
 
 Full documentation at **[janakiraman-311.github.io/RDesk](https://janakiraman-311.github.io/RDesk/)**
