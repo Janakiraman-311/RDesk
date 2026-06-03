@@ -1,4 +1,4 @@
-# RDesk 1.5.0.1 (dev)
+# RDesk 1.0.6
 
 ## New features
 

@@ -180,6 +180,10 @@ rdesk_df_to_list <- function(df) {
 #' @return A base64-encoded PNG string or a fallback error plot
 #' @export
 rdesk_plot_to_base64 <- function(plot, width = 6, height = 4, dpi = 96) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for rdesk_plot_to_base64(). ",
+         "Install it with: install.packages('ggplot2')")
+  }
   tmp <- tempfile(fileext = ".png")
   on.exit(unlink(tmp), add = TRUE)
   
@@ -206,6 +210,9 @@ rdesk_plot_to_base64 <- function(plot, width = 6, height = 4, dpi = 96) {
 #' @return A base64-encoded PNG string
 #' @export
 rdesk_error_plot <- function(message = "Error generating plot") {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    return(NULL)  # ggplot2 absent: silently return NULL
+  }
   tmp <- tempfile(fileext = ".png")
   on.exit(unlink(tmp), add = TRUE)
   
