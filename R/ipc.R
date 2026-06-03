@@ -38,7 +38,10 @@ rdesk_message <- function(type, payload = list(), version = getOption("rdesk.ipc
 #' @export
 rdesk_parse_message <- function(raw_json) {
   msg <- tryCatch(jsonlite::fromJSON(raw_json, simplifyVector = FALSE), 
-                  error = function(e) NULL)
+                  error = function(e) {
+                    message("[RDesk] Discarded non-JSON stdin line: ", substr(raw_json, 1L, 120L))
+                    NULL
+                  })
   
   if (is.null(msg)) return(NULL)
 
