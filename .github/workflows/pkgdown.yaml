@@ -6,6 +6,10 @@ on:
 
 name: pkgdown
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pkgdown:
     # RDesk is an OS_type: Windows package. Site building requires RDesk installation 
@@ -44,6 +48,7 @@ jobs:
         shell: Rscript {0}
 
       - name: Deploy to GitHub Pages
+        if: github.event_name == 'push'
         # Using peaceiris instead of JamesIves to avoid rsync path resolution issues on Windows
         uses: peaceiris/actions-gh-pages@v4
         with:
