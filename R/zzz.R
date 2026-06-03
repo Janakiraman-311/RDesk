@@ -48,3 +48,14 @@ NULL
      )
   }
 }
+
+# Suppress R CMD check notes about unbound variables in mirai expressions
+if (getRversion() >= "2.15.1") {
+  utils::globalVariables(c(
+    "progress_file_path",
+    "task_fn",
+    "task_args",
+    ".lib_paths"
+  ))
+}
+

@@ -13,12 +13,14 @@
 </p>
 
 <p align="center">
-  <strong>Build native Windows desktop apps with R — zero ports, one installer, no R needed by your users.</strong>
+  <strong>Package R analyses into self-contained Windows desktop applications with zero network port requirements.</strong>
 </p>
 
 ---
 
-**RDesk** turns your R analysis into a standalone Windows application. No Shiny server. No browser tabs. No IT conversations about ports. Your users get a real `.exe` that double-clicks like any other desktop tool — and it works entirely offline.
+**RDesk** packages your R analysis into a standalone Windows application. By eliminating the need for an HTTP server, RDesk runs fully offline and provides your users with a self-contained `.exe` that launches a native desktop interface.
+
+📖 **Read the Published Article:** [The Evolution of Local R Applications: Bridging the Desktop Deployment Gap](https://medium.com/@janakiraman.bt/the-evolution-of-local-r-applications-bridging-the-desktop-deployment-gap-79ee42069e5a) — A deep dive into the history, challenges, and architecture behind local R app deployments.
 
 ## Quick Start
 
@@ -26,7 +28,7 @@
 # Install from CRAN
 install.packages("RDesk")
 
-# Scaffold a professional dashboard
+# Scaffold an interactive dashboard
 RDesk::rdesk_create_app("MyApp")
 
 # Run it immediately
@@ -44,7 +46,7 @@ RDesk::build_app(
 # → dist/MyApp-1.0.0-setup.exe  (~200 MB, self-contained)
 ```
 
-Send the `.exe` to anyone on Windows. They double-click it. Done. No R required.
+Send the `.exe` to anyone on Windows. They double-click it to install and run the application. No R pre-installation is required.
 
 > **Development version:**
 > ```r
@@ -53,7 +55,7 @@ Send the `.exe` to anyone on Windows. They double-click it. Done. No R required.
 
 ## Why RDesk?
 
-| | Shiny | RInno (archived) | Electron + R | **RDesk** |
+| Feature | Shiny | RInno (archived) | Electron + R | **RDesk** |
 |:---|:---:|:---:|:---:|:---:|
 | Network ports required | ✅ Yes | ✅ Yes | ✅ Yes | ❌ **Zero** |
 | Works fully offline | ❌ No | ⚠️ Partial | ⚠️ Partial | ✅ **Yes** |
@@ -64,21 +66,37 @@ Send the `.exe` to anyone on Windows. They double-click it. Done. No R required.
 
 ## Core Features
 
-- **🔒 Zero-Port IPC** — R and the UI communicate via native stdin/stdout pipes and Win32 messages. No TCP stack. No firewall rules. Passes enterprise security audits that Shiny deployments fail.
-- **⚡ Async by Default** — Three-tier async engine built on `mirai`. Pre-warmed daemon pools start tasks in milliseconds, not seconds. Loading overlays and progress bars are one line of code.
-- **📦 Version-Safe Runtime** — `build_app()` copies your exact R installation into the bundle, guaranteeing the runtime and your `renv`-locked packages are always the same version. No more ABI crashes.
-- **🎨 Modern Web UI** — Write your interface in plain HTML/CSS/JS. Keep 100% of your logic in R. No React. No Webpack. No build pipeline.
-- **🛠 Professional Scaffolding** — `rdesk_create_app()` generates a full working dashboard — sidebar, charts, async workers, dark mode — that runs immediately. No blank-template frustration.
-- **🔄 Auto-Update** — One function silently checks for updates on launch and installs them. Your distributed users always run the latest version.
+- **🔒 Zero-Port IPC** - R and the UI communicate via native stdin/stdout pipes and Win32 messages. Avoids TCP port binding entirely, streamlining compliance and security reviews in restricted enterprise environments.
+- **⚡ Async by Default** - Non-blocking asynchronous processing using `mirai` daemon pools. Simplifies progress updates, loading states, and cancellation flows.
+- **📦 Version-Safe Runtime** - `build_app()` copies your exact R installation into the bundle, guaranteeing the runtime and your `renv`-locked packages are always the same version.
+- **🎨 Modern Web UI** - Write your interface in plain HTML/CSS/JS. Keep 100% of your logic in R. No React, Webpack, or build pipeline required.
+- **🛠 Automated Scaffolding** - `rdesk_create_app()` scaffolds a functional application template featuring a sidebar, dynamic charts, async handlers, and built-in theme support.
+- **🔄 Auto-Update** - One function silently checks for updates on launch and installs them, ensuring distributed users are always up to date.
 
 ## Who It's For
 
-RDesk is built for R developers who need to put a real tool in the hands of people who don't use R.
+RDesk is built for R developers who need to package a local statistical or data tool for non-R users.
 
-- **Pharma & clinical** — distribute data review or validation tools to investigators without IT involvement
-- **Consulting** — hand a client a branded analysis tool without exposing your model or code
-- **Internal teams** — replace aging Excel macros with proper statistics, distributed as a familiar `.exe`
-- **Anyone** who has been told "we can't open a port for your Shiny app"
+- **Pharma & clinical** - distribute data review or validation tools to clinical investigators for direct offline execution
+- **Consulting** - package analytical models into branded tools for direct deployment without exposing proprietary source code
+- **Internal teams** - transition complex spreadsheet macros to structured R scripts packaged as a familiar `.exe`
+- **Standalone deployment** - build apps for environments where local network port binding is constrained or unavailable
+
+## Example apps
+
+Two apps ship with RDesk demonstrating different complexity levels.
+
+**CarsAnalyser** — minimal working dashboard
+```r
+app_dir <- system.file("apps/mtcars_dashboard", package = "RDesk")
+source(file.path(app_dir, "app.R"))
+```
+
+**Data Intelligence Studio** — full-featured data profiling tool
+```r
+app_dir <- system.file("apps/data_studio", package = "RDesk")
+source(file.path(app_dir, "app.R"))
+```
 
 ## Documentation
 

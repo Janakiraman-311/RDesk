@@ -1,4 +1,4 @@
-# Manual performance test — run locally, not in CI
+# Manual performance test - run locally, not in CI
 devtools::load_all(".")
 
 # Simple task function

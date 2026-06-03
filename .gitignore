@@ -14,6 +14,7 @@ renv/sandbox/
 *.Rcheck/
 .temp/
 staging/
+*.txt
 
 # C++ and Biaries
 **/build/
@@ -68,3 +69,11 @@ RDesk_TS_CREATOR_EXPLAINED.md
 # Agent Workflows
 .agents/
 docs
+
+# Temporary / Scratch Files
+dummy.csv
+RDesk cross platoform plan
+scratch/
+test.R
+test_async.R
+pkgdown/

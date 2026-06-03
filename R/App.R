@@ -38,6 +38,12 @@ NULL
 App <- R6::R6Class("App",
  
   public = list(
+    #' @field prefs Preferences storage manager (roaming user data)
+    prefs  = NULL,
+    #' @field recent Recent items storage manager (local user data)
+    recent = NULL,
+    #' @field shared Shared data storage manager (machine-wide data)
+    shared = NULL,
  
     #' @description Create a new RDesk application
     #' @param title Window title string
@@ -67,6 +73,11 @@ App <- R6::R6Class("App",
         runif(1)
       ), algo = "crc32"))
       private$.hotkey_callbacks <- new.env(parent = emptyenv())
+
+      # Initialize multi-user storage domains
+      self$prefs  <- RDeskStorage$new(title, "roaming")
+      self$recent <- RDeskStorage$new(title, "local")
+      self$shared <- RDeskStorage$new(title, "shared")
 
       # System handler for UI-initiated job cancellation
       private$.router$register("__cancel_job__", function(payload) {
@@ -487,6 +498,20 @@ App <- R6::R6Class("App",
     #' @return The App instance (invisible)
     service = function() {
       private$.poll_events()
+      if (isTRUE(private$.hotreload)) {
+        private$.poll_hotreload()
+      }
+      invisible(self)
+    },
+
+    #' @description Enable or disable live hot reloading for this application
+    #' @param enabled Logical. If TRUE, enables hot reload.
+    #' @return The App instance (invisible)
+    watch = function(enabled = TRUE) {
+      private$.hotreload <- isTRUE(enabled)
+      if (private$.hotreload && is.null(private$.hotreload_files)) {
+        private$.hotreload_files <- rdesk_hotreload_init(self$get_dir())
+      }
       invisible(self)
     },
 
@@ -567,6 +592,8 @@ App <- R6::R6Class("App",
   ),
 
   private = list(
+    .hotreload   = FALSE,
+    .hotreload_files = NULL,
     .id          = NULL,
     .title       = NULL,
     .width       = NULL,
@@ -581,6 +608,7 @@ App <- R6::R6Class("App",
     .send_queue  = list(),
     .command_queue = list(),
     .menu_actions  = new.env(parent = emptyenv()), # Stores the action ID -> function mapping for menus and tray menus
+    .menu_callbacks = NULL,
     .pending_dialogs = list(),  # req_id -> result or NULL
     .tray_callback = NULL,      # Function(button)
     .hotkey_callbacks = NULL,
@@ -808,6 +836,13 @@ App <- R6::R6Class("App",
           self$quit()
         }
       }
+    },
+
+    .poll_hotreload = function() {
+      if (is.null(private$.hotreload_files)) {
+        private$.hotreload_files <- rdesk_hotreload_init(self$get_dir())
+      }
+      rdesk_hotreload_poll(self, private$.hotreload_files)
     }
   )
 )

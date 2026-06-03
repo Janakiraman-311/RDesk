@@ -1,4 +1,4 @@
-# {{APP_NAME}} — built with RDesk {{RDESK_VER}}
+# {{APP_NAME}} - built with RDesk {{RDESK_VER}}
 # Generated: {{DATE}}
 
 # Resolve app directory

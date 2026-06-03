@@ -87,6 +87,11 @@ tryCatch({
     www = file.path(app_dir, "www")
   )
 
+  # Enable hot reload in development mode!
+  if (is_dev && !nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+    rdesk_watch(app)
+  }
+
   if (exists("init_handlers")) {
     init_handlers(app, .env)
   }

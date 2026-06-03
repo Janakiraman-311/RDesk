@@ -22,7 +22,7 @@ test_that("rdesk_validate_build_inputs() passes with correct structure", {
   withr::with_tempdir({
     file.create("app.R")
     dir.create("www")
-    # Either passes (Rtools present) or fails with a launcher-related message —
+    # Either passes (Rtools present) or fails with a launcher-related message -
     # not an app.R / www missing error.
     result <- tryCatch(
       rdesk_validate_build_inputs(".", character(0), FALSE),

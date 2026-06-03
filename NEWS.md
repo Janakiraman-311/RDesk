@@ -1,4 +1,37 @@
-# RDesk 1.0.5 (2026-04-22) — Runtime Fix
+# RDesk 1.0.6
+
+## New features
+
+* **Live Hot Reload**: Added `rdesk_watch()` to dynamically watch and load changes in UI assets (`www/`) and R scripts (`R/`) during development without restarting the app.
+* **Async Progress API**: Added `async_progress()` wrapper enabling background tasks to securely communicate progress updates back to the WebView2 loading screen.
+* **Multi-User Windows Storage Isolation**: Implemented `rdesk_storage()` key-value managers (`app$prefs`, `app$recent`, `app$shared`) automatically mapping settings to `%APPDATA%`, `%LOCALAPPDATA%`, and `%PROGRAMDATA%` with permissions checks and temp fallbacks.
+* **Hardened Single Instance Lock**: launcher now detects duplicate launches, restores minimized windows, and brings the active window to the foreground before exiting the duplicate instance.
+* `mori` is now listed in `Suggests`. Apps that load large datasets and
+  dispatch repeated `async()` workers can optionally use `mori::share()` to
+  place data in OS-level shared memory (Win32 file mapping on Windows), sending
+  ~300 bytes to each worker instead of a full serialised copy. The `async()`
+  wrapper requires no code changes - mori's ALTREP objects serialise as their
+  shared memory handle transparently. See the new Cookbook recipe
+  *"Share large datasets across async workers with mori"* for a complete
+  before/after example and benchmark context (~42% wall-clock improvement in
+  the benchmark on 8-worker parallel operations against large data).
+
+## Bug fixes
+
+* `build_app()` now strips development artifacts from the bundled `app/`
+  directory before packaging. Previously, if the developer's workspace
+  contained an `renv` setup, the bundled `.Rprofile` would source
+  `renv/activate.R` on startup, hijacking `.libPaths()` away from the
+  bundle's `packages/library/` and causing an immediate **Error Code 1**
+  crash. The following paths are now permanently excluded from the bundle:
+  `.Rprofile`, `.Renviron`, `renv/`, `renv.lock`, `.git/`, `.gitignore`,
+  `.gitattributes`, `.Rproj.user/`, `.Rhistory`, `.RData`, `tests/`,
+  `.DS_Store`. A message is printed during build listing what was excluded.
+  Apps built without these artifacts are unaffected.
+
+---
+
+# RDesk 1.0.5 (2026-04-22) - Runtime Fix
 
 ## Bug fixes
 
@@ -21,7 +54,7 @@
   air-gapped scenarios via `runtime_dir = "download"`. A warning is
   printed advising users to prefer the default to avoid version mismatch.
 
-# RDesk 1.0.4 (2026-04-01) — First CRAN Release 🎉
+# RDesk 1.0.4 (2026-04-01) - First CRAN Release 🎉
 
 ## CRAN compliance fixes
 

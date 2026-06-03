@@ -1,5 +1,5 @@
 # inst/apps/mtcars_dashboard/R/server.R
-# Message handlers and UI events
+# Message handlers and UI events with v1.5.0.1 capabilities (Storage, Async Progress, etc.)
 
 push_update <- function(app, env) {
   df <- env$filtered
@@ -9,7 +9,7 @@ push_update <- function(app, env) {
   app$send("data_update", list(
     kpis    = kpis(df),
     chart   = plot_to_b64(make_plot(df, env$x_var, env$y_var, env$plot_type)),
-    summary = summary_stats(df),
+    summary = as.list(summary_stats(df)),
     table   = df %>%
       dplyr::select(model, mpg, hp, wt, cyl) %>%
       head(15)
@@ -25,7 +25,15 @@ init_handlers <- function(app, env) {
 
   # -- explorer -------------------------------------------------------------
   app$on_message("ready", function(msg) {
+    # Storage isolation: Retrieve last-selected plot type
+    saved_plot_type <- app$recent$get("plot_type", "scatter")
+    env$plot_type <- saved_plot_type
+    
+    apply_filters(env)
     push_update(app, env)
+    
+    # Notify UI of loaded state
+    app$send("init_ui_state", list(plot_type = saved_plot_type))
   })
 
   app$on_message("set_cyl_filter", async(function(msg) {
@@ -38,7 +46,7 @@ init_handlers <- function(app, env) {
     list(
       kpis    = kpis(env$filtered),
       chart   = plot_to_b64(make_plot(env$filtered, env$x_var, env$y_var, env$plot_type)),
-      summary = summary_stats(env$filtered),
+      summary = as.list(summary_stats(env$filtered)),
       table   = env$filtered %>%
         dplyr::select(model, mpg, hp, wt, cyl) %>%
         head(15)
@@ -47,22 +55,40 @@ init_handlers <- function(app, env) {
 
   app$on_message("toggle_plot_type", function(msg) {
     env$plot_type <- msg$type
+    # Persist the plot type choice locally!
+    app$recent$set("plot_type", msg$type)
     push_update(app, env)
   })
 
-  # -- models ---------------------------------------------------------------
+  # -- models (Upgraded to showcase Async Progress API!) --------------------
   app$on_message("run_model", async(function(payload) {
-    # Full linear model
+    # Step 1: Preprocessing
+    RDesk::async_progress(15, "Filtering and preprocessing data variables...")
+    Sys.sleep(0.4)
+    
+    # Step 2: Fit model
+    RDesk::async_progress(45, "Fitting linear regression model (mpg ~ wt + cyl + hp)...")
+    Sys.sleep(0.5)
     model  <- lm(mpg ~ wt + cyl + hp, data = mtcars)
+    
+    # Step 3: Run diagnostics
+    RDesk::async_progress(80, "Calculating regression diagnostics and standard errors...")
+    Sys.sleep(0.4)
     model_summary <- summary(model)
     result <- as.data.frame(model_summary$coefficients)
     result$term <- rownames(result)
     rownames(result) <- NULL
-    names(result) <- c("estimate", "std.error", "statistic", "p.value", "term")
+    
+    # Use clean, safe identifiers with underscores for seamless JavaScript access
+    names(result) <- c("estimate", "std_error", "statistic", "p_value", "term")
+    
+    # Step 4: Finalizing
+    RDesk::async_progress(95, "Formatting model coefficients matrix...")
+    Sys.sleep(0.3)
     
     # Result for UI
     list(
-      coefficients = result,
+      coefficients = as.list(result),
       r_squared    = round(model_summary$r.squared, 3),
       formula      = "mpg ~ wt + cyl + hp"
     )
@@ -87,6 +113,8 @@ init_handlers <- function(app, env) {
       File = list(
         "Reset App"     = function() {
           init_data(env)
+          # Reset local storage preferences
+          app$recent$remove("plot_type")
           push_update(app, env)
           app$toast("App state reset", type = "info")
         },
@@ -100,7 +128,7 @@ init_handlers <- function(app, env) {
       ),
       Help = list(
         "About RDesk"   = function() {
-          app$toast("RDesk v1.0.0: The native desktop framework for R.", type = "info")
+          app$toast("RDesk v1.5.0.1: The native desktop framework for R.", type = "info")
         }
       )
     ))

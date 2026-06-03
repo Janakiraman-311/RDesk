@@ -6,7 +6,7 @@ logo: man/figures/logo.png
 template:
   bootstrap: 5
   bslib:
-    # Brand palette — charcoal + gold
+    # Brand palette - charcoal + gold
     primary:          "#1a1a2e"
     secondary:        "#F5C518"
     success:          "#1D9E75"
@@ -31,10 +31,24 @@ template:
     link-hover-color: "#F5C518"
   includes:
     in_header: |
-      <meta name="description" content="RDesk — Build native Windows desktop apps with R. Zero ports. Ships as a single exe. No R required on end-user machines.">
-      <meta property="og:title" content="RDesk — Native Desktop Apps for R">
+      <meta name="description" content="RDesk - Package R analyses into self-contained Windows desktop applications with zero network port requirements.">
+      <meta property="og:title" content="RDesk - Native Desktop Apps for R">
       <meta property="og:description" content="Turn your R analysis into a native Windows desktop app. Zero network ports. One-click installer. No R needed by users.">
       <meta name="twitter:card" content="summary">
+      <!-- Mermaid JS -->
+      <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        document.addEventListener('DOMContentLoaded', () => {
+          const blocks = document.querySelectorAll('pre.mermaid code');
+          blocks.forEach((block) => {
+            const div = document.createElement('div');
+            div.className = 'mermaid';
+            div.textContent = block.textContent;
+            block.parentElement.replaceWith(div);
+          });
+          mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { primaryColor: '#f8f9fa', primaryBorderColor: '#1a1a2e', lineColor: '#1a1a2e', tertiaryColor: '#F5C518' } });
+        });
+      </script>
       <style>
         /* ── Navbar ─────────────────────────────────────────── */
         .navbar-brand img { height: 48px; }
@@ -77,17 +91,13 @@ template:
       </style>
 
 home:
-  title: "RDesk — Native Desktop Apps for R"
+  title: "RDesk - Native Desktop Apps for R"
   description: >
-    Ship your R analysis as a native Windows .exe — zero ports, no server, no R needed by your users.
-    One command creates the app. One command builds the installer.
+    Package R analyses as standalone Windows .exe desktop applications. Operates offline without network ports or server processes.
+    One command creates the app scaffold. One command builds the installer.
   links:
     - text: "📦 CRAN"
       href: https://cran.r-project.org/package=RDesk
-    - text: "📰 R-bloggers"
-      href: https://www.r-bloggers.com/
-    - text: "💬 Posit Community"
-      href: https://community.posit.co/
 
 # News configuration for RSS
 news:
@@ -120,6 +130,8 @@ navbar:
           href: articles/ipc-contract.html
         - text: "Architecture"
           href: articles/architecture.html
+        - text: "mirai Integration"
+          href: articles/mirai-integration.html
         - text: "── Resources ────────────────"
         - text: "AI Coding Assistant"
           href: articles/ai_skill.html
@@ -138,20 +150,21 @@ articles:
   - title: "User Guides"
     desc: "Everything you need to build and ship your first RDesk app."
     contents:
-      - getting-started
-      - shiny-migration
-      - async-guide
-      - cookbook
+      - "getting-started"
+      - "shiny-migration"
+      - "async-guide"
+      - "cookbook"
   - title: "Technical Reference"
     desc: "Deep dives into architecture and the IPC protocol."
     contents:
-      - ipc-contract
-      - architecture
-      - ai_skill
+      - "ipc-contract"
+      - "architecture"
+      - "ai_skill"
+      - "mirai-integration"
   - title: "Background Reading"
     desc: "The story of R desktop deployment and why RDesk is different."
     contents:
-      - rdesk-article
+      - "rdesk-article"
 
 reference:
   - title: "Scaffold"
@@ -160,9 +173,15 @@ reference:
   - title: "Core Application"
     desc: "Create, configure, and run native desktop application windows."
     contents: [App, rdesk_service, rdesk_is_bundle]
+  - title: "Developer Velocity"
+    desc: "Live hot reloading of R modules and UI code."
+    contents: [rdesk_watch]
   - title: "Async Engine"
-    desc: "Run background tasks without freezing the UI — built on mirai."
-    contents: [async, rdesk_async, rdesk_cancel_job, rdesk_jobs_pending, rdesk_jobs_list]
+    desc: "Run background tasks without freezing the UI - built on mirai."
+    contents: [async, async_progress, rdesk_async, rdesk_cancel_job, rdesk_jobs_pending, rdesk_jobs_list]
+  - title: "Multi-User Storage"
+    desc: "Isolated JSON-backed key-value stores mapping dynamically to user and system folders."
+    contents: [RDeskStorage, rdesk_storage]
   - title: "Auto-Update"
     desc: "Keep distributed apps up to date automatically."
     contents: [rdesk_auto_update]

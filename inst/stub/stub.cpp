@@ -52,7 +52,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             L"runtime\\R\\bin\\x64\\Rscript.exe\n"
             L"runtime\\R\\bin\\arm64\\Rscript.exe\n"
             L"runtime\\R\\bin\\i386\\Rscript.exe",
-            L"RDesk — Launch Error", MB_ICONERROR);
+            L"RDesk - Launch Error", MB_ICONERROR);
         return 1;
     }
 
@@ -128,7 +128,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             &si, &pi)) {
         if (hLogFile != INVALID_HANDLE_VALUE) CloseHandle(hLogFile);
         MessageBoxW(nullptr, (L"Failed to start Rscript.exe\nCommand: " + cmd).c_str(),
-                    L"RDesk — Launch Error", MB_ICONERROR);
+                    L"RDesk - Launch Error", MB_ICONERROR);
         return 1;
     }
 
@@ -145,7 +145,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     if (exitCode != 0) {
         std::wstring msg = L"The application encountered an error (Code: " + std::to_wstring(exitCode) + 
                            L").\n\nSee " + log_name + L" for details.";
-        MessageBoxW(nullptr, msg.c_str(), L"RDesk — Application Error", MB_ICONERROR);
+        MessageBoxW(nullptr, msg.c_str(), L"RDesk - Application Error", MB_ICONERROR);
     } else {
         // Clean exit -> Remove log file
         std::error_code ec;

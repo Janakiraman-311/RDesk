@@ -41,6 +41,9 @@
 #' 
 #' # Perform a dry-run build (fast, no external binaries downloaded)
 #' build_app(app_path, out_dir = tempdir(), dry_run = TRUE)
+#' 
+#' # Clean up
+#' unlink(app_path, recursive = TRUE)
 #' @export
 build_app <- function(app_dir = ".",
                       out_dir  = file.path(tempdir(), "dist"),
@@ -90,7 +93,7 @@ build_app <- function(app_dir = ".",
     return(invisible(TRUE))
   }
 
-  # Auto-detect metadata from DESCRIPTION if possible
+  # Auto-detect metadata and dependencies from DESCRIPTION if possible
   desc_path <- file.path(app_dir, "DESCRIPTION")
   if (file.exists(desc_path)) {
     desc <- read.dcf(desc_path)
@@ -101,6 +104,19 @@ build_app <- function(app_dir = ".",
     if (is.null(version) && "Version" %in% colnames(desc)) {
       version <- as.character(desc[1, "Version"])
     }
+    # Auto-detect package dependencies from DESCRIPTION
+    detected_pkgs <- character(0)
+    for (field in c("Depends", "Imports", "Suggests")) {
+      if (field %in% colnames(desc)) {
+        val <- as.character(desc[1, field])
+        # Clean up version numbers, e.g. "haven (>= 2.0.0)"
+        val_clean <- gsub("\\([^)]+\\)", "", val)
+        pkgs <- trimws(unlist(strsplit(val_clean, ",")))
+        pkgs <- pkgs[pkgs != "" & pkgs != "R" & pkgs != "RDesk"]
+        detected_pkgs <- c(detected_pkgs, pkgs)
+      }
+    }
+    include_packages <- unique(c(include_packages, detected_pkgs))
   }
 
   # Fallbacks
@@ -134,7 +150,7 @@ build_app <- function(app_dir = ".",
   message("[RDesk] Step 1/6 - copying app files...")
   app_stage <- file.path(stage_root, "app")
   dir.create(app_stage)
-  rdesk_copy_dir(app_dir, app_stage)
+  rdesk_copy_dir(app_dir, app_stage, exclude = rdesk_app_exclusions())
 
   # ---- Step 2: Copy RDesk binaries -----------------------------------------
   message("[RDesk] Step 2/6 - copying launcher binaries...")
@@ -160,7 +176,7 @@ build_app <- function(app_dir = ".",
     if (prune_runtime) rdesk_prune_runtime(stage_runtime_dir)
 
   } else if (use_download) {
-    # Explicit "download" sentinel — legacy behaviour
+    # Explicit "download" sentinel - legacy behaviour
     message("[RDesk] Step 3/6 - downloading portable R ", r_version, " (legacy mode)...")
     message("[RDesk]   NOTE: Consider using the default (runtime_dir = NULL) to avoid")
     message("[RDesk]   version-mismatch crashes between the downloaded R and your renv packages.")
@@ -325,13 +341,13 @@ rdesk_validate_build_inputs <- function(app_dir,
 
   # 3b. Runtime provisioning validation
   if (!is.null(runtime_dir)) {
-    # Explicit path supplied — must contain bin/
+    # Explicit path supplied - must contain bin/
     if (!dir.exists(file.path(runtime_dir, "bin"))) {
       stop("[Validation Failed] runtime_dir must point to an R installation root containing bin/.\n",
            "Provided path: ", runtime_dir)
     }
   } else if (use_download && portable_r_method == "extract_only") {
-    # Download path requested — check for 7-Zip
+    # Download path requested - check for 7-Zip
     sevenzip <- rdesk_find_7zip()
     if (is.null(sevenzip)) {
       message("[RDesk]   Warning: Standalone 7-Zip not found.")
@@ -339,7 +355,7 @@ rdesk_validate_build_inputs <- function(app_dir,
       assign("portable_r_method", "installer", envir = parent.frame())
     }
   } else {
-    # Default auto-detect path — validate R.home() is accessible
+    # Default auto-detect path - validate R.home() is accessible
     r_home <- R.home()
     if (!dir.exists(file.path(r_home, "bin"))) {
       stop("[Validation Failed] Cannot locate your R installation at R.home(): ", r_home,
@@ -442,22 +458,89 @@ rdesk_copy_r_runtime <- function(r_home, dest_dir) {
   invisible(dest_dir)
 }
 
-rdesk_copy_dir <- function(from, to) {
+# Returns the list of top-level file/directory name patterns that must
+# never be packaged into a bundled RDesk app. Each element is a regex
+# matched against the top-level path component only (basename).
+#
+# Rationale for each entry:
+#   .Rprofile    - would hijack R's libPaths at startup via renv/activate.R
+#   .Renviron    - contains developer API keys / credentials
+#   renv         - local sandbox metadata; bundled packages live in packages/
+#   renv.lock    - dev lockfile; irrelevant inside the bundle
+#   .git         - full VCS history; large and irrelevant
+#   .gitignore   - VCS config
+#   .gitattributes - VCS config
+#   .Rproj.user  - RStudio user-state cache
+#   .Rhistory    - console command history
+#   .RData       - developer workspace snapshot
+#   tests        - unit tests not needed at runtime
+#   .DS_Store    - macOS finder metadata
+#' @keywords internal
+rdesk_app_exclusions <- function() {
+  c(
+    "^[.]Rprofile$",
+    "^[.]Renviron$",
+    "^renv$",
+    "^renv[.]lock$",
+    "^[.]git$",
+    "^[.]gitignore$",
+    "^[.]gitattributes$",
+    "^[.]Rproj[.]user$",
+    "^[.]Rhistory$",
+    "^[.]RData$",
+    "^tests$",
+    "^[.]DS_Store$"
+  )
+}
+
+# Copy a directory tree from `from` to `to`, optionally excluding
+# top-level entries whose basenames match any regex in `exclude`.
+#' @keywords internal
+rdesk_copy_dir <- function(from, to, exclude = character(0)) {
+  # Build a combined regex for the top-level exclusion list (if any)
+  excl_re <- if (length(exclude)) paste(exclude, collapse = "|") else NULL
+
+  # Helper: is this path (relative to `from`) excluded?
+  is_excluded <- function(rel_path) {
+    if (is.null(excl_re)) return(FALSE)
+    # Match only the first path component (top-level name).
+    # This ensures renv/activate.R is excluded via "^renv$" on "renv".
+    top <- strsplit(rel_path, "[/\\\\]", perl = TRUE)[[1]][1]
+    grepl(excl_re, top, perl = TRUE)
+  }
+
   dirs <- list.dirs(from, recursive = TRUE, full.names = TRUE)
   for (d in dirs) {
     rel <- substring(d, nchar(from) + 2)
-    if (nzchar(rel)) {
+    if (nzchar(rel) && !is_excluded(rel)) {
       dir.create(file.path(to, rel), recursive = TRUE, showWarnings = FALSE)
     }
   }
 
-  files <- list.files(from, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE)
+  files <- list.files(from, recursive = TRUE, full.names = TRUE,
+                      all.files = TRUE, no.. = TRUE)
+  skipped <- character(0)
   for (f in files) {
     if (dir.exists(f)) next
     rel  <- substring(f, nchar(from) + 2)
+    if (is_excluded(rel)) {
+      skipped <- c(skipped, rel)
+      next
+    }
     dest <- file.path(to, rel)
     dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
     file.copy(f, dest, overwrite = TRUE)
+  }
+
+  if (length(skipped) > 0) {
+    top_names <- unique(vapply(
+      strsplit(skipped, "[/\\\\]", perl = TRUE),
+      function(x) x[1],
+      character(1)
+    ))
+    message("[RDesk]   Excluded ", length(skipped),
+            " dev artifact(s) from bundle: ",
+            paste(top_names, collapse = ", "))
   }
 }
 

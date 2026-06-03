@@ -83,4 +83,7 @@ rdesk_create_app("MyApp", path = tempdir())
 
 # Perform a dry-run build (fast, no external binaries downloaded)
 build_app(app_path, out_dir = tempdir(), dry_run = TRUE)
+
+# Clean up
+unlink(app_path, recursive = TRUE)
 }

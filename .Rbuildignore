@@ -35,3 +35,5 @@
 ^docs$
 ^pkgdown$
 ^CRAN-SUBMISSION$
+^RDesk cross platoform plan$
+^scratch($|/)

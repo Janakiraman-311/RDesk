@@ -1,6 +1,6 @@
 Package: RDesk
 Title: Native Desktop App Framework for 'R'
-Version: 1.0.5
+Version: 1.0.6
 Authors@R: c(
     person("Janakiraman", "G",
            email = "janakiraman.bt@gmail.com",
@@ -61,6 +61,7 @@ Suggests:
     ggplot2,
     dplyr,
     rstudioapi,
-    pkgdown
+    pkgdown,
+    mori
 VignetteBuilder: knitr
 Config/testthat/edition: 3
