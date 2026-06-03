@@ -40,31 +40,20 @@
     if (typeof window !== "undefined" && window.chrome && window.chrome.webview) {
       window.chrome.webview.addEventListener('message', handleMessage);
       _connected = true;
-      flushBridge();
-    } else if (typeof window !== "undefined" && window.rdesk_send_to_r) {
-      window.addEventListener('message', handleMessage);
-      _connected = true;
-      flushBridge();
+      
+      // Flush any messages sent before bridge was ready
+      var q = _queue.slice();
+      _queue = [];
+      q.forEach(function (msg) { window.chrome.webview.postMessage(msg); });
+      
+      _ready_fns.forEach(function (fn) {
+        try { fn(); } catch (e) { console.error("[rdesk] ready fn error", e); }
+      });
+      console.log("[rdesk] Native IPC bridge connected.");
     } else {
+      // WebView2 object might take a moment to inject
       setTimeout(initBridge, 50);
     }
-  }
-
-  function flushBridge() {
-    var q = _queue.slice();
-    _queue = [];
-    q.forEach(function (msg) {
-      if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(msg);
-      } else if (window.rdesk_send_to_r) {
-        window.rdesk_send_to_r(msg);
-      }
-    });
-    
-    _ready_fns.forEach(function (fn) {
-      try { fn(); } catch (e) { console.error("[rdesk] ready fn error", e); }
-    });
-    console.log("[rdesk] Native IPC bridge connected.");
   }
 
   var rdesk = {
@@ -88,15 +77,10 @@
         timestamp: Date.now() / 1000
       };
 
-      var serialized = JSON.stringify(msg);
-      if (_connected) {
-        if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage(serialized);
-        } else if (window.rdesk_send_to_r) {
-          window.rdesk_send_to_r(serialized);
-        }
+      if (_connected && window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(JSON.stringify(msg));
       } else {
-        _queue.push(serialized);
+        _queue.push(JSON.stringify(msg));
       }
     },
 
