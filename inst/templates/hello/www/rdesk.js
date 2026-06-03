@@ -17,6 +17,11 @@
         return;
       }
 
+      if (envelope.type === "__reload_ui__") {
+        window.location.reload();
+        return;
+      }
+
       var type     = envelope.type;
       var payload  = envelope.payload || {};
       

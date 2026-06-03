@@ -89,6 +89,9 @@ mkdir -p "$LINUX_BUILD"
 rsync -a \
     --exclude='.git/' \
     --exclude='renv/library/' \
+    --exclude='.r-lib/' \
+    --exclude='dist/' \
+    --exclude='.agents/' \
     --exclude='src/*.o' \
     --exclude='src/*.so' \
     --exclude='src/*.dll' \
@@ -99,6 +102,8 @@ rsync -a \
     "$WINDOWS_SRC/" "$LINUX_BUILD/"
 
 echo "  OK Source copied to: $LINUX_BUILD"
+# Strip OS_type: windows to allow local Linux installations/tests
+sed -i '/^OS_type:/d' "$LINUX_BUILD/DESCRIPTION"
 echo ""
 
 # ── Step 4: Build source tarball ─────────────────────────────────────────────
