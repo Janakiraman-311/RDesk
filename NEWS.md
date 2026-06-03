@@ -2,7 +2,8 @@
 
 ## New features
 
-* **Cross-platform foundation**: Starting porting to macOS and Linux.
+* **Cross-platform foundation**: Ported the core build system and launcher architecture to macOS and Linux.
+* **Web Dialogs Fallback**: Added HTML5/JS web-based file dialog fallbacks (`dialog_open`, `dialog_save`, `dialog_folder`, `message_box`, and `dialog_color`) for Linux and macOS. When running on non-Windows platforms, these methods now open beautiful, responsive, and animated glassmorphism web dialog overlays in the WebView instead of invoking Win32 APIs (preventing indefinite hangs). File open dialog automatically reads selected files as base64 and securely decodes/writes them to temporary paths on the R backend.
 
 # RDesk 1.0.6
 

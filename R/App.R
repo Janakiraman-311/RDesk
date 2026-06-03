@@ -87,6 +87,29 @@ App <- R6::R6Class("App",
           self$toast("Operation cancelled.", type = "warning")
         }
       })
+
+      private$.router$register("__dialog_result_web__", function(payload) {
+        if (!is.null(payload$id)) {
+          if (!is.null(payload$content)) {
+            # content is base64 encoded file data from HTML5 file input fallback
+            raw_data <- base64enc::base64decode(payload$content)
+            ext <- tools::file_ext(payload$name)
+            tmp_file <- tempfile(pattern = "rdesk_", fileext = paste0(".", ext))
+            writeBin(raw_data, tmp_file)
+            private$.pending_dialogs[[payload$id]] <- tmp_file
+          } else if (!is.null(payload$path)) {
+            private$.pending_dialogs[[payload$id]] <- payload$path
+          } else if (!is.null(payload$result)) {
+            private$.pending_dialogs[[payload$id]] <- payload$result
+          }
+        }
+      })
+
+      private$.router$register("__dialog_cancel_web__", function(payload) {
+        if (!is.null(payload$id)) {
+          private$.pending_dialogs[[payload$id]] <- "__CANCEL__"
+        }
+      })
     },
 
     #' @description Register a callback to fire when the window is ready
@@ -330,14 +353,23 @@ App <- R6::R6Class("App",
     #' @param filters List of file filters, e.g. list("CSV files" = "*.csv")
     #' @return Selected file path (character) or NULL if cancelled
     dialog_open = function(title = "Open File", filters = NULL) {
-      filter_str <- private$.build_filter_str(filters)
-      req_id     <- rdesk_req_id()
-      private$.send_launcher_cmd(
-        "DIALOG_OPEN",
-        payload = list(title = title, filters = filter_str),
-        id = req_id
-      )
-      private$.wait_dialog_result(req_id)
+      if (.Platform$OS.type == "windows") {
+        filter_str <- private$.build_filter_str(filters)
+        req_id     <- rdesk_req_id()
+        private$.send_launcher_cmd(
+          "DIALOG_OPEN",
+          payload = list(title = title, filters = filter_str),
+          id = req_id
+        )
+        private$.wait_dialog_result(req_id)
+      } else {
+        req_id <- rdesk_req_id()
+        self$send(
+          "__dialog_open_web__",
+          list(id = req_id, title = title, filters = filters)
+        )
+        private$.wait_dialog_result(req_id)
+      }
     },
 
     #' @description Open a native file-save dialog
@@ -347,38 +379,56 @@ App <- R6::R6Class("App",
     #' @return Selected file path (character) or NULL if cancelled
     dialog_save = function(title = "Save File", default_name = "",
                             filters = NULL) {
-      filter_str <- private$.build_filter_str(filters)
+      if (.Platform$OS.type == "windows") {
+        filter_str <- private$.build_filter_str(filters)
 
-      # Extract default extension (e.g. "csv" from "*.csv")
-      def_ext <- NULL
-      if (!is.null(filters) && length(filters) > 0) {
-        f <- filters[[1]]
-        def_ext <- gsub("^.*\\.", "", f)
+        # Extract default extension (e.g. "csv" from "*.csv")
+        def_ext <- NULL
+        if (!is.null(filters) && length(filters) > 0) {
+          f <- filters[[1]]
+          def_ext <- gsub("^.*\\.", "", f)
+        }
+
+        req_id     <- rdesk_req_id()
+        private$.send_launcher_cmd(
+          "DIALOG_SAVE",
+          payload = list(title        = title,
+                         default_name = default_name,
+                         filters      = filter_str,
+                         default_ext  = def_ext),
+          id = req_id
+        )
+        private$.wait_dialog_result(req_id)
+      } else {
+        req_id <- rdesk_req_id()
+        self$send(
+          "__dialog_save_web__",
+          list(id = req_id, title = title, default_name = default_name, filters = filters)
+        )
+        private$.wait_dialog_result(req_id)
       }
-
-      req_id     <- rdesk_req_id()
-      private$.send_launcher_cmd(
-        "DIALOG_SAVE",
-        payload = list(title        = title,
-                       default_name = default_name,
-                       filters      = filter_str,
-                       default_ext  = def_ext),
-        id = req_id
-      )
-      private$.wait_dialog_result(req_id)
     },
 
     #' @description Open a native folder selection dialog
     #' @param title Dialog title
     #' @return Selected directory path (character) or NULL if cancelled
     dialog_folder = function(title = "Select Folder") {
-      req_id <- rdesk_req_id()
-      private$.send_launcher_cmd(
-        "DIALOG_FOLDER",
-        payload = list(title = title),
-        id = req_id
-      )
-      private$.wait_dialog_result(req_id)
+      if (.Platform$OS.type == "windows") {
+        req_id <- rdesk_req_id()
+        private$.send_launcher_cmd(
+          "DIALOG_FOLDER",
+          payload = list(title = title),
+          id = req_id
+        )
+        private$.wait_dialog_result(req_id)
+      } else {
+        req_id <- rdesk_req_id()
+        self$send(
+          "__dialog_folder_web__",
+          list(id = req_id, title = title)
+        )
+        private$.wait_dialog_result(req_id)
+      }
     },
 
     #' @description Show a native message box / alert
@@ -388,26 +438,44 @@ App <- R6::R6Class("App",
     #' @param icon One of "info", "warning", "error", "question"
     #' @return The button pressed (character: "ok", "cancel", "yes", "no")
     message_box = function(message, title = "RDesk", type = "ok", icon = "info") {
-      req_id <- rdesk_req_id()
-      private$.send_launcher_cmd(
-        "MESSAGE_BOX",
-        payload = list(message = message, title = title, type = type, icon = icon),
-        id = req_id
-      )
-      private$.wait_dialog_result(req_id)
+      if (.Platform$OS.type == "windows") {
+        req_id <- rdesk_req_id()
+        private$.send_launcher_cmd(
+          "MESSAGE_BOX",
+          payload = list(message = message, title = title, type = type, icon = icon),
+          id = req_id
+        )
+        private$.wait_dialog_result(req_id)
+      } else {
+        req_id <- rdesk_req_id()
+        self$send(
+          "__message_box_web__",
+          list(id = req_id, message = message, title = title, type = type, icon = icon)
+        )
+        private$.wait_dialog_result(req_id)
+      }
     },
 
     #' @description Open a native color selection dialog
     #' @param initial_color Optional hex color to start with (e.g. "#FF0000")
     #' @return Selected hex color code or NULL if cancelled
     dialog_color = function(initial_color = "#FFFFFF") {
-      req_id <- rdesk_req_id()
-      private$.send_launcher_cmd(
-        "DIALOG_COLOR",
-        payload = list(color = initial_color),
-        id = req_id
-      )
-      private$.wait_dialog_result(req_id)
+      if (.Platform$OS.type == "windows") {
+        req_id <- rdesk_req_id()
+        private$.send_launcher_cmd(
+          "DIALOG_COLOR",
+          payload = list(color = initial_color),
+          id = req_id
+        )
+        private$.wait_dialog_result(req_id)
+      } else {
+        req_id <- rdesk_req_id()
+        self$send(
+          "__dialog_color_web__",
+          list(id = req_id, color = initial_color)
+        )
+        private$.wait_dialog_result(req_id)
+      }
     },
 
     #' @description Send a native desktop notification

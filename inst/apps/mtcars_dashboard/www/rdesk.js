@@ -272,6 +272,338 @@
     }, payload.duration_ms || 4000);
   });
 
+  // HTML5/JS Web Dialogs Fallback (macOS / Linux)
+  var _dialogModal = null;
+
+  function createDialogModal(options) {
+    if (_dialogModal && _dialogModal.parentNode) {
+      _dialogModal.parentNode.removeChild(_dialogModal);
+    }
+
+    var modal = document.createElement("div");
+    modal.id = "__rdesk_dialog_modal__";
+    modal.style.cssText = [
+      "position:fixed",
+      "inset:0",
+      "background:rgba(10,10,10,0.7)",
+      "backdrop-filter:blur(8px)",
+      "-webkit-backdrop-filter:blur(8px)",
+      "z-index:12000",
+      "display:flex",
+      "align-items:center",
+      "justify-content:center",
+      "font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      "color:#ffffff",
+      "opacity:0",
+      "transition:opacity 0.25s ease"
+    ].join(";");
+
+    var card = document.createElement("div");
+    card.style.cssText = [
+      "background:rgba(30, 30, 35, 0.95)",
+      "border:1px solid rgba(255, 255, 255, 0.1)",
+      "border-radius:16px",
+      "width:450px",
+      "max-width:90%",
+      "padding:28px",
+      "box-shadow:0 20px 50px rgba(0,0,0,0.5)",
+      "transform:scale(0.9)",
+      "transition:transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+    ].join(";");
+
+    var title = document.createElement("h3");
+    title.innerText = options.title || "File Dialog";
+    title.style.cssText = "margin:0 0 12px 0;font-size:18px;font-weight:600;color:#ffffff;letter-spacing:-0.2px;";
+    card.appendChild(title);
+
+    if (options.body) {
+      var body = document.createElement("p");
+      body.innerText = options.body;
+      body.style.cssText = "margin:0 0 20px 0;font-size:14px;color:rgba(255,255,255,0.7);line-height:1.5;";
+      card.appendChild(body);
+    }
+
+    var inputContainer = document.createElement("div");
+    inputContainer.style.cssText = "margin-bottom:24px;";
+    card.appendChild(inputContainer);
+
+    var fileInput = null;
+    var textInput = null;
+
+    if (options.type === "open") {
+      var uploadZone = document.createElement("div");
+      uploadZone.style.cssText = [
+        "border:2px dashed rgba(255,255,255,0.2)",
+        "border-radius:10px",
+        "padding:30px 20px",
+        "text-align:center",
+        "cursor:pointer",
+        "background:rgba(255,255,255,0.02)",
+        "transition:all 0.2s ease"
+      ].join(";");
+
+      uploadZone.onmouseover = function() {
+        uploadZone.style.border = "2px dashed #4b8df8";
+        uploadZone.style.background = "rgba(75,141,248,0.05)";
+      };
+      uploadZone.onmouseout = function() {
+        uploadZone.style.border = "2px dashed rgba(255,255,255,0.2)";
+        uploadZone.style.background = "rgba(255,255,255,0.02)";
+      };
+
+      var icon = document.createElement("div");
+      icon.innerHTML = "&#x1F4C1;";
+      icon.style.cssText = "font-size:32px;margin-bottom:10px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));";
+      uploadZone.appendChild(icon);
+
+      var label = document.createElement("div");
+      label.innerText = "Click to browse files...";
+      label.style.cssText = "font-size:14px;font-weight:500;color:rgba(255,255,255,0.9);";
+      uploadZone.appendChild(label);
+
+      fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.style.display = "none";
+      if (options.accept) {
+        fileInput.accept = options.accept;
+      }
+
+      uploadZone.onclick = function() {
+        fileInput.click();
+      };
+
+      fileInput.onchange = function(e) {
+        if (e.target.files && e.target.files.length > 0) {
+          var file = e.target.files[0];
+          label.innerText = "Selected: " + file.name;
+          label.style.color = "#4b8df8";
+          confirmBtn.disabled = false;
+          confirmBtn.style.opacity = "1";
+        }
+      };
+
+      inputContainer.appendChild(uploadZone);
+      inputContainer.appendChild(fileInput);
+    } else if (options.type === "save" || options.type === "folder") {
+      textInput = document.createElement("input");
+      textInput.type = "text";
+      textInput.placeholder = options.placeholder || "Enter path...";
+      textInput.value = options.value || "";
+      textInput.style.cssText = [
+        "width:100%",
+        "padding:12px 14px",
+        "background:rgba(0,0,0,0.2)",
+        "border:1px solid rgba(255,255,255,0.15)",
+        "border-radius:8px",
+        "color:#ffffff",
+        "font-size:14px",
+        "box-sizing:border-box",
+        "outline:none",
+        "transition:border 0.2s ease"
+      ].join(";");
+
+      textInput.onfocus = function() {
+        textInput.style.border = "1px solid #4b8df8";
+      };
+      textInput.onblur = function() {
+        textInput.style.border = "1px solid rgba(255,255,255,0.15)";
+      };
+
+      inputContainer.appendChild(textInput);
+    }
+
+    var btnContainer = document.createElement("div");
+    btnContainer.style.cssText = "display:flex;justify-content:flex-end;gap:12px;";
+
+    var cancelBtn = document.createElement("button");
+    cancelBtn.innerText = "Cancel";
+    cancelBtn.style.cssText = [
+      "padding:10px 20px",
+      "background:transparent",
+      "border:1px solid rgba(255,255,255,0.2)",
+      "border-radius:8px",
+      "color:rgba(255,255,255,0.8)",
+      "font-size:14px",
+      "font-weight:500",
+      "cursor:pointer",
+      "transition:all 0.2s ease"
+    ].join(";");
+    cancelBtn.onmouseover = function() {
+      cancelBtn.style.background = "rgba(255,255,255,0.05)";
+      cancelBtn.style.color = "#ffffff";
+    };
+    cancelBtn.onmouseout = function() {
+      cancelBtn.style.background = "transparent";
+      cancelBtn.style.color = "rgba(255,255,255,0.8)";
+    };
+
+    var confirmBtn = document.createElement("button");
+    confirmBtn.innerText = options.type === "open" ? "Open" : "Save";
+    if (options.type === "folder") confirmBtn.innerText = "Select";
+    confirmBtn.style.cssText = [
+      "padding:10px 20px",
+      "background:#4b8df8",
+      "border:none",
+      "border-radius:8px",
+      "color:#ffffff",
+      "font-size:14px",
+      "font-weight:500",
+      "cursor:pointer",
+      "transition:all 0.2s ease"
+    ].join(";");
+
+    if (options.type === "open") {
+      confirmBtn.disabled = true;
+      confirmBtn.style.opacity = "0.5";
+    }
+
+    confirmBtn.onmouseover = function() {
+      if (!confirmBtn.disabled) confirmBtn.style.background = "#357ae8";
+    };
+    confirmBtn.onmouseout = function() {
+      if (!confirmBtn.disabled) confirmBtn.style.background = "#4b8df8";
+    };
+
+    btnContainer.appendChild(cancelBtn);
+    btnContainer.appendChild(confirmBtn);
+    card.appendChild(btnContainer);
+    modal.appendChild(card);
+    document.body.appendChild(modal);
+    _dialogModal = modal;
+
+    function closeModal() {
+      modal.style.opacity = "0";
+      card.style.transform = "scale(0.9)";
+      setTimeout(function() {
+        if (modal.parentNode) modal.parentNode.removeChild(modal);
+        if (_dialogModal === modal) _dialogModal = null;
+      }, 250);
+    }
+
+    cancelBtn.onclick = function() {
+      closeModal();
+      if (options.onCancel) options.onCancel();
+    };
+
+    confirmBtn.onclick = function() {
+      if (options.type === "open") {
+        if (fileInput.files && fileInput.files.length > 0) {
+          closeModal();
+          if (options.onConfirm) options.onConfirm(fileInput.files[0]);
+        }
+      } else if (options.type === "save" || options.type === "folder") {
+        var val = textInput.value.trim();
+        if (val) {
+          closeModal();
+          if (options.onConfirm) options.onConfirm(val);
+        } else {
+          textInput.style.border = "1px solid #ff3b30";
+        }
+      }
+    };
+
+    requestAnimationFrame(function() {
+      modal.style.opacity = "1";
+      card.style.transform = "scale(1)";
+    });
+  }
+
+  rdesk.on("__dialog_open_web__", function(payload) {
+    var acceptAttr = "";
+    if (payload.filters) {
+      var accepts = [];
+      for (var key in payload.filters) {
+        if (payload.filters.hasOwnProperty(key)) {
+          accepts.push(payload.filters[key]);
+        }
+      }
+      if (accepts.length > 0) {
+        acceptAttr = accepts.join(",");
+      }
+    }
+
+    createDialogModal({
+      title: payload.title || "Open File",
+      type: "open",
+      accept: acceptAttr,
+      onConfirm: function(file) {
+        if (file.path) {
+          rdesk.send("__dialog_result_web__", { id: payload.id, path: file.path });
+        } else {
+          var reader = new FileReader();
+          reader.onload = function(evt) {
+            var base64Data = evt.target.result.split(",")[1];
+            rdesk.send("__dialog_result_web__", {
+              id: payload.id,
+              name: file.name,
+              content: base64Data
+            });
+          };
+          reader.onerror = function() {
+            rdesk.send("__dialog_cancel_web__", { id: payload.id });
+          };
+          reader.readAsDataURL(file);
+        }
+      },
+      onCancel: function() {
+        rdesk.send("__dialog_cancel_web__", { id: payload.id });
+      }
+    });
+  });
+
+  rdesk.on("__dialog_save_web__", function(payload) {
+    createDialogModal({
+      title: payload.title || "Save File",
+      type: "save",
+      placeholder: "Enter absolute path to save...",
+      value: payload.default_name || "",
+      onConfirm: function(path) {
+        rdesk.send("__dialog_result_web__", { id: payload.id, path: path });
+      },
+      onCancel: function() {
+        rdesk.send("__dialog_cancel_web__", { id: payload.id });
+      }
+    });
+  });
+
+  rdesk.on("__dialog_folder_web__", function(payload) {
+    createDialogModal({
+      title: payload.title || "Select Folder",
+      type: "folder",
+      placeholder: "Enter absolute folder path...",
+      onConfirm: function(path) {
+        rdesk.send("__dialog_result_web__", { id: payload.id, path: path });
+      },
+      onCancel: function() {
+        rdesk.send("__dialog_cancel_web__", { id: payload.id });
+      }
+    });
+  });
+
+  rdesk.on("__message_box_web__", function(payload) {
+    var type = payload.type || "ok";
+    var res = "ok";
+    if (type === "ok") {
+      alert(payload.message);
+      res = "ok";
+    } else if (type === "okcancel") {
+      res = confirm(payload.message) ? "ok" : "cancel";
+    } else if (type === "yesno" || type === "yesnocancel") {
+      res = confirm(payload.message) ? "yes" : "no";
+    }
+    rdesk.send("__dialog_result_web__", { id: payload.id, result: res });
+  });
+
+  rdesk.on("__dialog_color_web__", function(payload) {
+    var input = document.createElement("input");
+    input.type = "color";
+    input.value = payload.color || "#ffffff";
+    input.onchange = function(e) {
+      rdesk.send("__dialog_result_web__", { id: payload.id, result: e.target.value });
+    };
+    input.click();
+  });
+
   // Auto-init on load
   if (typeof window !== "undefined") {
     if (document.readyState === "complete" || document.readyState === "interactive") {

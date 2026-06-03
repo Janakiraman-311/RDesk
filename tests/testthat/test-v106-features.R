@@ -110,3 +110,48 @@ test_that("Hot Reload: rdesk_hotreload_init and rdesk_hotreload_poll detect chan
   rdesk_hotreload_poll(mock_app, tracking_env)
   expect_true(mock_app$ui_reloaded)
 })
+
+test_that("Web dialogs: router handlers decode base64 and process path/result correctly", {
+  app_name <- "RDeskTestDialogsApp"
+  on.exit(unlink(file.path(tempdir(), "RDesk"), recursive = TRUE), add = TRUE)
+  
+  app <- App$new(title = app_name, width = 800, height = 600)
+  
+  # Inject a mock req_id into pending dialogs to simulate a waiting dialog
+  req_id <- "test_req_123"
+  app$.__enclos_env__$private$.pending_dialogs[[req_id]] <- NULL
+  
+  # Simulate JS sending a file result with base64 content
+  # "Hello World" in base64 is "SGVsbG8gV29ybGQ="
+  test_content <- "SGVsbG8gV29ybGQ="
+  payload <- list(id = req_id, name = "test.txt", content = test_content)
+  
+  # Dispatch the event
+  app$.__enclos_env__$private$.router$dispatch("__dialog_result_web__", payload)
+  
+  # The pending dialog should now contain the path to the decoded temp file
+  result_path <- app$.__enclos_env__$private$.pending_dialogs[[req_id]]
+  expect_true(!is.null(result_path))
+  expect_true(file.exists(result_path))
+  
+  # Verify contents
+  read_content <- readLines(result_path, warn = FALSE)
+  expect_equal(read_content, "Hello World")
+  
+  # Clean up temp file
+  unlink(result_path)
+  
+  # Test path result
+  payload_path <- list(id = req_id, path = "/some/mock/path.csv")
+  app$.__enclos_env__$private$.router$dispatch("__dialog_result_web__", payload_path)
+  expect_equal(app$.__enclos_env__$private$.pending_dialogs[[req_id]], "/some/mock/path.csv")
+  
+  # Test custom result (message_box/color)
+  payload_result <- list(id = req_id, result = "yes")
+  app$.__enclos_env__$private$.router$dispatch("__dialog_result_web__", payload_result)
+  expect_equal(app$.__enclos_env__$private$.pending_dialogs[[req_id]], "yes")
+  
+  # Test cancel result
+  app$.__enclos_env__$private$.router$dispatch("__dialog_cancel_web__", list(id = req_id))
+  expect_equal(app$.__enclos_env__$private$.pending_dialogs[[req_id]], "__CANCEL__")
+})
