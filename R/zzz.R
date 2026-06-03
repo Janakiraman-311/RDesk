@@ -39,7 +39,8 @@ NULL
   
   # Check for launcher presence
   # Note: rdesk_launcher_path() would stop() here, so we use file.exists manually
-  path <- system.file("bin", "rdesk-launcher.exe", package = "RDesk")
+  bin_name <- if (.Platform$OS.type == "windows") "rdesk-launcher.exe" else "rdesk-launcher"
+  path <- system.file("bin", bin_name, package = "RDesk")
   if (path == "" || !file.exists(path)) {
      packageStartupMessage(
        "\n[WARNING] Native launcher binary not found in the installed package library.\n",

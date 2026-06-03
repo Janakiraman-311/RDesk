@@ -16,6 +16,10 @@ else
 endif
 
 all: $(SHLIB) $(LAUNCHER_BIN)
+	@if [ -n "$(R_PACKAGE_DIR)" ]; then \
+		mkdir -p "$(R_PACKAGE_DIR)/bin"; \
+		cp $(LAUNCHER_BIN) "$(R_PACKAGE_DIR)/bin/"; \
+	fi
 
 $(LAUNCHER_BIN): launcher.cpp
 	mkdir -p ../inst/bin

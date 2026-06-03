@@ -19,6 +19,22 @@ echo " RDesk Linux Build & Test Script"
 echo "=============================================="
 echo ""
 
+# ── Step 0: Pull latest changes from dev branch ──────────────────────────────
+echo "[0/6] Pulling latest changes from dev branch..."
+if [ -d "$WINDOWS_SRC/.git" ]; then
+    echo "  Updating local repository at $WINDOWS_SRC..."
+    # Config safe directory for WSL to avoid ownership issues
+    git config --global --add safe.directory "$WINDOWS_SRC" 2>/dev/null || true
+    if (cd "$WINDOWS_SRC" && git pull origin dev); then
+        echo "  OK Git pull complete"
+    else
+        echo "  Warning: Git pull failed. Proceeding with existing local files."
+    fi
+else
+    echo "  No git repository found at $WINDOWS_SRC, skipping pull."
+fi
+echo ""
+
 # ── Step 1: Verify System Dependencies ───────────────────────────────────────
 echo "[1/6] Checking system dependencies..."
 

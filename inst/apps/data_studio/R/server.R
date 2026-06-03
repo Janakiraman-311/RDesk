@@ -27,7 +27,7 @@ init_handlers <- function(app) {
       ),
       Help = list(
         "Documentation"   = function() {
-          shell.exec("https://janakiraman-311.github.io/RDesk/")
+          utils::browseURL("https://janakiraman-311.github.io/RDesk/")
         },
         "About"           = function() {
           app$toast(
@@ -48,7 +48,9 @@ init_handlers <- function(app) {
       corr_method = corr_method,
       outlier_threshold = outlier_threshold
     ))
+    app$send("init_platform", list(os = .Platform$OS.type))
   })
+
 
 
   # ── Open file ────────────────────────────────────────────────────────
@@ -352,6 +354,11 @@ init_handlers <- function(app) {
   # ── Close dataset ────────────────────────────────────────────────────
   app$on_message("close_data", function(payload) {
     list(closed = TRUE)
+  })
+
+  app$on_message("app_quit", function(payload) {
+    app$quit()
+    list(quit = TRUE)
   })
 
 }

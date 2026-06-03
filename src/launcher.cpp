@@ -630,6 +630,14 @@ static void remove_system_tray() {
     }
 }
 
+static void set_system_tray_menu(const std::string& payload_json) {
+    try {
+        auto items = json::parse(payload_json);
+        if (g_hmenu_tray) DestroyMenu(g_hmenu_tray);
+        g_hmenu_tray = build_win32_menu(items);
+    } catch(...) {}
+}
+
 static bool set_clipboard_text(const std::string& text) {
     if (!OpenClipboard(NULL)) return false;
     EmptyClipboard();
@@ -693,6 +701,269 @@ static void parent_watchdog(pid_t parent_pid) {
         }
         std::this_thread::sleep_for(std::chrono::seconds(2));
     }
+}
+#endif
+
+#ifdef WEBVIEW_GTK
+static GtkWidget* g_vbox = nullptr;
+static GtkWidget* g_menu_bar = nullptr;
+
+static void gtk_menu_item_activate_cb(GtkWidget* widget, gpointer user_data) {
+    std::string* item_id = static_cast<std::string*>(user_data);
+    if (item_id) {
+        json out;
+        out["event"] = "MENU_CLICK";
+        out["id"]    = *item_id;
+        write_stdout(out.dump());
+    }
+}
+
+static GtkWidget* build_gtk_submenu(const json& items) {
+    GtkWidget* menu = gtk_menu_new();
+    for (auto& item : items) {
+        std::string label = item.value("label", "");
+        std::string item_id = item.value("id", "");
+        bool checked = item.value("checked", false);
+
+        if (label == "---") {
+            GtkWidget* sep = gtk_separator_menu_item_new();
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
+            gtk_widget_show(sep);
+        } else if (item.contains("items") && item["items"].is_array()) {
+            GtkWidget* sub_menu_item = gtk_menu_item_new_with_label(label.c_str());
+            GtkWidget* sub_menu = build_gtk_submenu(item["items"]);
+            gtk_menu_item_set_submenu(GTK_MENU_ITEM(sub_menu_item), sub_menu);
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), sub_menu_item);
+            gtk_widget_show(sub_menu_item);
+        } else if (!label.empty()) {
+            GtkWidget* menu_item = nullptr;
+            if (checked) {
+                menu_item = gtk_check_menu_item_new_with_label(label.c_str());
+                gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(menu_item), TRUE);
+            } else {
+                menu_item = gtk_menu_item_new_with_label(label.c_str());
+            }
+
+            if (!item_id.empty()) {
+                std::string* action_id = new std::string(item_id);
+                g_signal_connect_data(G_OBJECT(menu_item), "activate",
+                                      G_CALLBACK(gtk_menu_item_activate_cb),
+                                      action_id,
+                                      [](gpointer data, GClosure*) {
+                                          delete static_cast<std::string*>(data);
+                                      },
+                                      static_cast<GConnectFlags>(0));
+            }
+            gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
+            gtk_widget_show(menu_item);
+        }
+    }
+    return menu;
+}
+
+static void apply_menu(const std::string& payload_json) {
+    if (!g_webview) return;
+    GtkWidget* window_widget = GTK_WIDGET(g_webview->window().value());
+    if (!window_widget) return;
+    GtkWidget* webview_widget = GTK_WIDGET(g_webview->browser_controller().value());
+
+    // 1. Ensure vbox is set up as the container of the window
+    if (!g_vbox) {
+        gtk_container_remove(GTK_CONTAINER(window_widget), webview_widget);
+        g_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+        gtk_container_add(GTK_CONTAINER(window_widget), g_vbox);
+        gtk_box_pack_end(GTK_BOX(g_vbox), webview_widget, TRUE, TRUE, 0);
+        gtk_widget_show(g_vbox);
+    }
+
+    // 2. Remove existing menu bar if any
+    if (g_menu_bar) {
+        gtk_container_remove(GTK_CONTAINER(g_vbox), g_menu_bar);
+        g_menu_bar = nullptr;
+    }
+
+    // 3. Create new menu bar
+    g_menu_bar = gtk_menu_bar_new();
+
+    try {
+        auto j = json::parse(payload_json);
+        if (j.is_array()) {
+            for (auto& top : j) {
+                std::string label = top.value("label", "");
+                if (top.contains("items") && top["items"].is_array()) {
+                    GtkWidget* top_item = gtk_menu_item_new_with_label(label.c_str());
+                    GtkWidget* sub = build_gtk_submenu(top["items"]);
+                    gtk_menu_item_set_submenu(GTK_MENU_ITEM(top_item), sub);
+                    gtk_menu_shell_append(GTK_MENU_SHELL(g_menu_bar), top_item);
+                    gtk_widget_show(top_item);
+                } else {
+                    GtkWidget* top_item = gtk_menu_item_new_with_label(label.c_str());
+                    std::string item_id = top.value("id", "");
+                    if (!item_id.empty()) {
+                        std::string* action_id = new std::string(item_id);
+                        g_signal_connect_data(G_OBJECT(top_item), "activate",
+                                              G_CALLBACK(gtk_menu_item_activate_cb),
+                                              action_id,
+                                              [](gpointer data, GClosure*) {
+                                                  delete static_cast<std::string*>(data);
+                                              },
+                                              static_cast<GConnectFlags>(0));
+                    }
+                    gtk_menu_shell_append(GTK_MENU_SHELL(g_menu_bar), top_item);
+                    gtk_widget_show(top_item);
+                }
+            }
+        }
+    } catch (const json::exception&) {}
+
+    gtk_box_pack_start(GTK_BOX(g_vbox), g_menu_bar, FALSE, FALSE, 0);
+    gtk_widget_show(g_menu_bar);
+}
+
+static void set_system_tray(const std::string&, const std::string&) {}
+static void remove_system_tray() {}
+static void set_system_tray_menu(const std::string&) {}
+#endif
+
+#ifdef __APPLE__
+@interface RDeskMenuHandler : NSObject
+- (void)menuClicked:(id)sender;
+- (void)statusItemClicked:(id)sender;
+@end
+
+@implementation RDeskMenuHandler
+- (void)menuClicked:(id)sender {
+    NSMenuItem* item = (NSMenuItem*)sender;
+    NSString* actionId = [item representedObject];
+    if (actionId) {
+        std::string act = [actionId UTF8String];
+        json out;
+        out["event"] = "MENU_CLICK";
+        out["id"]    = act;
+        write_stdout(out.dump());
+    }
+}
+
+- (void)statusItemClicked:(id)sender {
+    NSEvent* event = [NSApp currentEvent];
+    bool isRight = ([event type] == NSEventTypeRightMouseUp || ([event modifierFlags] & NSEventModifierFlagControl));
+    
+    json out;
+    out["event"] = "TRAY_CLICK";
+    out["button"] = isRight ? "right" : "left";
+    write_stdout(out.dump());
+}
+@end
+
+static RDeskMenuHandler* g_menu_handler = nil;
+static NSStatusItem* g_status_item = nil;
+static NSMenu* g_tray_menu = nil;
+
+static NSMenu* build_cocoa_menu(const json& items) {
+    NSMenu* menu = [[NSMenu alloc] initWithTitle:@""];
+    [menu setAutoenablesItems:NO];
+    for (auto& item : items) {
+        std::string label = item.value("label", "");
+        std::string item_id = item.value("id", "");
+        bool checked = item.value("checked", false);
+
+        if (label == "---") {
+            [menu addItem:[NSMenuItem separatorItem]];
+        } else if (item.contains("items") && item["items"].is_array()) {
+            NSMenuItem* sub_item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:label.c_str()]
+                                                              action:nil
+                                                       keyEquivalent:@""];
+            NSMenu* sub_menu = build_cocoa_menu(item["items"]);
+            [sub_item setSubmenu:sub_menu];
+            [menu addItem:sub_item];
+        } else if (!label.empty()) {
+            SEL action = @selector(menuClicked:);
+            NSMenuItem* menu_item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:label.c_str()]
+                                                              action:action
+                                                       keyEquivalent:@""];
+            [menu_item setTarget:g_menu_handler];
+            if (!item_id.empty()) {
+                [menu_item setRepresentedObject:[NSString stringWithUTF8String:item_id.c_str()]];
+            }
+            [menu_item setState:(checked ? NSControlStateValueOn : NSControlStateValueOff)];
+            [menu_item setEnabled:YES];
+            [menu addItem:menu_item];
+        }
+    }
+    return menu;
+}
+
+static void apply_menu(const std::string& payload_json) {
+    if (!g_menu_handler) {
+        g_menu_handler = [[RDeskMenuHandler alloc] init];
+    }
+
+    NSMenu* mainMenu = [[NSMenu alloc] initWithTitle:@"AMainMenu"];
+
+    try {
+        auto j = json::parse(payload_json);
+        if (j.is_array()) {
+            for (auto& top : j) {
+                std::string label = top.value("label", "");
+                NSMenuItem* top_item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:label.c_str()]
+                                                                  action:nil
+                                                           keyEquivalent:@""];
+                if (top.contains("items") && top["items"].is_array()) {
+                    NSMenu* sub = build_cocoa_menu(top["items"]);
+                    [sub setTitle:[NSString stringWithUTF8String:label.c_str()]];
+                    [top_item setSubmenu:sub];
+                }
+                [mainMenu addItem:top_item];
+            }
+        }
+    } catch (const json::exception&) {}
+
+    [NSApp setMainMenu:mainMenu];
+}
+
+static void set_system_tray(const std::string& label, const std::string& icon_path) {
+    if (!g_menu_handler) {
+        g_menu_handler = [[RDeskMenuHandler alloc] init];
+    }
+    if (!g_status_item) {
+        g_status_item = [[NSStatusBar systemStatusBar] statusItemWithLength:NSSquareStatusItemLength];
+        [[g_status_item button] setTarget:g_menu_handler];
+        [[g_status_item button] setAction:@selector(statusItemClicked:)];
+    }
+
+    if (!label.empty()) {
+        [[g_status_item button] setTitle:[NSString stringWithUTF8String:label.c_str()]];
+    }
+    if (!icon_path.empty()) {
+        NSImage* img = [[NSImage alloc] initWithContentsOfFile:[NSString stringWithUTF8String:icon_path.c_str()]];
+        if (img) {
+            [img setSize:NSMakeSize(18, 18)];
+            [[g_status_item button] setImage:img];
+        }
+    }
+    if (g_tray_menu) {
+        [g_status_item setMenu:g_tray_menu];
+    }
+}
+
+static void remove_system_tray() {
+    if (g_status_item) {
+        [[NSStatusBar systemStatusBar] removeStatusItem:g_status_item];
+        g_status_item = nil;
+    }
+}
+
+static void set_system_tray_menu(const std::string& payload_json) {
+    if (!g_menu_handler) {
+        g_menu_handler = [[RDeskMenuHandler alloc] init];
+    }
+    try {
+        auto items = json::parse(payload_json);
+        g_tray_menu = build_cocoa_menu(items);
+        if (g_status_item) {
+            [g_status_item setMenu:g_tray_menu];
+        }
+    } catch (...) {}
 }
 #endif
 
@@ -773,7 +1044,105 @@ static void process_command(const std::string& line) {
         return;
     }
 
+    if (cmd == "MINIMIZE") {
+        dispatch_to_webview([]() {
 #ifdef _WIN32
+            ShowWindow(g_hwnd, SW_MINIMIZE);
+#elif defined(WEBVIEW_GTK)
+            GtkWidget* w = static_cast<GtkWidget*>(g_webview->window().value());
+            if (w) gtk_window_iconify(GTK_WINDOW(w));
+#elif defined(WEBVIEW_COCOA)
+            NSWindow* w = (NSWindow*)(g_webview->window().value());
+            if (w) [w miniaturize:nil];
+#endif
+        });
+        return;
+    }
+
+    if (cmd == "MAXIMIZE") {
+        dispatch_to_webview([]() {
+#ifdef _WIN32
+            ShowWindow(g_hwnd, SW_MAXIMIZE);
+#elif defined(WEBVIEW_GTK)
+            GtkWidget* w = static_cast<GtkWidget*>(g_webview->window().value());
+            if (w) gtk_window_maximize(GTK_WINDOW(w));
+#elif defined(WEBVIEW_COCOA)
+            NSWindow* w = (NSWindow*)(g_webview->window().value());
+            if (w) [w zoom:nil];
+#endif
+        });
+        return;
+    }
+
+    if (cmd == "RESTORE") {
+        dispatch_to_webview([]() {
+#ifdef _WIN32
+            ShowWindow(g_hwnd, SW_RESTORE);
+#elif defined(WEBVIEW_GTK)
+            GtkWidget* w = static_cast<GtkWidget*>(g_webview->window().value());
+            if (w) {
+                gtk_window_deiconify(GTK_WINDOW(w));
+                gtk_window_unmaximize(GTK_WINDOW(w));
+            }
+#elif defined(WEBVIEW_COCOA)
+            NSWindow* w = (NSWindow*)(g_webview->window().value());
+            if (w) {
+                if ([w isMiniaturized]) [w deminiaturize:nil];
+            }
+#endif
+        });
+        return;
+    }
+
+    if (cmd == "FULLSCREEN") {
+        bool enabled = j["payload"].value("enabled", false);
+        dispatch_to_webview([enabled]() {
+#ifdef _WIN32
+            static RECT pre_fs_rect = {0};
+            static LONG pre_fs_style = 0;
+            if (enabled) {
+                pre_fs_style = GetWindowLong(g_hwnd, GWL_STYLE);
+                GetWindowRect(g_hwnd, &pre_fs_rect);
+                MONITORINFO mi = { sizeof(mi) };
+                if (GetMonitorInfo(MonitorFromWindow(g_hwnd, MONITOR_DEFAULTTOPRIMARY), &mi)) {
+                    SetWindowLong(g_hwnd, GWL_STYLE, pre_fs_style & ~WS_OVERLAPPEDWINDOW);
+                    SetWindowPos(g_hwnd, HWND_TOP,
+                                 mi.rcMonitor.left, mi.rcMonitor.top,
+                                 mi.rcMonitor.right - mi.rcMonitor.left,
+                                 mi.rcMonitor.bottom - mi.rcMonitor.top,
+                                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+                }
+            } else {
+                if (pre_fs_style != 0) {
+                    SetWindowLong(g_hwnd, GWL_STYLE, pre_fs_style);
+                    SetWindowPos(g_hwnd, nullptr,
+                                 pre_fs_rect.left, pre_fs_rect.top,
+                                 pre_fs_rect.right - pre_fs_rect.left,
+                                 pre_fs_rect.bottom - pre_fs_rect.top,
+                                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+                }
+            }
+#elif defined(WEBVIEW_GTK)
+            GtkWidget* w = static_cast<GtkWidget*>(g_webview->window().value());
+            if (w) {
+                if (enabled) {
+                    gtk_window_fullscreen(GTK_WINDOW(w));
+                } else {
+                    gtk_window_unfullscreen(GTK_WINDOW(w));
+                }
+            }
+#elif defined(WEBVIEW_COCOA)
+            NSWindow* w = (NSWindow*)(g_webview->window().value());
+            if (w) {
+                bool is_fs = (([w styleMask] & NSWindowStyleMaskFullScreen) == NSWindowStyleMaskFullScreen);
+                if (is_fs != enabled) {
+                    [w toggleFullScreen:nil];
+                }
+            }
+#endif
+        });
+        return;
+    }
     if (cmd == "SET_MENU") {
         if (j.contains("payload")) {
             std::string payload_str = j["payload"].dump();
@@ -783,6 +1152,34 @@ static void process_command(const std::string& line) {
         }
         return;
     }
+
+    if (cmd == "SET_TRAY") {
+        std::string label = j["payload"].value("label", "");
+        std::string icon  = j["payload"].value("icon", "");
+        dispatch_to_webview([label, icon]() {
+            set_system_tray(label, icon);
+        });
+        return;
+    }
+
+    if (cmd == "REMOVE_TRAY") {
+        dispatch_to_webview([]() {
+            remove_system_tray();
+        });
+        return;
+    }
+
+    if (cmd == "SET_TRAY_MENU") {
+        if (j.contains("payload")) {
+            std::string payload_str = j["payload"].dump();
+            dispatch_to_webview([payload_str]() {
+                set_system_tray_menu(payload_str);
+            });
+        }
+        return;
+    }
+
+#ifdef _WIN32
 
     if (cmd == "DIALOG_OPEN") {
         json pl = j.value("payload", json::object());
@@ -835,23 +1232,6 @@ static void process_command(const std::string& line) {
         show_notification(title, body);
         return;
     }
- 
-    if (cmd == "SET_TRAY") {
-        std::string label = j["payload"].value("label", "");
-        std::string icon  = j["payload"].value("icon", "");
-        dispatch_to_webview([label, icon]() {
-            set_system_tray(label, icon);
-        });
-        return;
-    }
- 
-    if (cmd == "REMOVE_TRAY") {
-        dispatch_to_webview([]() {
-            remove_system_tray();
-        });
-        return;
-    }
-
     if (cmd == "SET_POS") {
         int x = j["payload"].value("x", 0);
         int y = j["payload"].value("y", 0);
@@ -861,20 +1241,6 @@ static void process_command(const std::string& line) {
         return;
     }
 
-    if (cmd == "MINIMIZE") {
-        dispatch_to_webview([]() { ShowWindow(g_hwnd, SW_MINIMIZE); });
-        return;
-    }
-
-    if (cmd == "MAXIMIZE") {
-        dispatch_to_webview([]() { ShowWindow(g_hwnd, SW_MAXIMIZE); });
-        return;
-    }
-
-    if (cmd == "RESTORE") {
-        dispatch_to_webview([]() { ShowWindow(g_hwnd, SW_RESTORE); });
-        return;
-    }
 
     if (cmd == "TOPMOST") {
         bool enabled = j["payload"].value("enabled", false);
@@ -884,38 +1250,6 @@ static void process_command(const std::string& line) {
         return;
     }
 
-    if (cmd == "FULLSCREEN") {
-        bool enabled = j["payload"].value("enabled", false);
-        dispatch_to_webview([enabled]() {
-            static RECT pre_fs_rect = {0};
-            static LONG pre_fs_style = 0;
-            
-            if (enabled) {
-                pre_fs_style = GetWindowLong(g_hwnd, GWL_STYLE);
-                GetWindowRect(g_hwnd, &pre_fs_rect);
-                
-                MONITORINFO mi = { sizeof(mi) };
-                if (GetMonitorInfo(MonitorFromWindow(g_hwnd, MONITOR_DEFAULTTOPRIMARY), &mi)) {
-                    SetWindowLong(g_hwnd, GWL_STYLE, pre_fs_style & ~WS_OVERLAPPEDWINDOW);
-                    SetWindowPos(g_hwnd, HWND_TOP,
-                                 mi.rcMonitor.left, mi.rcMonitor.top,
-                                 mi.rcMonitor.right - mi.rcMonitor.left,
-                                 mi.rcMonitor.bottom - mi.rcMonitor.top,
-                                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
-                }
-            } else {
-                if (pre_fs_style != 0) {
-                    SetWindowLong(g_hwnd, GWL_STYLE, pre_fs_style);
-                    SetWindowPos(g_hwnd, nullptr,
-                                 pre_fs_rect.left, pre_fs_rect.top,
-                                 pre_fs_rect.right - pre_fs_rect.left,
-                                 pre_fs_rect.bottom - pre_fs_rect.top,
-                                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                }
-            }
-        });
-        return;
-    }
 
     if (cmd == "DIALOG_FOLDER") {
         json pl = j.value("payload", json::object());
@@ -979,21 +1313,6 @@ static void process_command(const std::string& line) {
         g_intercept_close.store(j["payload"].value("enabled", false));
         return;
     }
-
-    if (cmd == "SET_TRAY_MENU") {
-        if (j.contains("payload")) {
-            std::string payload_str = j["payload"].dump();
-            dispatch_to_webview([payload_str]() {
-                try {
-                    auto items = json::parse(payload_str);
-                    if (g_hmenu_tray) DestroyMenu(g_hmenu_tray);
-                    g_hmenu_tray = build_win32_menu(items);
-                } catch(...) {}
-            });
-        }
-        return;
-    }
-
     if (cmd == "CLIPBOARD_WRITE") {
         set_clipboard_text(j["payload"].value("text", ""));
         return;
@@ -1176,16 +1495,38 @@ int main(int argc, char* argv[]) {
             std::thread(parent_watchdog, (pid_t)parent_pid).detach();
         }
 
-        // WebKitGTK and macOS Console Log Handler binding:
-        // Bind window.rdesk_send_to_r to call write_stdout
         w.bind("rdesk_send_to_r", [](const std::string& s) -> std::string {
-            write_stdout(s);
+            try {
+                auto j = json::parse(s);
+                if (j.is_array() && !j.empty() && j[0].is_string()) {
+                    write_stdout(j[0].get<std::string>());
+                } else {
+                    write_stdout(s);
+                }
+            } catch (...) {
+                write_stdout(s);
+            }
             return "";
         });
 
         #ifdef WEBVIEW_GTK
             WebKitWebView* webview = WEBKIT_WEB_VIEW(w.browser_controller().value());
             rdesk_setup_webkit_console_redirect(webview);
+
+            GtkWidget* window_widget = GTK_WIDGET(w.window().value());
+            g_signal_connect(G_OBJECT(window_widget), "delete-event",
+                             G_CALLBACK(+[](GtkWidget*, GdkEvent*, gpointer arg) -> gboolean {
+                                 auto* w = static_cast<webview::webview*>(arg);
+                                 if (g_intercept_close.load()) {
+                                     json out;
+                                     out["event"] = "WINDOW_CLOSING";
+                                     write_stdout(out.dump());
+                                     return TRUE;
+                                 }
+                                 write_stdout("CLOSED");
+                                 w->terminate();
+                                 return FALSE;
+                             }), &w);
         #endif
 #endif
 

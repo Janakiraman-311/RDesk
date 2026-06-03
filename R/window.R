@@ -102,7 +102,10 @@ rdesk_close_window <- function(proc) {
   # QUIT should be fast; this short wait is only a safety net before forcing a kill.
   proc$wait(timeout = 500)
   if (proc$is_alive()) proc$kill()
-  rm(list = as.character(proc$get_pid()), envir = .rdesk_window_buffers, inherits = FALSE)
+  pid_str <- as.character(proc$get_pid())
+  if (exists(pid_str, envir = .rdesk_window_buffers, inherits = FALSE)) {
+    rm(list = pid_str, envir = .rdesk_window_buffers, inherits = FALSE)
+  }
 }
 
 # ---- Command sender ----------------------------------------------------------
@@ -155,7 +158,11 @@ rdesk_read_events <- function(proc) {
   for (line in lines) {
     if (length(line) == 0 || is.na(line)) next
     line <- trimws(line)
-    if (nchar(line) == 0 || line == "READY" || line == "CLOSED") next
+    if (line == "CLOSED") {
+      events <- c(events, list(list(event = "WINDOW_CLOSING")))
+      next
+    }
+    if (nchar(line) == 0 || line == "READY") next
     tryCatch({
       # Any valid JSON from the launcher is an "event" or "message"
       parsed <- jsonlite::fromJSON(line, simplifyVector = FALSE)

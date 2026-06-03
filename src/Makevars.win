@@ -10,6 +10,10 @@ OBJECTS = dummy.o
 # The default target is 'all'
 # We build our launcher AND the standard R shared library
 all: $(SHLIB) rdesk-launcher.exe
+	@if [ -n "$(R_PACKAGE_DIR)" ]; then \
+		mkdir -p "$(R_PACKAGE_DIR)/bin"; \
+		cp ../inst/bin/rdesk-launcher.exe "$(R_PACKAGE_DIR)/bin/"; \
+	fi
 
 rdesk-launcher.exe: launcher.cpp
 	mkdir -p ../inst/bin
