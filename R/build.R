@@ -41,6 +41,9 @@
 #' 
 #' # Perform a dry-run build (fast, no external binaries downloaded)
 #' build_app(app_path, out_dir = tempdir(), dry_run = TRUE)
+#' 
+#' # Clean up
+#' unlink(app_path, recursive = TRUE)
 #' @export
 build_app <- function(app_dir = ".",
                       out_dir  = file.path(tempdir(), "dist"),

@@ -1,7 +1,7 @@
-context("v1.0.6 Core Foundation Features")
 
 test_that("Storage: set, get, keys, remove, and clear work correctly", {
   app_name <- "RDeskTestStorageApp"
+  on.exit(unlink(file.path(tempdir(), "RDesk"), recursive = TRUE), add = TRUE)
   
   # Initialize storage
   storage <- rdesk_storage(app_name, "local")
@@ -35,6 +35,7 @@ test_that("Storage: set, get, keys, remove, and clear work correctly", {
 
 test_that("Storage: resolve_dir automatically handles permission fallbacks", {
   # Mock an unavailable or custom directory path
+  on.exit(unlink(file.path(tempdir(), "RDesk"), recursive = TRUE), add = TRUE)
   storage <- rdesk_storage("TestPermFallback", "shared")
   expect_true(dir.exists(storage$path()))
 })

@@ -87,33 +87,35 @@ RDeskStorage <- R6::R6Class("RDeskStorage",
     .data = NULL,
 
     .resolve_dir = function() {
-      base_dir <- switch(private$.type,
-        "roaming" = Sys.getenv("APPDATA"),
-        "local"   = Sys.getenv("LOCALAPPDATA"),
-        "shared"  = Sys.getenv("PROGRAMDATA")
-      )
-      
-      if (!nzchar(base_dir)) {
-        base_dir <- file.path(tempdir(), "RDesk")
+      if (rdesk_is_bundle()) {
+        base_dir <- switch(private$.type,
+          "roaming" = Sys.getenv("APPDATA"),
+          "local"   = Sys.getenv("LOCALAPPDATA"),
+          "shared"  = Sys.getenv("PROGRAMDATA")
+        )
+        if (nzchar(base_dir)) {
+          target <- file.path(base_dir, "RDesk", private$.app_name)
+          
+          # Test if target dir is writable. If not, fallback to tempdir
+          is_writable <- tryCatch({
+            if (!dir.exists(target)) dir.create(target, recursive = TRUE, showWarnings = FALSE)
+            # Try writing a dummy test file
+            test_file <- file.path(target, ".write_test")
+            writeLines("test", test_file)
+            unlink(test_file)
+            TRUE
+          }, error = function(e) FALSE)
+          
+          if (is_writable) {
+            return(target)
+          }
+        }
       }
       
-      target <- file.path(base_dir, "RDesk", private$.app_name)
-      
-      # Test if target dir is writable. If not, fallback to tempdir
-      is_writable <- tryCatch({
-        if (!dir.exists(target)) dir.create(target, recursive = TRUE, showWarnings = FALSE)
-        # Try writing a dummy test file
-        test_file <- file.path(target, ".write_test")
-        writeLines("test", test_file)
-        unlink(test_file)
-        TRUE
-      }, error = function(e) FALSE)
-      
-      if (!is_writable) {
-        target <- file.path(tempdir(), "RDesk", private$.app_name, private$.type)
-        dir.create(target, recursive = TRUE, showWarnings = FALSE)
-      }
-      
+      # Default/Fallback: Always use tempdir() per CRAN policy
+      # for non-bundled or check environments
+      target <- file.path(tempdir(), "RDesk", private$.app_name, private$.type)
+      dir.create(target, recursive = TRUE, showWarnings = FALSE)
       target
     },
 
