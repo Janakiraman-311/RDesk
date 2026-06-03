@@ -66,6 +66,7 @@ echo ""
 
 # ── Step 3: Copy source to WSL native filesystem ─────────────────────────────
 echo "[3/6] Copying source to WSL native filesystem..."
+cd "$HOME"   # ensure we are NOT inside $LINUX_BUILD before deleting it
 rm -rf "$LINUX_BUILD"
 mkdir -p "$LINUX_BUILD"
 
