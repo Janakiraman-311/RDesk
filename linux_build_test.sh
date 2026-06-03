@@ -108,7 +108,11 @@ echo ""
 
 # ── Step 5: R CMD check ───────────────────────────────────────────────────────
 echo "[5/6] Running R CMD check..."
+echo "  (Suggested packages like knitr/devtools are not required to pass check)"
 
+_R_CHECK_FORCE_SUGGESTS_=false \
+_R_CHECK_CRAN_INCOMING_REMOTE_=false \
+_R_CHECK_CRAN_INCOMING_=false \
 RENV_CONFIG_AUTOLOADER_ENABLED=false \
     R CMD check "$TARBALL" \
     --no-manual \
@@ -119,6 +123,7 @@ RENV_CONFIG_AUTOLOADER_ENABLED=false \
 
 echo "  OK R CMD check completed"
 echo ""
+
 
 # ── Step 6: Install package ──────────────────────────────────────────────────
 echo "[6/6] Installing RDesk into R library..."
