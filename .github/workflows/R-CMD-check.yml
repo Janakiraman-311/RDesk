@@ -8,11 +8,7 @@ on:
 
 jobs:
   R-CMD-check:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     env:
       RENV_PATHS_LIBRARY: renv/library
       RENV_CONFIG_AUTOLOADER_ENABLED: "false"
@@ -27,13 +23,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install system dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-
 
       - uses: r-lib/actions/setup-r@v2
         with:

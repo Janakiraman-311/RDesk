@@ -30,16 +30,11 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
 
-      - name: Install dependencies
+      - name: Restore renv
         run: |
-          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
-          install.packages(c(
-            "R6", "jsonlite", "digest", "processx", "callr",
-            "mirai", "base64enc", "zip"
-          ), quiet = TRUE)
-          install.packages(c(
-            "pkgdown", "knitr", "rmarkdown", "ggplot2", "dplyr", "mori"
-          ), quiet = TRUE)
+          if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          renv::restore(prompt = FALSE, clean = FALSE)
         shell: Rscript {0}
 
       - name: Install RDesk

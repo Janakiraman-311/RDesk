@@ -37,7 +37,3 @@
 ^CRAN-SUBMISSION$
 ^RDesk cross platoform plan$
 ^scratch($|/)
-^.*\.Rcheck($|/)
-^inst/bin($|/)
-
-

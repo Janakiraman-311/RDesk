@@ -31,7 +31,6 @@ staging/
 
 # RDesk Specific
 inst/bin/*.exe
-inst/bin/rdesk-launcher
 inst/bin/*.dll
 launcher_src/launcher/*.exe
 launcher_src/launcher/build/

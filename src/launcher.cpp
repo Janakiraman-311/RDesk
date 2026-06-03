@@ -1,3 +1,23 @@
+#include <windows.h>
+#include <commdlg.h>
+#include <shellapi.h>
+#include <shlwapi.h>
+#include <shobjidl.h> // for folder picker
+#pragma comment(lib, "comdlg32.lib")
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "ole32.lib")
+
+
+#if defined(_WIN32)
+#include <wrl.h>
+#endif
+#include "webview/webview.h"
+#include <WebView2.h>
+
+// IID_ICoreWebView2_3 is already in WebView2.h, removing manual definition.
+ 
+static const UINT WM_TRAYICON = WM_USER + 1;
+
 #include <iostream>
 #include <string>
 #include <thread>
@@ -14,296 +34,8 @@
 
 using json = nlohmann::json;
 
-// ── Platform-specific headers and setup ──────────────────────────────────────
-#ifdef _WIN32
-  #include <windows.h>
-  #include <commdlg.h>
-  #include <shellapi.h>
-  #include <shlwapi.h>
-  #include <shobjidl.h> // for folder picker
-  #include <wrl.h>
-  #include "webview/webview.h"
-  #include <WebView2.h>
-  #pragma comment(lib, "comdlg32.lib")
-  #pragma comment(lib, "shell32.lib")
-  #pragma comment(lib, "ole32.lib")
-#elif defined(__APPLE__)
-  #define WEBVIEW_COCOA 1
-  #include "webview/webview.h"
-  #import <Cocoa/Cocoa.h>
-  #import <WebKit/WebKit.h>
-  #include <unistd.h>
-  #include <signal.h>
-  #include <sys/wait.h>
-  #include <sys/types.h>
-  #include <sys/stat.h>
-#else
-  #define WEBVIEW_GTK 1
-  #include "webview/webview.h"
-  #include <gtk/gtk.h>
-  #include <webkit2/webkit2.h>
-  #include <glib.h>
-  #include <unistd.h>
-  #include <signal.h>
-  #include <sys/wait.h>
-  #include <sys/types.h>
-  #include <sys/stat.h>
-#endif
 
-// ── Global state ─────────────────────────────────────────────────────────────
-static std::atomic<bool>  g_quit{false};
-static std::atomic<bool>  g_intercept_close{false};
-static webview::webview*  g_webview = nullptr;
-static std::mutex         g_out_mutex;
-static std::mutex         g_webview_mutex;
 
-#ifdef _WIN32
-  static ICoreWebView2*     g_core_webview = nullptr;
-  static HMENU              g_hmenu_tray = nullptr;
-  static std::map<int, std::string> g_hotkeys;
-  static std::mutex         g_hotkey_mutex;
-#endif
-
-static void write_stdout(const std::string& line) {
-    std::lock_guard<std::mutex> lk(g_out_mutex);
-    std::cout << line << "\n";
-    std::cout.flush();
-}
-
-static void dispatch_to_webview(const std::function<void()>& fn) {
-    std::lock_guard<std::mutex> lk(g_webview_mutex);
-    if (g_quit.load() || g_webview == nullptr) return;
-
-    g_webview->dispatch([fn]() {
-        std::lock_guard<std::mutex> lk(g_webview_mutex);
-        if (g_quit.load() || g_webview == nullptr) return;
-        fn();
-    });
-}
-
-// ── macOS Custom URI Scheme Handler ──────────────────────────────────────────
-#ifdef __APPLE__
-static std::string g_www_path;
-
-@interface RDeskSchemeHandler : NSObject <WKURLSchemeHandler>
-@end
-
-@implementation RDeskSchemeHandler
-
-- (void)webView:(WKWebView *)webView startURLSchemeTask:(id<WKURLSchemeTask>)urlSchemeTask {
-    NSURL *url = urlSchemeTask.request.URL;
-    NSString *urlPath = url.absoluteString;
-    
-    NSString *prefix = @"rdesk://app/";
-    if ([urlPath hasPrefix:prefix]) {
-        NSString *rel = [urlPath substringFromIndex:prefix.length];
-        
-        NSRange qRange = [rel rangeOfString:@"?"];
-        if (qRange.location != NSNotFound) {
-            rel = [rel substringToIndex:qRange.location];
-        }
-        NSRange hRange = [rel rangeOfString:@"#"];
-        if (hRange.location != NSNotFound) {
-            rel = [rel substringToIndex:hRange.location];
-        }
-        
-        NSString *fullPath = [NSString stringWithFormat:@"%s/%@", g_www_path.c_str(), rel];
-        
-        if (![[NSFileManager defaultManager] fileExistsAtPath:fullPath]) {
-             fullPath = [NSString stringWithFormat:@"%s/index.html", g_www_path.c_str()];
-        }
-        
-        NSData *data = [NSData dataWithContentsOfFile:fullPath];
-        if (data) {
-            NSString *mime = @"text/plain";
-            if ([rel hasSuffix:@".html"]) mime = @"text/html";
-            else if ([rel hasSuffix:@".css"]) mime = @"text/css";
-            else if ([rel hasSuffix:@".js"]) mime = @"text/javascript";
-            else if ([rel hasSuffix:@".png"]) mime = @"image/png";
-            else if ([rel hasSuffix:@".jpg"] || [rel hasSuffix:@".jpeg"]) mime = @"image/jpeg";
-            else if ([rel hasSuffix:@".gif"]) mime = @"image/gif";
-            else if ([rel hasSuffix:@".svg"]) mime = @"image/svg+xml";
-            else if ([rel hasSuffix:@".json"]) mime = @"application/json";
-            else if ([rel hasSuffix:@".wasm"]) mime = @"application/wasm";
-            
-            NSURLResponse *response = [[NSURLResponse alloc] initWithURL:url
-                                                                MIMEType:mime
-                                                   expectedContentLength:data.length
-                                                        textEncodingName:@"utf-8"];
-            [urlSchemeTask didReceiveResponse:response];
-            [urlSchemeTask didReceiveData:data];
-            [urlSchemeTask didFinish];
-        } else {
-            NSError *error = [NSError errorWithDomain:NSURLErrorDomain
-                                                 code:NSURLErrorResourceUnavailable
-                                             userInfo:nil];
-            [urlSchemeTask didFailWithError:error];
-        }
-    } else {
-        NSError *error = [NSError errorWithDomain:NSURLErrorDomain
-                                             code:NSURLErrorResourceUnavailable
-                                         userInfo:nil];
-        [urlSchemeTask didFailWithError:error];
-    }
-}
-
-- (void)webView:(WKWebView *)webView stopURLSchemeTask:(id<WKURLSchemeTask>)urlSchemeTask {
-}
-
-@end
-
-static IMP g_orig_wk_config_init = nullptr;
-
-static id custom_wk_config_init(id self, SEL _cmd) {
-    id (*orig_init)(id, SEL) = (id (*)(id, SEL))g_orig_wk_config_init;
-    self = orig_init(self, _cmd);
-    if (self) {
-        RDeskSchemeHandler *handler = [[RDeskSchemeHandler alloc] init];
-        [self setURLSchemeHandler:handler forURLScheme:@"rdesk"];
-    }
-    return self;
-}
-
-void setup_macos_scheme_interceptor() {
-    Class cls = objc_getClass("WKWebViewConfiguration");
-    Method method = class_getInstanceMethod(cls, @selector(init));
-    g_orig_wk_config_init = method_getImplementation(method);
-    method_setImplementation(method, (IMP)custom_wk_config_init);
-}
-#endif
-
-// ── Linux Custom URI Scheme Handler & Stderr Logging Redirects ──────────────
-#ifdef WEBVIEW_GTK
-static std::string g_www_path;
-
-static void uri_scheme_request_cb(WebKitURISchemeRequest* request,
-                                  gpointer               user_data) {
-  const char* uri  = webkit_uri_scheme_request_get_uri(request);
-  std::string path = std::string(uri);
-
-  std::string prefix = "rdesk://app/";
-  if (path.substr(0, prefix.size()) == prefix) {
-    std::string rel  = path.substr(prefix.size());
-    
-    // Remove query/hash
-    size_t q = rel.find('?');
-    if (q != std::string::npos) rel = rel.substr(0, q);
-    size_t h = rel.find('#');
-    if (h != std::string::npos) rel = rel.substr(0, h);
-
-    std::string full = g_www_path + "/" + rel;
-
-    // Check if file exists, fallback to index.html
-    struct stat st;
-    if (stat(full.c_str(), &st) != 0) {
-      full = g_www_path + "/index.html";
-    }
-
-    std::string mime = "text/plain";
-    if (rel.size() > 5 && rel.substr(rel.size()-5) == ".html") mime = "text/html";
-    else if (rel.size() > 4 && rel.substr(rel.size()-4) == ".css")  mime = "text/css";
-    else if (rel.size() > 3 && rel.substr(rel.size()-3) == ".js")   mime = "text/javascript";
-    else if (rel.size() > 4 && rel.substr(rel.size()-4) == ".png")  mime = "image/png";
-    else if (rel.size() > 4 && rel.substr(rel.size()-4) == ".jpg")  mime = "image/jpeg";
-    else if (rel.size() > 5 && rel.substr(rel.size()-5) == ".jpeg") mime = "image/jpeg";
-    else if (rel.size() > 4 && rel.substr(rel.size()-4) == ".svg")  mime = "image/svg+xml";
-    else if (rel.size() > 5 && rel.substr(rel.size()-5) == ".json") mime = "application/json";
-    else if (rel.size() > 5 && rel.substr(rel.size()-5) == ".wasm") mime = "application/wasm";
-
-    GError* error = nullptr;
-    GMappedFile* mapped = g_mapped_file_new(full.c_str(), FALSE, &error);
-    if (mapped) {
-      GBytes* bytes = g_mapped_file_get_bytes(mapped);
-      GInputStream* stream = g_memory_input_stream_new_from_bytes(bytes);
-      webkit_uri_scheme_request_finish(request, stream,
-        g_mapped_file_get_length(mapped), mime.c_str());
-      g_object_unref(stream);
-      g_bytes_unref(bytes);
-      g_mapped_file_unref(mapped);
-    } else {
-      webkit_uri_scheme_request_finish_error(request, error);
-      g_error_free(error);
-    }
-  }
-}
-
-void register_rdesk_scheme(WebKitWebContext* context) {
-  webkit_web_context_register_uri_scheme(
-    context, "rdesk",
-    uri_scheme_request_cb,
-    nullptr, nullptr
-  );
-}
-
-static void rdesk_glib_log_handler(const gchar*   log_domain,
-                                   GLogLevelFlags log_level,
-                                   const gchar*   message,
-                                   gpointer       user_data) {
-  // Force all logs to stderr, avoiding R IPC stdout corruption
-  fprintf(stderr, "[GTK %s] %s\n",
-          log_domain ? log_domain : "unknown",
-          message    ? message    : "");
-}
-
-void rdesk_redirect_gtk_output() {
-  const char* domains[] = {
-    "GLib", "GLib-GObject", "GLib-GIO",
-    "Gtk",  "Gdk",
-    "WebKit", "WebKitGTK",
-    "JavaScriptCore",
-    nullptr
-  };
-
-  GLogLevelFlags all_levels = (GLogLevelFlags)(
-    G_LOG_LEVEL_ERROR   |
-    G_LOG_LEVEL_CRITICAL|
-    G_LOG_LEVEL_WARNING |
-    G_LOG_LEVEL_MESSAGE |
-    G_LOG_LEVEL_INFO    |
-    G_LOG_LEVEL_DEBUG
-  );
-
-  for (int i = 0; domains[i] != nullptr; i++) {
-    g_log_set_handler(
-      domains[i],
-      all_levels,
-      rdesk_glib_log_handler,
-      nullptr
-    );
-  }
-  g_log_set_default_handler(rdesk_glib_log_handler, nullptr);
-}
-
-void rdesk_silence_webkit_diagnostics() {
-  setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1", 0);
-  unsetenv("JSC_dumpOptions");
-  unsetenv("JSC_dumpDisassembly");
-  unsetenv("WEBKIT_DEBUG");
-  setenv("G_MESSAGES_DEBUG", "", 1);
-}
-
-static gboolean webkit_console_message_cb(WebKitWebView* web_view,
-                                          const gchar*   message,
-                                          gint           line,
-                                          const gchar*   source_id,
-                                          gpointer       user_data) {
-  fprintf(stderr, "[WebKit console %s:%d] %s\n",
-          source_id ? source_id : "?",
-          line,
-          message   ? message   : "");
-  return TRUE; // Suppress default stdout write
-}
-
-void rdesk_setup_webkit_console_redirect(WebKitWebView* webview) {
-  g_signal_connect(webview,
-                   "console-message",
-                   G_CALLBACK(webkit_console_message_cb),
-                   nullptr);
-}
-#endif
-
-// ── Windows-specific Helpers ──────────────────────────────────────────────────
-#ifdef _WIN32
 static std::wstring widen(const std::string& s) {
     if (s.empty()) return L"";
     int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
@@ -322,6 +54,7 @@ static std::string narrow(const std::wstring& ws) {
     return std::string(buf.data());
 }
 
+// --- Custom WebView2 Event Handler (MinGW/RTools doesn't have WRL) ---
 class MessageHandler : public ICoreWebView2WebMessageReceivedEventHandler {
     std::function<HRESULT(ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs*)> f;
     std::atomic<long> count{1};
@@ -346,6 +79,38 @@ public:
         return f(sender, args);
     }
 };
+
+
+
+// ── global state ─────────────────────────────────────────────────────────────
+static std::atomic<bool>  g_quit{false};
+static std::atomic<bool>  g_intercept_close{false};
+static webview::webview*  g_webview = nullptr;
+static ICoreWebView2*     g_core_webview = nullptr;
+static HMENU              g_hmenu_tray = nullptr;
+static std::map<int, std::string> g_hotkeys;
+static std::mutex         g_out_mutex;
+static std::mutex         g_webview_mutex;
+
+static void write_stdout(const std::string& line) {
+    std::lock_guard<std::mutex> lk(g_out_mutex);
+    std::cout << line << "\n";
+    std::cout.flush();
+}
+
+static void dispatch_to_webview(const std::function<void()>& fn) {
+    std::lock_guard<std::mutex> lk(g_webview_mutex);
+    if (g_quit.load() || g_webview == nullptr) return;
+
+    g_webview->dispatch([fn]() {
+        std::lock_guard<std::mutex> lk(g_webview_mutex);
+        if (g_quit.load() || g_webview == nullptr) return;
+        fn();
+    });
+}
+
+// ── menu support (Windows only) ──────────────────────────────────────────────
+#ifdef _WIN32
 
 static HMENU g_hmenu_bar = nullptr;
 static std::map<UINT, std::string> g_menu_actions; // ID → action id string
@@ -422,6 +187,7 @@ static void apply_menu(const std::string& payload_json) {
                     std::wstring wlabel = widen(label);
                     AppendMenuW(bar, MF_POPUP, (UINT_PTR)sub, wlabel.c_str());
                 } else {
+                    // Top-level direct entry (unusual for a bar but allowed)
                     UINT win_id = g_menu_id_counter++;
                     std::wstring wlabel = widen(label);
                     AppendMenuW(bar, MF_STRING, win_id, wlabel.c_str());
@@ -430,7 +196,9 @@ static void apply_menu(const std::string& payload_json) {
                 }
             }
         }
-    } catch (const json::exception&) {}
+    } catch (const json::exception&) {
+        // Skip malformed menu JSON
+    }
 
     if (!SetMenu(g_hwnd, bar)) {
         DestroyMenu(bar);
@@ -441,6 +209,7 @@ static void apply_menu(const std::string& payload_json) {
     g_hmenu_bar = bar;
 }
 
+// File dialog helpers (Windows IFileDialog - modern Vista+ API)
 static std::string open_file_dialog(const std::string& title,
                                      const std::string& filter_str) {
     wchar_t buf[32768] = {0};
@@ -451,7 +220,9 @@ static std::string open_file_dialog(const std::string& title,
     ofn.nMaxFile       = 32767;
     ofn.Flags          = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
+    // Convert filter string (pairs separated by \0, double-\0 terminated)
     std::wstring wfilter = widen(filter_str);
+    // Replace literal \0 markers - R sends "|" as separator for null bytes
     for (auto& c : wfilter) if (c == L'|') c = L'\0';
     ofn.lpstrFilter = wfilter.empty() ? nullptr : wfilter.c_str();
 
@@ -459,6 +230,7 @@ static std::string open_file_dialog(const std::string& title,
     ofn.lpstrTitle = wtitle.empty() ? nullptr : wtitle.c_str();
 
     if (GetOpenFileNameW(&ofn)) {
+        // Convert back to UTF-8
         int len = WideCharToMultiByte(CP_UTF8, 0, buf, -1, nullptr, 0, nullptr, nullptr);
         std::string result(len - 1, '\0');
         WideCharToMultiByte(CP_UTF8, 0, buf, -1, &result[0], len, nullptr, nullptr);
@@ -562,6 +334,7 @@ static std::string choose_color_dialog(const std::string& initial_hex) {
     cc.lStructSize = sizeof(cc);
     cc.hwndOwner = g_hwnd;
     
+    // Parse hex color string "#RRGGBB"
     COLORREF initial_color = RGB(255, 255, 255);
     if (initial_hex.length() == 7 && initial_hex[0] == '#') {
         try {
@@ -569,7 +342,9 @@ static std::string choose_color_dialog(const std::string& initial_hex) {
             int g = std::stoi(initial_hex.substr(3, 2), nullptr, 16);
             int b = std::stoi(initial_hex.substr(5, 2), nullptr, 16);
             initial_color = RGB(r, g, b);
-        } catch (...) {}
+        } catch (...) {
+            // Malformed hex string, use default
+        }
     }
     
     cc.rgbResult = initial_color;
@@ -604,6 +379,7 @@ static void show_notification(const std::string& title, const std::string& body)
 
     Shell_NotifyIconW(NIM_MODIFY, &g_nid);
 }
+
  
 static void set_system_tray(const std::string& label, const std::string& icon_path) {
     if (!g_hwnd) return;
@@ -618,6 +394,11 @@ static void set_system_tray(const std::string& label, const std::string& icon_pa
     g_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_STATE;
     g_nid.dwState = 0;
     g_nid.dwStateMask = NIS_HIDDEN;
+
+    if (!icon_path.empty()) {
+        // TODO: Load custom tray icons from icon_path.
+    }
+
     Shell_NotifyIconW(NIM_MODIFY, &g_nid);
 }
  
@@ -628,6 +409,8 @@ static void remove_system_tray() {
         g_notify_icon_added = false;
     }
 }
+ 
+#endif // _WIN32
 
 static bool set_clipboard_text(const std::string& text) {
     if (!OpenClipboard(NULL)) return false;
@@ -659,10 +442,7 @@ static std::string get_clipboard_text() {
     CloseClipboard();
     return result;
 }
-#endif // _WIN32
 
-// ── Watchdog Thread for Parent PID ──────────────────────────────────────────
-#ifdef _WIN32
 static void parent_watchdog(DWORD parent_pid) {
     HANDLE hParent = OpenProcess(PROCESS_QUERY_INFORMATION | SYNCHRONIZE, FALSE, parent_pid);
     if (!hParent) return;
@@ -681,21 +461,29 @@ static void parent_watchdog(DWORD parent_pid) {
     }
     CloseHandle(hParent);
 }
-#else
-static void parent_watchdog(pid_t parent_pid) {
-    while (!g_quit.load()) {
-        if (getppid() == 1 || kill(parent_pid, 0) != 0) {
-             g_quit.store(true);
-             std::lock_guard<std::mutex> lk(g_webview_mutex);
-             if (g_webview) g_webview->terminate();
-             break;
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+
+
+static int parse_dimension_arg(const std::vector<std::string>& args, size_t index, int fallback) {
+    if (args.size() <= index || args[index].empty()) return fallback;
+
+    const std::string& value = args[index];
+    size_t start = (value[0] == '+' || value[0] == '-') ? 1 : 0;
+    if (start == value.size()) return fallback;
+
+    if (!std::all_of(value.begin() + static_cast<std::ptrdiff_t>(start), value.end(),
+            [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
+        return fallback;
+    }
+
+    try {
+        int parsed = std::stoi(value);
+        return parsed > 0 ? parsed : fallback;
+    } catch (...) {
+        return fallback;
     }
 }
-#endif
 
-// ── Stdin command processor ──────────────────────────────────────────────────
+// ── stdin command processor ──────────────────────────────────────────────────
 static void process_command(const std::string& line) {
     json j;
     try {
@@ -724,50 +512,6 @@ static void process_command(const std::string& line) {
             dispatch_to_webview([title]() {
                 g_webview->set_title(title);
             });
-        }
-        return;
-    }
-
-    if (cmd == "SET_SIZE") {
-        int w = j["payload"].value("width", 800);
-        int h = j["payload"].value("height", 600);
-        dispatch_to_webview([w, h]() {
-            g_webview->set_size(w, h, WEBVIEW_HINT_NONE);
-        });
-        return;
-    }
-
-    if (cmd == "SEND_MSG") {
-        if (j.contains("payload")) {
-            std::string payload_str;
-            if (j["payload"].is_string()) {
-                payload_str = j["payload"].get<std::string>();
-            } else {
-                payload_str = j["payload"].dump();
-            }
-
-            if (!payload_str.empty()) {
-                dispatch_to_webview([payload_str]() {
-#ifdef _WIN32
-                    ICoreWebView2* core = g_core_webview;
-                    if (core) {
-                        core->AddRef();
-                        std::wstring wpayload = widen(payload_str);
-                        core->PostWebMessageAsString(wpayload.c_str());
-                        core->Release();
-                    }
-#else
-                    // Escape single quotes and backslashes for JS eval
-                    std::string escaped = "";
-                    for (char c : payload_str) {
-                        if (c == '\'' || c == '\\') escaped += '\\';
-                        escaped += c;
-                    }
-                    std::string js = "window.dispatchEvent(new MessageEvent('message', {data: '" + escaped + "'}))";
-                    g_webview->eval(js);
-#endif
-                });
-            }
         }
         return;
     }
@@ -851,6 +595,15 @@ static void process_command(const std::string& line) {
         return;
     }
 
+    if (cmd == "SET_SIZE") {
+        int w = j["payload"].value("width", 800);
+        int h = j["payload"].value("height", 600);
+        dispatch_to_webview([w, h]() {
+            g_webview->set_size(w, h, WEBVIEW_HINT_NONE);
+        });
+        return;
+    }
+
     if (cmd == "SET_POS") {
         int x = j["payload"].value("x", 0);
         int y = j["payload"].value("y", 0);
@@ -915,7 +668,6 @@ static void process_command(const std::string& line) {
         });
         return;
     }
-
     if (cmd == "DIALOG_FOLDER") {
         json pl = j.value("payload", json::object());
         std::string title = pl.value("title", "Select Folder");
@@ -1011,22 +763,49 @@ static void process_command(const std::string& line) {
     if (cmd == "REGISTER_HOTKEY") {
         json pl = j.value("payload", json::object());
         int  hk_id = pl.value("id", 0);
-        int  mod   = pl.value("modifiers", 0);
+        int  mod   = pl.value("modifiers", 0); // 1=Alt, 2=Ctrl, 4=Shift, 8=Win
         int  vk    = pl.value("vk", 0);
         std::string label = pl.value("label", "");
         
         dispatch_to_webview([hk_id, mod, vk, label]() {
-            std::lock_guard<std::mutex> lk(g_hotkey_mutex);
             if (RegisterHotKey(g_hwnd, hk_id, mod, vk)) {
                 g_hotkeys[hk_id] = label;
             }
         });
         return;
     }
+
+    if (cmd == "SEND_MSG") {
+        if (j.contains("payload")) {
+            // We need the RAW JSON string for the payload to pass to PostWebMessageAsString
+            // If the payload was already a string in original line, nlohmann might have escaped it.
+            // But RDesk sends the entire message envelope as JSON, and payload is an object or escaped JSON string.
+            // If payload is an object, dump it. If it's a string, use it.
+            std::string payload_str;
+            if (j["payload"].is_string()) {
+                payload_str = j["payload"].get<std::string>();
+            } else {
+                payload_str = j["payload"].dump();
+            }
+
+            if (!payload_str.empty()) {
+                dispatch_to_webview([payload_str]() {
+                    ICoreWebView2* core = g_core_webview;
+                    if (core) {
+                        core->AddRef();
+                        std::wstring wpayload = widen(payload_str);
+                        core->PostWebMessageAsString(wpayload.c_str());
+                        core->Release();
+                    }
+                });
+            }
+        }
+        return;
+    }
 #endif
 }
 
-// ── Stdin reader thread ──────────────────────────────────────────────────────
+// ── stdin reader thread ──────────────────────────────────────────────────────
 static void stdin_reader() {
     std::string line;
     while (std::getline(std::cin, line)) {
@@ -1034,6 +813,7 @@ static void stdin_reader() {
         process_command(line);
         if (g_quit.load()) break;
     }
+    // stdin closed - terminate window
     g_quit.store(true);
     webview::webview* wv = nullptr;
     {
@@ -1043,9 +823,11 @@ static void stdin_reader() {
     if (wv) wv->terminate();
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── main ─────────────────────────────────────────────────────────────────────
 #ifdef _WIN32
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
+    // Parse args from lpCmdLine (space-separated, no quoting support needed
+    // because R/processx passes them as separate argv)
     int    argc;
     LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
     std::vector<std::string> args;
@@ -1058,22 +840,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     LocalFree(wargv);
 #else
 int main(int argc, char* argv[]) {
-    #ifdef WEBVIEW_GTK
-        rdesk_silence_webkit_diagnostics();
-        rdesk_redirect_gtk_output();
-        // Register scheme on the default web context before any webviews are created
-        WebKitWebContext* context = webkit_web_context_get_default();
-        register_rdesk_scheme(context);
-    #elif defined(__APPLE__)
-        setup_macos_scheme_interceptor();
-    #endif
-
     std::vector<std::string> args;
     for (int i = 1; i < argc; ++i) args.push_back(argv[i]);
 #endif
 
     if (args.empty()) {
-        std::cerr << "Usage: rdesk-launcher <url> <title> <width> <height> [www_path] [parent_pid]\n";
+        std::cerr << "Usage: rdesk-launcher.exe <url> <title> <width> <height> [www_path] [parent_pid]\n";
         return 1;
     }
 
@@ -1083,25 +855,19 @@ int main(int argc, char* argv[]) {
     int         height = args.size() > 3 ? std::stoi(args[3]) : 800;
     std::string www    = args.size() > 4 ? args[4] : "";
     
-    unsigned long parent_pid = 0;
+    DWORD parent_pid = 0;
     if (args.size() > 5) {
         try {
             parent_pid = std::stoul(args[5]);
-        } catch (...) {}
+        } catch (...) { /* ignore */ }
     }
 
-#ifdef WEBVIEW_GTK
-    g_www_path = www;
-#elif defined(__APPLE__)
-    g_www_path = www;
-#endif
-
-#ifdef _WIN32
-    // Single Instance Check (Windows only)
+    // Single Instance Check (Optional - based on title hash)
     size_t title_hash = std::hash<std::string>{}(title);
     std::wstring mutex_name = L"Local\\RDesk_Instance_" + std::to_wstring(title_hash);
     HANDLE hMutex = CreateMutexW(NULL, TRUE, mutex_name.c_str());
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        // App already running. Focus existing window and exit.
         HWND hwndExisting = FindWindowW(nullptr, widen(title).c_str());
         if (hwndExisting) {
             if (IsIconic(hwndExisting)) {
@@ -1112,7 +878,6 @@ int main(int argc, char* argv[]) {
         if (hMutex) CloseHandle(hMutex);
         return 0;
     }
-#endif
 
     try {
         webview::webview w(true, nullptr);
@@ -1121,17 +886,20 @@ int main(int argc, char* argv[]) {
             g_webview = &w;
         }
 
+#ifdef _WIN32
+        // Get the underlying HWND so we can attach Win32 menus
+        g_hwnd = (HWND)w.window().value();
+        
+        // Watchdog Thread for Parent PID
+        if (parent_pid != 0) {
+            std::thread(parent_watchdog, parent_pid).detach();
+        }
+#endif
+
         w.set_title(title);
         w.set_size(width, height, WEBVIEW_HINT_NONE);
 
-#ifdef _WIN32
-        g_hwnd = (HWND)w.window().value();
-        
-        if (parent_pid != 0) {
-            std::thread(parent_watchdog, (DWORD)parent_pid).detach();
-        }
-
-        // WebView2 virtual hostname + message receiver setup
+        // --- Native IPC & Virtual Hostname setup ---
         auto controller = static_cast<ICoreWebView2Controller*>(w.browser_controller().value());
         if (controller) {
             controller->get_CoreWebView2(&g_core_webview);
@@ -1151,6 +919,7 @@ int main(int argc, char* argv[]) {
                     webview3->Release();
                 }
 
+                // Register native message handler
                 EventRegistrationToken token;
                 auto handler = new MessageHandler(
                         [](ICoreWebView2* sender, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
@@ -1167,39 +936,24 @@ int main(int argc, char* argv[]) {
                             return S_OK;
                         });
                 g_core_webview->add_WebMessageReceived(handler, &token);
-                handler->Release();
+                handler->Release(); // WebView2 will hold onto it via AddRef
             }
         }
-#else
-        if (parent_pid != 0) {
-            std::thread(parent_watchdog, (pid_t)parent_pid).detach();
-        }
-
-        // WebKitGTK and macOS Console Log Handler binding:
-        // Bind window.rdesk_send_to_r to call write_stdout
-        w.bind("rdesk_send_to_r", [](const std::string& s) -> std::string {
-            write_stdout(s);
-            return "";
-        });
-
-        #ifdef WEBVIEW_GTK
-            WebKitWebView* webview = WEBKIT_WEB_VIEW(w.browser_controller().value());
-            rdesk_setup_webkit_console_redirect(webview);
-        #endif
-#endif
 
         w.navigate(url);
 
         write_stdout("READY");
 
+        // Start stdin reader on background thread
         std::thread(stdin_reader).detach();
 
 #ifdef _WIN32
+        // Subclass the window procedure to catch WM_COMMAND (menu clicks)
         static WNDPROC orig_wndproc = nullptr;
         orig_wndproc = reinterpret_cast<WNDPROC>(
             SetWindowLongPtrW(g_hwnd, GWLP_WNDPROC,
                 reinterpret_cast<LONG_PTR>(+[](HWND hwnd, UINT msg,
-                                                 WPARAM wp, LPARAM lp) -> LRESULT {
+                                                WPARAM wp, LPARAM lp) -> LRESULT {
                     if (msg == WM_COMMAND) {
                         UINT id = LOWORD(wp);
                         auto it = g_menu_actions.find(id);
@@ -1216,6 +970,7 @@ int main(int argc, char* argv[]) {
                             out["button"] = (lp == WM_LBUTTONUP) ? "left" : "right";
                             write_stdout(out.dump());
                             
+                            // Bring window to front on left click if visible
                             if (lp == WM_LBUTTONUP) {
                                 ShowWindow(hwnd, SW_RESTORE);
                                 SetForegroundWindow(hwnd);
@@ -1230,7 +985,6 @@ int main(int argc, char* argv[]) {
                         }
                     } else if (msg == WM_HOTKEY) {
                         int id = (int)wp;
-                        std::lock_guard<std::mutex> lk(g_hotkey_mutex);
                         auto it = g_hotkeys.find(id);
                         json out;
                         out["event"] = "HOTKEY";
@@ -1242,7 +996,7 @@ int main(int argc, char* argv[]) {
                             json out;
                             out["event"] = "WINDOW_CLOSING";
                             write_stdout(out.dump());
-                            return 0;
+                            return 0; // Prevent close
                         }
                     }
                     return CallWindowProcW(orig_wndproc, hwnd, msg, wp, lp);
@@ -1256,8 +1010,6 @@ int main(int argc, char* argv[]) {
         g_quit.store(true);
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         write_stdout("CLOSED");
-
-#ifdef _WIN32
         ICoreWebView2* core = nullptr;
         {
             std::lock_guard<std::mutex> lk(g_webview_mutex);
@@ -1275,15 +1027,6 @@ int main(int argc, char* argv[]) {
         if (core) {
             core->Release();
         }
-        if (hMutex) {
-            CloseHandle(hMutex);
-        }
-#else
-        {
-            std::lock_guard<std::mutex> lk(g_webview_mutex);
-            g_webview = nullptr;
-        }
-#endif
 
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << "\n";

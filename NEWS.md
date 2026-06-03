@@ -1,9 +1,3 @@
-# RDesk 1.0.6.9000 (dev)
-
-## New features
-
-* **Cross-platform foundation**: Starting porting to macOS and Linux.
-
 # RDesk 1.0.6
 
 ## New features
