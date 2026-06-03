@@ -57,16 +57,24 @@ jobs:
 
       - name: Install package dependencies
         run: |
-          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
-          # Hard Imports from DESCRIPTION
-          install.packages(c(
+          r <- getOption("repos")
+          if (is.null(r) || identical(r, c(CRAN = "@CRAN@"))) {
+            options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
+          }
+          pkgs <- c(
             "R6", "jsonlite", "digest", "processx", "callr",
-            "mirai", "base64enc", "zip"
-          ), quiet = TRUE)
-          # Vignette builder (required by R CMD check even though in Suggests)
-          install.packages(c("knitr", "rmarkdown"), quiet = TRUE)
-          # Check tools
-          install.packages(c("rcmdcheck", "withr"), quiet = TRUE)
+            "mirai", "base64enc", "zip", "knitr", "rmarkdown",
+            "rcmdcheck", "withr"
+          )
+          installed <- rownames(installed.packages())
+          to_install <- setdiff(pkgs, installed)
+          if (length(to_install) > 0) {
+            install.packages(to_install)
+          }
+          missing <- pkgs[!sapply(pkgs, requireNamespace, quietly = TRUE)]
+          if (length(missing) > 0) {
+            stop("Failed to install required packages: ", paste(missing, collapse = ", "))
+          }
         shell: Rscript {0}
 
       - name: Run R-CMD-check

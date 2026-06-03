@@ -19,6 +19,7 @@ jobs:
       contents: write
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      RENV_CONFIG_AUTOLOADER_ENABLED: "false"
       RENV_CONFIG_BIOCONDUCTOR_VERSION: ""
     steps:
       - uses: actions/checkout@v4
@@ -32,14 +33,20 @@ jobs:
 
       - name: Install dependencies
         run: |
-          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
-          install.packages(c(
+          r <- getOption("repos")
+          if (is.null(r) || identical(r, c(CRAN = "@CRAN@"))) {
+            options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
+          }
+          pkgs <- c(
             "R6", "jsonlite", "digest", "processx", "callr",
-            "mirai", "base64enc", "zip"
-          ), quiet = TRUE)
-          install.packages(c(
-            "pkgdown", "knitr", "rmarkdown", "ggplot2", "dplyr", "mori"
-          ), quiet = TRUE)
+            "mirai", "base64enc", "zip", "pkgdown", "knitr",
+            "rmarkdown", "ggplot2", "dplyr", "mori"
+          )
+          install.packages(pkgs)
+          missing <- pkgs[!sapply(pkgs, requireNamespace, quietly = TRUE)]
+          if (length(missing) > 0) {
+            stop("Failed to install required packages: ", paste(missing, collapse = ", "))
+          }
         shell: Rscript {0}
 
       - name: Install RDesk

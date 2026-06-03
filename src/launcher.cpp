@@ -62,6 +62,7 @@ static std::mutex         g_webview_mutex;
   static HMENU              g_hmenu_tray = nullptr;
   static std::map<int, std::string> g_hotkeys;
   static std::mutex         g_hotkey_mutex;
+  static const UINT         WM_TRAYICON = WM_USER + 1;
 #endif
 
 static void write_stdout(const std::string& line) {
