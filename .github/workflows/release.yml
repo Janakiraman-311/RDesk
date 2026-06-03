@@ -23,20 +23,6 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
 
-      - name: Cache renv packages
-        uses: actions/cache@v4
-        with:
-          path: renv/library
-          key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
-          restore-keys: renv-${{ runner.os }}-
-
-      - name: Restore renv environment
-        run: |
-          if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
-          options(repos = c(CRAN = "https://cloud.r-project.org"))
-          renv::restore(prompt = FALSE, clean = FALSE)
-        shell: Rscript {0}
-
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::devtools, any::rcmdcheck, any::withr
@@ -44,7 +30,6 @@ jobs:
       - name: Verify Rtools and Compilation
         shell: Rscript {0}
         run: |
-          source("renv/activate.R")
           devtools::install(pkg = ".", upgrade = FALSE, quick = TRUE)
           launcher <- system.file("bin", "rdesk-launcher.exe", package = "RDesk")
           if (launcher == "" || !file.exists(launcher)) {
@@ -55,7 +40,6 @@ jobs:
       - name: Build App Bundle
         shell: Rscript {0}
         run: |
-          source("renv/activate.R")
           # Create a fresh app using the real scaffolding engine
           RDesk::rdesk_create_app("CarsDashboard", path = "C:/Temp")
           # Build the newly created app

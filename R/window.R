@@ -14,19 +14,20 @@
 rdesk_launcher_path <- function() {
   # Check if we are in development mode or installed
   # Source-built launcher is in bin/ after install
-  path <- system.file("bin", "rdesk-launcher.exe", package = "RDesk")
+  bin_name <- if (.Platform$OS.type == "windows") "rdesk-launcher.exe" else "rdesk-launcher"
+  path <- system.file("bin", bin_name, package = "RDesk")
   if (path == "") {
     # Fallback for dev: check inst/bin (built by Makevars or build scripts)
-    path <- file.path(getwd(), "inst", "bin", "rdesk-launcher.exe")
+    path <- file.path(getwd(), "inst", "bin", bin_name)
   }
   
   if (!file.exists(path)) {
     # Check src/ for development convenience if not yet copied to inst/bin
-    alt_path <- file.path(getwd(), "src", "rdesk-launcher.exe")
+    alt_path <- file.path(getwd(), "src", bin_name)
     if (file.exists(alt_path)) return(alt_path)
 
     stop("[RDesk] Native launcher not found at: ", path, 
-         "\nTip: If installing from source, ensure Rtools is installed and Makevars.win executed.")
+         "\nTip: If installing from source, ensure the build completed successfully.")
   }
   path
 }
@@ -159,7 +160,10 @@ rdesk_read_events <- function(proc) {
       # Any valid JSON from the launcher is an "event" or "message"
       parsed <- jsonlite::fromJSON(line, simplifyVector = FALSE)
       events <- c(events, list(parsed))
-    }, error = function(e) NULL)
+    }, error = function(e) {
+      message("[RDesk] Discarded non-JSON launcher line: ", substr(line, 1L, 120L))
+      NULL
+    })
   }
   events
 }

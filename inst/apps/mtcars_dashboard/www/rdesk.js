@@ -17,6 +17,11 @@
         return;
       }
 
+      if (envelope.type === "__reload_ui__") {
+        window.location.reload();
+        return;
+      }
+
       var type     = envelope.type;
       var payload  = envelope.payload || {};
       
@@ -35,20 +40,31 @@
     if (typeof window !== "undefined" && window.chrome && window.chrome.webview) {
       window.chrome.webview.addEventListener('message', handleMessage);
       _connected = true;
-      
-      // Flush any messages sent before bridge was ready
-      var q = _queue.slice();
-      _queue = [];
-      q.forEach(function (msg) { window.chrome.webview.postMessage(msg); });
-      
-      _ready_fns.forEach(function (fn) {
-        try { fn(); } catch (e) { console.error("[rdesk] ready fn error", e); }
-      });
-      console.log("[rdesk] Native IPC bridge connected.");
+      flushBridge();
+    } else if (typeof window !== "undefined" && window.rdesk_send_to_r) {
+      window.addEventListener('message', handleMessage);
+      _connected = true;
+      flushBridge();
     } else {
-      // WebView2 object might take a moment to inject
       setTimeout(initBridge, 50);
     }
+  }
+
+  function flushBridge() {
+    var q = _queue.slice();
+    _queue = [];
+    q.forEach(function (msg) {
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage(msg);
+      } else if (window.rdesk_send_to_r) {
+        window.rdesk_send_to_r(msg);
+      }
+    });
+    
+    _ready_fns.forEach(function (fn) {
+      try { fn(); } catch (e) { console.error("[rdesk] ready fn error", e); }
+    });
+    console.log("[rdesk] Native IPC bridge connected.");
   }
 
   var rdesk = {
@@ -72,10 +88,15 @@
         timestamp: Date.now() / 1000
       };
 
-      if (_connected && window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(JSON.stringify(msg));
+      var serialized = JSON.stringify(msg);
+      if (_connected) {
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage(serialized);
+        } else if (window.rdesk_send_to_r) {
+          window.rdesk_send_to_r(serialized);
+        }
       } else {
-        _queue.push(JSON.stringify(msg));
+        _queue.push(serialized);
       }
     },
 
@@ -139,11 +160,13 @@
       "align-items:center",
       "justify-content:center",
       "font-family:system-ui,sans-serif",
-      "color:#fff"
+      "color:#fff",
+      "backdrop-filter:blur(4px)"
     ].join(";");
     el.innerHTML = [
-      '<div style="text-align:center;max-width:320px;padding:32px;',
-      'background:rgba(30,30,30,0.95);border-radius:12px">',
+      '<div style="text-align:center;width:280px;padding:32px;',
+      'background:rgba(20,20,20,0.85);border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,0.3);',
+      'border:1px solid rgba(255,255,255,0.1)">',
       '<div id="__rdesk_spinner__" style="width:40px;height:40px;margin:0 auto 16px;',
       'border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;',
       'border-radius:50%;animation:rdesk-spin 0.8s linear infinite"></div>',
@@ -161,7 +184,7 @@
       '</div>'
     ].join("");
     var style = document.createElement("style");
-    style.textContent = "@keyframes rdesk-spin{to{transform:rotate(360deg)}}";
+    style.textContent = "@keyframes rdesk-spin{to{transform:rotate(360deg)}} #__rdesk_spinner_inner__{animation:rdesk-spin 1s ease-in-out infinite}";
     document.head.appendChild(style);
     document.body.appendChild(el);
     rdesk._overlay = el;
@@ -214,7 +237,7 @@
     };
     toast.style.cssText = [
       "position:fixed",
-      "bottom:32px",
+      "top:32px",
       "right:32px",
       "padding:12px 24px",
       "border-radius:10px",
@@ -225,7 +248,7 @@
       "font-family:system-ui,sans-serif",
       "z-index:11000",
       "opacity:0",
-      "transform: translateY(20px)",
+      "transform: translateY(-20px)",
       "transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
       "max-width:350px",
       "background:" + (colors[payload.type] || colors.info)
@@ -242,7 +265,7 @@
 
     setTimeout(function() {
       toast.style.opacity = "0";
-      toast.style.transform = "translateY(20px)";
+      toast.style.transform = "translateY(-20px)";
       setTimeout(function() {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
       }, 500);
