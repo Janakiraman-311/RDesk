@@ -52,11 +52,6 @@ Windows console window for the native GUI launcher binary.
 Appears only when the local machine cannot reach an NTP server. This note
 did NOT appear on win-builder. CRAN servers have unrestricted internet access.
 
-`devtools::check()` also emits a harmless Quarto/TMPDIR warning on Windows
-("running command quarto TMPDIR=... had status 1"). This is a Windows-only
-`devtools` quirk; it does not affect the check result and does not occur on
-CRAN's Linux servers.
-
 ## Acronyms and Technical Terms
 
 * IPC: Inter-Process Communication (standard R stdin/stdout pipes).
