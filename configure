@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# Detect OS
+UNAME_S=`uname -s`
+
+if [ "$UNAME_S" = "Darwin" ]; then
+  LAUNCHER_CXXFLAGS="-DWEBVIEW_COCOA=1 -I../inst/include -x objective-c++"
+  LAUNCHER_LIBS="-framework WebKit -framework Cocoa"
+else
+  # Linux/Unix - check for webkit2gtk
+  if pkg-config --exists webkit2gtk-4.1; then
+    WEBKIT_PKG="webkit2gtk-4.1"
+  else
+    WEBKIT_PKG="webkit2gtk-4.0"
+  fi
+  
+  GTK_CFLAGS=`pkg-config --cflags gtk+-3.0 $WEBKIT_PKG`
+  GTK_LIBS=`pkg-config --libs gtk+-3.0 $WEBKIT_PKG`
+  
+  LAUNCHER_CXXFLAGS="-DWEBVIEW_GTK=1 -I../inst/include $GTK_CFLAGS"
+  LAUNCHER_LIBS="$GTK_LIBS"
+fi
+
+# Substitute variables in src/Makevars.in to generate src/Makevars
+sed -e "s|@LAUNCHER_CXXFLAGS@|$LAUNCHER_CXXFLAGS|g" \
+    -e "s|@LAUNCHER_LIBS@|$LAUNCHER_LIBS|g" \
+    src/Makevars.in > src/Makevars
+
+exit 0

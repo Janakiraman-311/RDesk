@@ -1,0 +1,19 @@
+CXX_STD = CXX17
+OBJECTS = dummy.o
+LAUNCHER_BIN = ../inst/bin/rdesk-launcher
+
+LAUNCHER_CXXFLAGS = @LAUNCHER_CXXFLAGS@
+LAUNCHER_LIBS = @LAUNCHER_LIBS@
+
+all: $(SHLIB) $(LAUNCHER_BIN)
+	@if [ -n "$(R_PACKAGE_DIR)" ]; then \
+		mkdir -p "$(R_PACKAGE_DIR)/bin"; \
+		cp $(LAUNCHER_BIN) "$(R_PACKAGE_DIR)/bin/"; \
+	fi
+
+$(LAUNCHER_BIN): launcher.cpp
+	mkdir -p ../inst/bin
+	$(CXX) -std=c++17 $(LAUNCHER_CXXFLAGS) launcher.cpp $(LAUNCHER_LIBS) -o $(LAUNCHER_BIN)
+
+clean:
+	rm -f *.o *.so $(LAUNCHER_BIN)
