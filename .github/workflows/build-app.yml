@@ -2,11 +2,17 @@ name: build-app
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     env:
       RENV_PATHS_LIBRARY: renv/library
@@ -22,19 +28,28 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
 
+      - name: Configure DESCRIPTION for non-Windows installation
+        if: matrix.os != 'windows-latest'
+        run: |
+          Rscript -e "desc <- readLines('DESCRIPTION'); desc <- desc[!grepl('^OS_type:', desc)]; writeLines(desc, 'DESCRIPTION')"
+
+      - name: Make scripts executable
+        if: matrix.os != 'windows-latest'
+        run: |
+          chmod +x configure cleanup
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::devtools, any::rcmdcheck, any::withr
 
-      - name: Verify Rtools and Compilation
+      - name: Verify Rtools/Compiler and Install Package
         shell: Rscript {0}
         run: |
-          # This triggers Makevars.win compilation of the launcher
           devtools::install(pkg = ".", upgrade = FALSE, quick = TRUE)
           
-          # Verify binary was built and placed in inst/bin (dev-mode copy)
-          # OR that it's in the installed package library
-          launcher <- system.file("bin", "rdesk-launcher.exe", package = "RDesk")
+          # Verify binary was built and placed in the installed package library
+          binary_name <- if (.Platform$OS.type == "windows") "rdesk-launcher.exe" else "rdesk-launcher"
+          launcher <- system.file("bin", binary_name, package = "RDesk")
           if (launcher == "" || !file.exists(launcher)) {
             stop("Launcher binary not found after installation!")
           }
@@ -43,10 +58,10 @@ jobs:
       - name: Build App
         shell: Rscript {0}
         run: |
-          # build_app will now find the launcher inside the installed package RDesk
           RDesk::build_app(
             app_dir = "inst/apps/mtcars_dashboard", 
             app_name = "CarsAnalyser", 
+            out_dir = "dist",
             portable_r_method = "installer"
           )
 
@@ -54,6 +69,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CarsAnalyser-dist
+          name: CarsAnalyser-dist-${{ matrix.os }}
           path: dist/*
           retention-days: 30
