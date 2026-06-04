@@ -33,6 +33,11 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
 
+      - name: Configure DESCRIPTION for non-Windows installation
+        if: matrix.os != 'windows-latest'
+        run: |
+          Rscript -e "desc <- readLines('DESCRIPTION'); desc <- desc[!grepl('^OS_type:', desc)]; writeLines(desc, 'DESCRIPTION')"
+
       - uses: r-lib/actions/setup-pandoc@v2
 
       # ── Install check dependencies directly (no renv restore in CI) ────────
