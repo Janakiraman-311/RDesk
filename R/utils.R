@@ -66,6 +66,12 @@ rdesk_log <- function(message, level = "INFO", app_name = Sys.getenv("R_APP_NAME
   line <- sprintf("[%s] [%s] %s\n", timestamp, level, message)
   
   cat(line, file = log_file, append = TRUE)
+
+  # Console mirroring for developers
+  if (isTRUE(getOption("rdesk.verbose_log", TRUE)) && !rdesk_is_bundle()) {
+    console_line <- sprintf("[RDesk %s] %s", level, message)
+    message(console_line)
+  }
 }
 
 #' Resolve the www directory for an app

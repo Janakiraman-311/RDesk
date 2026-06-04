@@ -247,6 +247,8 @@ App <- R6::R6Class("App",
       msg_envelope <- rdesk_message(type, payload)
       msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
 
+      rdesk_log(sprintf("Sending message to UI [type=%s]", type), level = "INFO", app_name = private$.title)
+
       if (!is.null(private$.window_proc) && private$.window_proc$is_alive()) {
         # Use internal command SEND_MSG to bridge to PostWebMessage
         rdesk_send_cmd(private$.window_proc, "SEND_MSG", payload = msg_json)
@@ -856,6 +858,7 @@ App <- R6::R6Class("App",
  
     .handle_launcher_event = function(evt) {
       if (!is.null(evt$event)) {
+        rdesk_log(sprintf("Launcher event received: %s (id=%s)", evt$event, evt$id), level = "INFO", app_name = private$.title)
         if (evt$event == "MENU_CLICK") {
           callback <- private$.menu_actions[[evt$id]]
           if (is.function(callback)) {
@@ -890,6 +893,7 @@ App <- R6::R6Class("App",
         }
       } else if (!is.null(evt$type)) {
         # It's a JS -> R message forwarded by launcher
+        rdesk_log(sprintf("Received message from UI [type=%s]", evt$type), level = "INFO", app_name = private$.title)
         private$.router$dispatch(evt$type, evt$payload)
       }
     },
