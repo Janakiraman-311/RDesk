@@ -829,6 +829,7 @@ static void set_system_tray_menu(const std::string&) {}
 @interface RDeskMenuHandler : NSObject
 - (void)menuClicked:(id)sender;
 - (void)statusItemClicked:(id)sender;
+- (void)activateApp;
 @end
 
 @implementation RDeskMenuHandler
@@ -852,6 +853,11 @@ static void set_system_tray_menu(const std::string&) {}
     out["event"] = "TRAY_CLICK";
     out["button"] = isRight ? "right" : "left";
     write_stdout(out.dump());
+}
+
+- (void)activateApp {
+    [NSApp activateIgnoringOtherApps:YES];
+    [[NSApp mainWindow] makeKeyAndOrderFront:nil];
 }
 @end
 
@@ -1621,10 +1627,10 @@ int main(int argc, char* argv[]) {
 
 #ifdef __APPLE__
         rdesk_install_default_macos_menu();
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [NSApp activateIgnoringOtherApps:YES];
-            [[NSApp mainWindow] makeKeyAndOrderFront:nil];
-        });
+        if (!g_menu_handler) {
+            g_menu_handler = [[RDeskMenuHandler alloc] init];
+        }
+        [g_menu_handler performSelectorOnMainThread:@selector(activateApp) withObject:nil waitUntilDone:NO];
 #endif
 
         w.run();
