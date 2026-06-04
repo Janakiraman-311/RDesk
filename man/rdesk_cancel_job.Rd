@@ -7,11 +7,22 @@
 rdesk_cancel_job(job_id)
 }
 \arguments{
-\item{job_id}{The ID of the job to cancel.}
+\item{job_id}{Character string. The job ID returned by \code{\link[=rdesk_async]{rdesk_async()}}.}
 }
 \value{
-Invisible TRUE if cancelled, FALSE if not found.
+\code{invisible(TRUE)} if the job was found and cancelled,
+\code{invisible(FALSE)} if no job with that ID exists.
 }
 \description{
-Cancel a running background job
+Attempts to stop a background job and remove it from the job registry. The
+behaviour differs between the two async backends:
+\describe{
+\item{callr}{The subprocess is killed immediately via \code{process$kill()}.}
+\item{mirai}{The task inside the persistent daemon cannot be interrupted.
+The job is removed from the registry only, so its \code{on_done} and
+\code{on_error} callbacks are suppressed. The daemon itself keeps running.}
+}
+}
+\seealso{
+\code{\link[=rdesk_async]{rdesk_async()}}, \code{\link[=rdesk_jobs_list]{rdesk_jobs_list()}}
 }

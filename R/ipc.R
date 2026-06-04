@@ -4,10 +4,39 @@ NULL
 
 #' Construct a standard RDesk IPC message envelope
 #'
-#' @param type The message type/action name
-#' @param payload A list representing the message data
-#' @param version The contract version (default "1.0")
-#' @return A list representing the standard JSON envelope
+#' @description
+#' Builds the JSON envelope that both R and the JavaScript frontend use to
+#' exchange typed messages. Each envelope carries a unique ID, a message type
+#' string, a contract version, an arbitrary payload, and a millisecond-precision
+#' Unix timestamp.
+#'
+#' @details
+#' The envelope schema is:
+#' \preformatted{
+#'   {
+#'     "id":        "msg_<epoch_ms>_<random>",
+#'     "type":      "<action_name>",
+#'     "version":   "1.0",
+#'     "payload":   { ... },
+#'     "timestamp": <unix_seconds>
+#'   }
+#' }
+#' Large payloads (above 1 MB) trigger a warning so developers notice
+#' performance-sensitive serialization early.
+#'
+#' @param type    Character string. The message type / action name (e.g. \code{"get_data"}).
+#' @param payload A named list representing the message data. Defaults to an empty list.
+#' @param version IPC contract version string. Defaults to the \code{rdesk.ipc_version} option
+#'   (currently \code{"1.0"}).
+#' @return A named list representing the standard JSON envelope. Pass this directly to
+#'   \code{jsonlite::toJSON()} or to \code{app$send()}.
+#' @seealso [rdesk_parse_message()] for the corresponding deserializer.
+#' @examples
+#' # Construct a typed message with a simple payload
+#' msg <- rdesk_message("get_data", list(filter = "cyl == 6"))
+#' stopifnot(msg$type == "get_data")
+#' stopifnot(msg$version == "1.0")
+#' stopifnot(!is.null(msg$id))
 #' @export
 rdesk_message <- function(type, payload = list(), version = getOption("rdesk.ipc_version", "1.0")) {
   msg <- list(
@@ -33,8 +62,26 @@ rdesk_message <- function(type, payload = list(), version = getOption("rdesk.ipc
 
 #' Parse and validate an incoming RDesk IPC message
 #'
-#' @param raw_json The raw JSON string from the frontend
-#' @return A list containing the validated message components, or NULL if invalid
+#' @description
+#' Deserializes a raw JSON string received from the JavaScript frontend (or from
+#' a bundled launcher via stdin) into a validated R list. Performs lightweight
+#' structural validation: both \code{type} and \code{payload} fields must be
+#' present. Launcher/native events (which carry an \code{event} field instead)
+#' bypass validation and are returned as-is.
+#'
+#' @param raw_json A single-element character string containing the JSON to parse.
+#' @return A named list containing the validated message components, or
+#'   \code{NULL} if the JSON is malformed or the required fields are absent.
+#' @seealso [rdesk_message()] for constructing outgoing messages.
+#' @examples
+#' # Round-trip: construct then parse
+#' msg <- rdesk_message("ping", list(ts = 1234))
+#' raw <- jsonlite::toJSON(msg, auto_unbox = TRUE)
+#' parsed <- rdesk_parse_message(raw)
+#' stopifnot(parsed$type == "ping")
+#'
+#' # Malformed JSON returns NULL
+#' stopifnot(is.null(rdesk_parse_message("not_json")))
 #' @export
 rdesk_parse_message <- function(raw_json) {
   msg <- tryCatch(jsonlite::fromJSON(raw_json, simplifyVector = FALSE), 

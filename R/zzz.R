@@ -2,32 +2,41 @@
 NULL
 
 # R/zzz.R
-# Package initialization logic
+# Package initialization hooks (.onLoad / .onAttach).
+# .onLoad  - runs when the package is loaded (library(RDesk) or require(RDesk)).
+# .onAttach - runs after .onLoad and is used for startup messages visible to the user.
 
 .onLoad <- function(libname, pkgname) {
-  # Set default IPC version for the contract
+  # Pin IPC contract version so downstream code has a stable default.
   options(rdesk.ipc_version = "1.0")
 
-  # CI Guard: Detect if running in GitHub Actions and set async backend
+  # CI guard: GitHub Actions runners are headless daemon sessions.
+  # WKWebView cannot open a real window there, so we set ci_mode = TRUE
+  # and force the callr backend (mirai persistent daemons can hang in CI).
   if (Sys.getenv("GITHUB_ACTIONS") == "true") {
     options(rdesk.ci_mode    = TRUE)
-    options(rdesk.async_backend = "callr")  # mirai daemons fail in CI headless
+    options(rdesk.async_backend = "callr")
   } else {
-    # Default to mirai if available, fallback to callr
+    # In a normal user session prefer mirai (persistent daemon pool) when
+    # available because it reuses workers across tasks. Fall back to callr
+    # (on-demand subprocess) when mirai is not installed.
     backend <- if (requireNamespace("mirai", quietly = TRUE)) "mirai" else "callr"
     options(rdesk.async_backend = backend)
   }
 
-  # Ensure clean job registry on load to prevent stale state across sessions
+  # Clear any stale job/app state that might persist between R sessions
+  # when the package is reloaded without a fresh R process.
   rm(list = ls(envir = .rdesk_jobs), envir = .rdesk_jobs)
   rm(list = ls(envir = .rdesk_apps), envir = .rdesk_apps)
 }
 
 .onAttach <- function(libname, pkgname) {
-  # Platform Guard: Provide a clear message on non-Windows platforms
+  # Inform users on non-Windows platforms that GUI features require Windows 10+.
+  # The IPC layer and async utilities work on all platforms; only the native
+  # WKWebView/Win32 launcher is Windows-specific.
   if (.Platform$OS.type != "windows") {
     packageStartupMessage(
-      "[RDesk] RDesk requires Windows 10 or later.\n",
+      "[RDesk] RDesk requires Windows 10 or later for native window support.\n",
       "  macOS and Linux support is planned for v2.0.\n",
       "  See: https://github.com/Janakiraman-311/RDesk"
     )
@@ -36,9 +45,10 @@ NULL
   packageStartupMessage(
     "[RDesk] v", utils::packageVersion("RDesk"), " ready."
   )
-  
-  # Check for launcher presence
-  # Note: rdesk_launcher_path() would stop() here, so we use file.exists manually
+
+  # Verify that the native launcher binary was compiled and installed.
+  # rdesk_launcher_path() calls stop(), so we replicate the file check here
+  # to produce a friendlier message instead of an error at attach time.
   bin_name <- if (.Platform$OS.type == "windows") "rdesk-launcher.exe" else "rdesk-launcher"
   path <- system.file("bin", bin_name, package = "RDesk")
   if (path == "" || !file.exists(path)) {

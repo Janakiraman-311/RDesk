@@ -7,17 +7,49 @@
 rdesk_storage(app_name, type = c("local", "roaming", "shared"))
 }
 \arguments{
-\item{app_name}{The application name, used as the subfolder name.}
+\item{app_name}{Character string. The application name, used as the subfolder name.}
 
-\item{type}{Storage type: \code{"roaming"} (mapped to \verb{\%APPDATA\%}, for settings that roam with the user),
-\code{"local"} (mapped to \verb{\%LOCALAPPDATA\%}, for local user data/cache), or
-\code{"shared"} (mapped to \verb{\%PROGRAMDATA\%}, for machine-wide common data).}
+\item{type}{Storage type: one of \code{"roaming"} (user roaming folder, APPDATA),
+\code{"local"} (user local folder, LOCALAPPDATA), or \code{"shared"}
+(machine-wide folder, PROGRAMDATA).}
 }
 \value{
-An \code{RDeskStorage} R6 instance.
+An \code{RDeskStorage} R6 instance with \code{get()}, \code{set()},
+\code{remove()}, \code{clear()}, \code{keys()}, and \code{path()} methods.
 }
 \description{
 \code{rdesk_storage} provides file-based persistent storage for desktop applications.
 On Windows, it handles multi-user data isolation by mapping key-value stores to the
 correct system folder depending on the requested type.
+}
+\details{
+The three storage types correspond to different Windows user profile folders:
+\describe{
+\item{roaming}{User roaming folder (APPDATA). Suitable for per-user preferences
+that should follow the user across machines when roaming profiles are enabled.}
+\item{local}{User local folder (LOCALAPPDATA). Suitable for cache, history,
+or data that is specific to one machine.}
+\item{shared}{Machine-wide folder (PROGRAMDATA). Suitable for configuration
+shared by all users on the same computer.}
+}
+Outside a bundled application (e.g. during development or R CMD check), all
+storage types fall back to a subdirectory of \code{tempdir()} to comply with
+CRAN policies on persistent file writes.
+}
+\examples{
+# Create a local storage manager for an app called "MyApp"
+s <- rdesk_storage("MyApp", "local")
+
+# Store and retrieve a value
+s$set("last_filter", "cyl == 6")
+stopifnot(s$get("last_filter") == "cyl == 6")
+
+# List all keys
+s$keys()
+
+# Remove a specific key
+s$remove("last_filter")
+}
+\seealso{
+\link{RDeskStorage} for the full method reference.
 }

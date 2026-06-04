@@ -1,7 +1,18 @@
 # R/utils.R
 
 #' Check if the app is running in a bundled (standalone) environment
-#' @return TRUE if running in a bundle, FALSE otherwise
+#'
+#' @description
+#' Returns \code{TRUE} when the current R process was launched by the RDesk
+#' stub binary as part of a compiled standalone application. The stub sets the
+#' \code{R_BUNDLE_APP} environment variable to \code{"1"} before starting R.
+#' Use this predicate to switch between development-time and runtime paths
+#' (e.g. logging directories, asset resolution).
+#'
+#' @return \code{TRUE} if running inside a bundled .exe or .app, \code{FALSE} otherwise.
+#' @examples
+#' # Returns FALSE in a normal interactive R session
+#' rdesk_is_bundle()
 #' @export
 rdesk_is_bundle <- function() {
   # This environment variable is set by stub.cpp
@@ -158,8 +169,27 @@ rdesk_resolve_www <- function(www_dir) {
 
 #' Convert a data frame to a list suitable for JSON serialization
 #'
-#' @param df Data frame to convert
-#' @return A list with 'rows' (list of lists) and 'cols' (character vector)
+#' @description
+#' Converts a data frame into the two-part list structure that \code{rdesk.js}
+#' expects: a \code{rows} component (list of per-row named lists) and a
+#' \code{cols} component (character vector of column names). Empty or NULL
+#' data frames return empty containers rather than an error.
+#'
+#' @param df A data frame to convert. NULL or zero-row data frames are handled gracefully.
+#' @return A list with two elements:
+#'   \describe{
+#'     \item{rows}{A list of named lists, one per row.}
+#'     \item{cols}{A character vector of column names.}
+#'   }
+#' @seealso [rdesk_plot_to_base64()] for converting plot output.
+#' @examples
+#' result <- rdesk_df_to_list(head(mtcars, 3))
+#' stopifnot(length(result$rows) == 3)
+#' stopifnot("mpg" %in% result$cols)
+#'
+#' # NULL input returns empty containers
+#' empty <- rdesk_df_to_list(NULL)
+#' stopifnot(length(empty$rows) == 0)
 #' @export
 rdesk_df_to_list <- function(df) {
   if (is.null(df) || nrow(df) == 0) {
@@ -173,11 +203,29 @@ rdesk_df_to_list <- function(df) {
 
 #' Convert a ggplot2 object to a base64-encoded PNG string
 #'
-#' @param plot A ggplot2 object
-#' @param width Width in inches (default 6)
-#' @param height Height in inches (default 4)
-#' @param dpi DPI resolution (default 96)
-#' @return A base64-encoded PNG string or a fallback error plot
+#' @description
+#' Renders a ggplot2 object to a temporary PNG file and returns the result as a
+#' Base64-encoded data URI string (\code{data:image/png;base64,...}). This
+#' format can be assigned directly to an \code{<img>} tag \code{src} attribute
+#' in the JavaScript frontend via \code{app$send()}.
+#'
+#' If ggplot2 is not installed, the function stops with a helpful message.
+#' If rendering fails, a fallback error plot is returned instead of \code{NULL}.
+#'
+#' @param plot   A ggplot2 object to render.
+#' @param width  Width of the rendered image in inches. Default \code{6}.
+#' @param height Height of the rendered image in inches. Default \code{4}.
+#' @param dpi    Dots per inch resolution. Default \code{96}.
+#' @return A single-element character string containing the data URI,
+#'   or the output of [rdesk_error_plot()] if rendering fails.
+#' @seealso [rdesk_error_plot()] for the fallback error plot.
+#' @examples
+#' if (requireNamespace("ggplot2", quietly = TRUE)) {
+#'   p <- ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) +
+#'        ggplot2::geom_point()
+#'   b64 <- rdesk_plot_to_base64(p)
+#'   stopifnot(grepl("^data:image/png;base64,", b64))
+#' }
 #' @export
 rdesk_plot_to_base64 <- function(plot, width = 6, height = 4, dpi = 96) {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -206,8 +254,17 @@ rdesk_plot_to_base64 <- function(plot, width = 6, height = 4, dpi = 96) {
 
 #' Generate a base64-encoded error plot
 #'
-#' @param message Error message to display (optional)
-#' @return A base64-encoded PNG string
+#' @description
+#' Renders a minimal ggplot2 plot containing the supplied error message text and
+#' returns it as a Base64 data URI. Used as a safe fallback by
+#' [rdesk_plot_to_base64()] when plot generation fails. Returns \code{NULL}
+#' silently if ggplot2 is not installed.
+#'
+#' @param message Character string to display on the error plot.
+#'   Defaults to \code{"Error generating plot"}.
+#' @return A single-element character string (data URI) or \code{NULL} if
+#'   ggplot2 is not available.
+#' @seealso [rdesk_plot_to_base64()]
 #' @export
 rdesk_error_plot <- function(message = "Error generating plot") {
   if (!requireNamespace("ggplot2", quietly = TRUE)) {

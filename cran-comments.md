@@ -4,7 +4,7 @@ This is a feature and bug-fix update following the 1.0.5 patch release on CRAN.
 
 ### Change summary
 
-**New features (Windows-only — package has OS_type: windows)**
+**New features (Windows-only - package has OS_type: windows)**
 
 * **Live Hot Reload** (`rdesk_watch()`): monitors `R/` and `www/` directories
   during development and reloads changed files without restarting the app.

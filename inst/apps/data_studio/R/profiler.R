@@ -1,5 +1,5 @@
 # Pure R data profiling functions
-# No RDesk dependencies — fully testable in isolation
+# No RDesk dependencies - fully testable in isolation
 
 profile_overview <- function(df) {
   list(

@@ -805,7 +805,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
 
   bundle_name <- paste0(app_name, ".app")
   
-  # Correction 4 — DMG staging directory: Route hdiutil through a space-free temp dir
+  # Correction 4 - DMG staging directory: Route hdiutil through a space-free temp dir
   stage_parent <- file.path(tempdir(), "rdesk_staging")
   if (dir.exists(stage_parent)) unlink(stage_parent, recursive = TRUE)
   dir.create(stage_parent, recursive = TRUE)

@@ -251,8 +251,20 @@ rdesk_poll_jobs <- function() {
 
 #' Cancel a running background job
 #'
-#' @param job_id The ID of the job to cancel.
-#' @return Invisible TRUE if cancelled, FALSE if not found.
+#' @description
+#' Attempts to stop a background job and remove it from the job registry. The
+#' behaviour differs between the two async backends:
+#' \describe{
+#'   \item{callr}{The subprocess is killed immediately via \code{process$kill()}.}
+#'   \item{mirai}{The task inside the persistent daemon cannot be interrupted.
+#'     The job is removed from the registry only, so its \code{on_done} and
+#'     \code{on_error} callbacks are suppressed. The daemon itself keeps running.}
+#' }
+#'
+#' @param job_id Character string. The job ID returned by [rdesk_async()].
+#' @return \code{invisible(TRUE)} if the job was found and cancelled,
+#'   \code{invisible(FALSE)} if no job with that ID exists.
+#' @seealso [rdesk_async()], [rdesk_jobs_list()]
 #' @export
 rdesk_cancel_job <- function(job_id) {
   if (exists(job_id, envir = .rdesk_jobs)) {
@@ -286,7 +298,19 @@ rdesk_cancel_job <- function(job_id) {
 
 #' Check if any background jobs are pending
 #'
-#' @return Number of pending jobs.
+#' @description
+#' Returns the number of background jobs currently registered in the RDesk job
+#' registry. A value greater than zero means at least one task is still running
+#' or has been submitted but not yet polled for completion.
+#'
+#' This function is safe to call from the event loop or from tests without
+#' opening a window.
+#'
+#' @return Integer. Number of pending jobs (0 means all tasks are complete).
+#' @seealso [rdesk_jobs_list()] for more detail about each pending job.
+#' @examples
+#' # Fast, non-interactive task check (safe to run unconditionally)
+#' rdesk_jobs_pending()
 #' @export
 rdesk_jobs_pending <- function() {
   length(ls(.rdesk_jobs, pattern = "^job_"))
@@ -294,7 +318,20 @@ rdesk_jobs_pending <- function() {
 
 #' List currently pending background jobs
 #'
-#' @return A data.frame with job ID, started time, backend, and app ID.
+#' @description
+#' Returns a data frame snapshot of all jobs currently registered in the
+#' RDesk job registry. Useful for debugging and monitoring from the R console
+#' while an application is running.
+#'
+#' @return A \code{data.frame} with the following columns:
+#'   \describe{
+#'     \item{job_id}{Character. Unique job identifier.}
+#'     \item{started}{POSIXct. Time the job was submitted.}
+#'     \item{backend}{Character. Either \code{"mirai"} or \code{"callr"}.}
+#'     \item{app_id}{Character. ID of the App instance that owns the job, or \code{NA}.}
+#'   }
+#'   Returns a zero-row data frame when no jobs are pending.
+#' @seealso [rdesk_jobs_pending()], [rdesk_cancel_job()]
 #' @export
 rdesk_jobs_list <- function() {
   job_ids <- ls(.rdesk_jobs, pattern = "^job_")
@@ -472,9 +509,31 @@ async <- function(fn,
 #' to the main application thread. The main thread will automatically capture these
 #' updates and refresh the UI loading overlay.
 #'
-#' @param value Numeric value from 0 to 100 representing the progress percentage.
+#' @details
+#' Call this function from inside the function passed to [async()] or
+#' [rdesk_async()]. It writes a JSON progress record to a temporary file that
+#' the main event loop polls every iteration. The file is cleaned up automatically
+#' when the job completes.
+#'
+#' The progress value should increase monotonically from 0 to 100. The loading
+#' overlay in the frontend updates with each new value received.
+#'
+#' @param value   Numeric value from 0 to 100 representing the progress percentage.
 #' @param message Optional character string describing the current step/state.
-#' @return Invisible `TRUE` if progress was written, `FALSE` otherwise.
+#'   Shown beneath the progress bar in the loading overlay.
+#' @return Invisible \code{TRUE} if progress was written successfully,
+#'   \code{FALSE} if the progress file path is not set (e.g. outside a background task).
+#' @seealso [async()], [rdesk_async()]
+#' @examples
+#' if (interactive()) {
+#'   app$on_message("heavy_task", async(function(payload) {
+#'     for (i in 1:10) {
+#'       Sys.sleep(0.5)
+#'       async_progress(i * 10, paste("Step", i, "of 10"))
+#'     }
+#'     "done"
+#'   }, app = app))
+#' }
 #' @export
 async_progress <- function(value, message = NULL) {
   progress_file <- getOption("rdesk.progress_file")

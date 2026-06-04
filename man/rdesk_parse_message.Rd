@@ -7,11 +7,29 @@
 rdesk_parse_message(raw_json)
 }
 \arguments{
-\item{raw_json}{The raw JSON string from the frontend}
+\item{raw_json}{A single-element character string containing the JSON to parse.}
 }
 \value{
-A list containing the validated message components, or NULL if invalid
+A named list containing the validated message components, or
+\code{NULL} if the JSON is malformed or the required fields are absent.
 }
 \description{
-Parse and validate an incoming RDesk IPC message
+Deserializes a raw JSON string received from the JavaScript frontend (or from
+a bundled launcher via stdin) into a validated R list. Performs lightweight
+structural validation: both \code{type} and \code{payload} fields must be
+present. Launcher/native events (which carry an \code{event} field instead)
+bypass validation and are returned as-is.
+}
+\examples{
+# Round-trip: construct then parse
+msg <- rdesk_message("ping", list(ts = 1234))
+raw <- jsonlite::toJSON(msg, auto_unbox = TRUE)
+parsed <- rdesk_parse_message(raw)
+stopifnot(parsed$type == "ping")
+
+# Malformed JSON returns NULL
+stopifnot(is.null(rdesk_parse_message("not_json")))
+}
+\seealso{
+\code{\link[=rdesk_message]{rdesk_message()}} for constructing outgoing messages.
 }
