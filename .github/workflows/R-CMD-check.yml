@@ -8,7 +8,11 @@ on:
 
 jobs:
   R-CMD-check:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     env:
       RENV_PATHS_LIBRARY: renv/library
       RENV_CONFIG_AUTOLOADER_ENABLED: "false"
@@ -88,6 +92,15 @@ jobs:
             cat(paste(res$warnings, collapse = "\n"))
           }
         shell: Rscript {0}
+
+      - name: Verify macOS Universal Binaries
+        if: matrix.os == 'macos-latest'
+        run: |
+          R CMD INSTALL .
+          lipo -info inst/bin/rdesk-launcher
+          lipo -info inst/bin/rdesk-stub-macos
+          codesign --verify --verbose inst/bin/rdesk-launcher
+          codesign --verify --verbose inst/bin/rdesk-stub-macos
 
       - name: Upload check results
         if: failure()

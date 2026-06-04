@@ -951,7 +951,6 @@ static void remove_system_tray() {
         [[NSStatusBar systemStatusBar] removeStatusItem:g_status_item];
         g_status_item = nil;
     }
-}
 
 static void set_system_tray_menu(const std::string& payload_json) {
     if (!g_menu_handler) {
@@ -964,6 +963,29 @@ static void set_system_tray_menu(const std::string& payload_json) {
             [g_status_item setMenu:g_tray_menu];
         }
     } catch (...) {}
+}
+
+static void rdesk_install_default_macos_menu() {
+    if (getenv("RDESK_HAS_CUSTOM_MENU")) return;
+
+    NSMenu* mainMenu = [[NSMenu alloc] initWithTitle:@"MainMenu"];
+    [NSApp setMainMenu:mainMenu];
+
+    NSMenuItem* appItem = [mainMenu addItemWithTitle:@"" action:nil keyEquivalent:@""];
+    NSMenu* appMenu = [[NSMenu alloc] initWithTitle:@""];
+    [appMenu addItemWithTitle:@"Quit" action:@selector(terminate:) keyEquivalent:@"q"];
+    [appItem setSubmenu:appMenu];
+
+    NSMenuItem* editItem = [mainMenu addItemWithTitle:@"Edit" action:nil keyEquivalent:@""];
+    NSMenu* editMenu = [[NSMenu alloc] initWithTitle:@"Edit"];
+    [editMenu addItemWithTitle:@"Undo" action:@selector(undo:) keyEquivalent:@"z"];
+    [editMenu addItemWithTitle:@"Redo" action:@selector(redo:) keyEquivalent:@"Z"];
+    [editMenu addItem:[NSMenuItem separatorItem]];
+    [editMenu addItemWithTitle:@"Cut" action:@selector(cut:) keyEquivalent:@"x"];
+    [editMenu addItemWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"];
+    [editMenu addItemWithTitle:@"Paste" action:@selector(paste:) keyEquivalent:@"v"];
+    [editMenu addItemWithTitle:@"Select All" action:@selector(selectAll:) keyEquivalent:@"a"];
+    [editItem setSubmenu:editMenu];
 }
 #endif
 
@@ -1434,6 +1456,10 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
+#ifdef __APPLE__
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+#endif
+
     try {
         webview::webview w(true, nullptr);
         {
@@ -1591,6 +1617,14 @@ int main(int argc, char* argv[]) {
                 })
             )
         );
+#endif
+
+#ifdef __APPLE__
+        rdesk_install_default_macos_menu();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [NSApp activateIgnoringOtherApps:YES];
+            [[NSApp mainWindow] makeKeyAndOrderFront:nil];
+        });
 #endif
 
         w.run();

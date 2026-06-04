@@ -123,6 +123,17 @@ build_app <- function(app_dir = ".",
   if (is.null(app_name)) app_name <- "MyRDeskApp"
   if (is.null(version))  version  <- "1.0.0"
 
+  # Route to macOS app bundler on Darwin systems
+  if (.Platform$OS.type != "windows" && Sys.info()["sysname"] == "Darwin") {
+    return(rdesk_build_macos_app(
+      app_dir     = app_dir,
+      app_name    = app_name,
+      app_version = version,
+      out_dir     = out_dir,
+      sign        = TRUE
+    ))
+  }
+
   # ---- Pre-flight Validation -----------------------------------------------
   rdesk_validate_build_inputs(
     app_dir = app_dir,
@@ -762,4 +773,245 @@ rdesk_snapshot_bundle <- function(lib_dir, stage_root) {
   names(lock_entries) <- pkg_names
   lockfile <- list(R = list(Version = paste0(R.version$major, ".", R.version$minor), Repositories = list(list(Name = "CRAN", URL = "https://cloud.r-project.org"))), Packages = lock_entries)
   jsonlite::write_json(lockfile, file.path(stage_root, "renv.lock"), pretty = TRUE, auto_unbox = TRUE)
+}
+
+# ---- macOS Bundler and Helpers -----------------------------------------------
+
+rdesk_build_macos_app <- function(app_dir, app_name,
+                                  app_version = "1.0.0",
+                                  out_dir     = tempdir(),
+                                  sign        = TRUE) {
+
+  bundle_name <- paste0(app_name, ".app")
+  
+  # Correction 4 — DMG staging directory: Route hdiutil through a space-free temp dir
+  stage_parent <- file.path(tempdir(), "rdesk_staging")
+  if (dir.exists(stage_parent)) unlink(stage_parent, recursive = TRUE)
+  dir.create(stage_parent, recursive = TRUE)
+
+  bundle_path <- file.path(stage_parent, bundle_name)
+  contents    <- file.path(bundle_path, "Contents")
+
+  message("[RDesk] Building macOS app bundle: ", bundle_name)
+
+  # 1. Create directory structure
+  dirs <- c(
+    file.path(contents, "MacOS"),
+    file.path(contents, "Resources", "app", "www"),
+    file.path(contents, "Resources", "bin"),
+    file.path(contents, "Resources", "packages", "library"),
+    file.path(contents, "Resources", "R-runtime"),
+    file.path(contents, "Frameworks")
+  )
+  lapply(dirs, dir.create, recursive = TRUE, showWarnings = FALSE)
+
+  # 2. Compile launcher stub on the fly and store at Contents/MacOS/{{APP_NAME}}
+  # This acts as the CFBundleExecutable (Correction 2)
+  stub_c_src <- system.file("stub", "stub_macos.c", package = "RDesk")
+  if (stub_c_src == "") {
+    stub_c_src <- file.path(getwd(), "inst", "stub", "stub_macos.c")
+  }
+  if (!file.exists(stub_c_src)) {
+    stop("[build_app] Could not locate macOS stub C source file.")
+  }
+
+  tmp_c <- file.path(tempdir(), paste0("stub_", digest::digest(app_name, algo="crc32"), ".c"))
+  lines <- readLines(stub_c_src)
+  lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE)
+  writeLines(lines, tmp_c)
+
+  stub_dst <- file.path(contents, "MacOS", app_name)
+  message("[RDesk] Compiling stub binary on the fly...")
+  # Compile as universal stub binary
+  ret <- system2("clang", c("-arch", "arm64", "-arch", "x86_64", shQuote(tmp_c), "-o", shQuote(stub_dst)))
+  if (ret != 0) {
+    message("[RDesk]   Universal stub compilation failed. Falling back to native architecture compilation...")
+    ret <- system2("clang", c(shQuote(tmp_c), "-o", shQuote(stub_dst)))
+    if (ret != 0) {
+      stop("[build_app] Failed to compile macOS launcher stub.")
+    }
+  }
+  Sys.chmod(stub_dst, "0755")
+  file.remove(tmp_c)
+
+  # 3. Copy launcher to Resources/bin/ (Correction 2)
+  launcher_src <- rdesk_launcher_path()
+  launcher_dst <- file.path(contents, "Resources", "bin", "rdesk-launcher")
+  file.copy(launcher_src, launcher_dst)
+  Sys.chmod(launcher_dst, "0755")
+
+  # 4. Copy app code
+  message("[RDesk] Copying app files...")
+  rdesk_copy_dir(app_dir, file.path(contents, "Resources", "app"), exclude = rdesk_app_exclusions())
+
+  # 5. Copy R runtime (from developer's installation)
+  message("[RDesk] Copying R runtime...")
+  r_home     <- R.home()
+  r_dst      <- file.path(contents, "Resources", "R-runtime", "R")
+  dir.create(r_dst, recursive = TRUE)
+  for (d in c("bin", "lib", "library", "etc", "share", "modules")) {
+    src <- file.path(r_home, d)
+    if (dir.exists(src)) file.copy(src, r_dst, recursive = TRUE)
+  }
+
+  # 6. Bundle packages
+  message("[RDesk] Bundling packages...")
+  pkg_dst <- file.path(contents, "Resources", "packages", "library")
+  
+  core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", 
+                 "ggplot2", "dplyr", "digest", "zip", "callr", "httpuv", 
+                 "mirai", "nanonext", "rcmdcheck", "renv", "rstudioapi")
+  
+  desc_path <- file.path(app_dir, "DESCRIPTION")
+  extra_pkgs <- character(0)
+  if (file.exists(desc_path)) {
+    desc <- read.dcf(desc_path)
+    for (field in c("Depends", "Imports", "Suggests")) {
+      if (field %in% colnames(desc)) {
+        val <- as.character(desc[1, field])
+        val_clean <- gsub("\\([^)]+\\)", "", val)
+        pkgs <- trimws(unlist(strsplit(val_clean, ",")))
+        pkgs <- pkgs[pkgs != "" & pkgs != "R" & pkgs != "RDesk"]
+        extra_pkgs <- c(extra_pkgs, pkgs)
+      }
+    }
+  }
+  all_pkgs <- unique(c(core_pkgs, extra_pkgs))
+  rdesk_install_packages_to(all_pkgs, pkg_dst, paste0(R.version$major, ".", R.version$minor))
+
+  # Copy RDesk package directory directly to pkg_dst
+  installed_rdesk <- system.file(package = "RDesk")
+  if (nzchar(installed_rdesk)) {
+    rdesk_copy_dir(installed_rdesk, file.path(pkg_dst, "RDesk"))
+  }
+
+  # 7. Fix dynamic library paths (otool and install_name_tool)
+  rdesk_fix_macos_rpaths(bundle_path)
+
+  # 8. Generate Info.plist
+  rdesk_write_info_plist(contents, app_name, app_version)
+
+  # 9. Write PkgInfo
+  writeLines("APPL????", file.path(contents, "PkgInfo"))
+
+  # 10. Copy icon if exists
+  icon_src <- file.path(app_dir, "inst", "assets", "AppIcon.icns")
+  if (file.exists(icon_src)) {
+    file.copy(icon_src, file.path(contents, "Resources", "AppIcon.icns"))
+  } else {
+    alt_icon <- file.path(app_dir, "AppIcon.icns")
+    if (file.exists(alt_icon)) {
+      file.copy(alt_icon, file.path(contents, "Resources", "AppIcon.icns"))
+    }
+  }
+
+  # 11. Ad-hoc code sign
+  if (sign) rdesk_sign_macos_app(bundle_path)
+
+  # 12. Create DMG
+  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  dmg_path <- file.path(normalizePath(out_dir), paste0(app_name, "-", app_version, ".dmg"))
+  if (file.exists(dmg_path)) file.remove(dmg_path)
+
+  message("[RDesk] Packaging DMG...")
+  system2("hdiutil", c(
+    "create", "-volname", shQuote(app_name),
+    "-srcfolder", shQuote(bundle_path),
+    "-ov", "-format", "UDZO",
+    shQuote(dmg_path)
+  ))
+
+  # Clean up staging area
+  unlink(stage_parent, recursive = TRUE)
+
+  message("[RDesk] macOS bundle output directory: ", out_dir)
+  message("[RDesk] Done! DMG built at: ", dmg_path)
+  invisible(list(bundle = file.path(out_dir, bundle_name), dmg = dmg_path))
+}
+
+rdesk_fix_macos_rpaths <- function(app_bundle_path) {
+  if (.Platform$OS.type != "unix" || Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
+
+  message("[RDesk] Fixing macOS dynamic library paths...")
+
+  libs <- c(
+    list.files(app_bundle_path, pattern = "\\.so$", recursive = TRUE, full.names = TRUE),
+    list.files(app_bundle_path, pattern = "\\.dylib$", recursive = TRUE, full.names = TRUE)
+  )
+
+  for (lib in libs) {
+    result <- system2("otool", c("-L", shQuote(lib)), stdout = TRUE, stderr = FALSE)
+    has_absolute <- any(grepl("/Library/Frameworks/R", result))
+
+    if (has_absolute) {
+      system2("install_name_tool",
+              c("-add_rpath", "@loader_path/../../../R-runtime/lib", shQuote(lib)),
+              stdout = FALSE, stderr = FALSE)
+    }
+  }
+
+  # Also add rpath to launcher
+  launcher_path <- file.path(app_bundle_path, "Contents", "Resources", "bin", "rdesk-launcher")
+  if (file.exists(launcher_path)) {
+    system2("install_name_tool",
+            c("-add_rpath", "@executable_path/../Resources/R-runtime/lib", shQuote(launcher_path)),
+            stdout = FALSE, stderr = FALSE)
+  }
+
+  message("[RDesk]   Patched ", length(libs), " shared libraries")
+  invisible(libs)
+}
+
+rdesk_sign_macos_app <- function(app_bundle, identity = "-") {
+  if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
+
+  result <- system2(
+    "codesign",
+    c("--force", "--deep", "--sign", shQuote(identity), shQuote(app_bundle)),
+    stdout = TRUE, stderr = TRUE
+  )
+  message("[RDesk] Code signed bundle: ", app_bundle)
+  invisible(result)
+}
+
+rdesk_write_info_plist <- function(contents_dir, app_name, app_version) {
+  plist_path <- file.path(contents_dir, "Info.plist")
+  app_name_lower <- tolower(gsub("[^[:alnum:]]+", "", app_name))
+  
+  plist_content <- c(
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0">',
+    '<dict>',
+    '  <key>CFBundleName</key>',
+    sprintf('  <string>%s</string>', app_name),
+    '  <key>CFBundleDisplayName</key>',
+    sprintf('  <string>%s</string>', app_name),
+    '  <key>CFBundleIdentifier</key>',
+    sprintf('  <string>com.rdesk.%s</string>', app_name_lower),
+    '  <key>CFBundleVersion</key>',
+    sprintf('  <string>%s</string>', app_version),
+    '  <key>CFBundleShortVersionString</key>',
+    sprintf('  <string>%s</string>', app_version),
+    '  <key>CFBundleExecutable</key>',
+    sprintf('  <string>%s</string>', app_name),
+    '  <key>CFBundleIconFile</key>',
+    '  <string>AppIcon</string>',
+    '  <key>CFBundlePackageType</key>',
+    '  <string>APPL</string>',
+    '  <key>LSMinimumSystemVersion</key>',
+    '  <string>12.0</string>',
+    '  <key>NSHighResolutionCapable</key>',
+    '  <true/>',
+    '  <key>NSHumanReadableCopyright</key>',
+    '  <string>Built with RDesk</string>',
+    '  <key>com.apple.security.cs.allow-jit</key>',
+    '  <true/>',
+    '  <key>com.apple.security.files.user-selected.read-write</key>',
+    '  <true/>',
+    '</dict>',
+    '</plist>'
+  )
+  
+  writeLines(plist_content, plist_path)
 }
