@@ -135,6 +135,57 @@ jobs:
             exit 1
           fi
 
+      - name: Test RDesk IPC protocol headlessly
+        if: matrix.os == 'macos-latest'
+        run: |
+          cat << 'EOF' > /tmp/test_ipc.R
+          # Load RDesk in CI mode — no window, no launcher
+          options(rdesk.ci_mode = TRUE)
+          library(RDesk)
+
+          # Test message construction
+          msg <- rdesk_message("get_data", list(filter = "cyl == 6"))
+          stopifnot(msg$type      == "get_data")
+          stopifnot(msg$version   == "1.0")
+          stopifnot(!is.null(msg$id))
+          stopifnot(!is.null(msg$timestamp))
+          cat("IPC message construction: PASS\n")
+
+          # Test message parsing
+          raw <- jsonlite::toJSON(msg, auto_unbox = TRUE)
+          parsed <- rdesk_parse_message(raw)
+          stopifnot(parsed$type == "get_data")
+          cat("IPC message parsing: PASS\n")
+
+          # Test data conversion helpers
+          result <- rdesk_df_to_list(head(mtcars, 3))
+          stopifnot(length(result$rows) == 3)
+          stopifnot("mpg" %in% result$cols)
+          cat("Data conversion: PASS\n")
+
+          # Test plot helper (no display needed — writes to file)
+          p <- ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) +
+               ggplot2::geom_point()
+          b64 <- rdesk_plot_to_base64(p)
+          stopifnot(nchar(b64) > 1000)
+          cat("Plot to base64: PASS\n")
+
+          # Test storage system
+          withr::with_tempdir({
+            paths <- list(local = ".", roaming = ".", shared = ".")
+            prefs <- RDesk:::rdesk_prefs_make(paths)
+            prefs$set("test_key", "test_value")
+            stopifnot(prefs$get("test_key") == "test_value")
+            prefs$reset()
+            stopifnot(is.null(prefs$get("test_key")))
+            cat("Storage system: PASS\n")
+          })
+
+          cat("All IPC tests: PASS\n")
+          EOF
+
+          Rscript /tmp/test_ipc.R
+
       - name: Upload check results
         if: failure()
         uses: actions/upload-artifact@v4
