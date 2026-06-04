@@ -116,10 +116,37 @@ jobs:
           # Query the installed package binary directory
           INST_BIN=$(Rscript -e "cat(system.file('bin', package = 'RDesk'))")
           echo "Installed binary directory: $INST_BIN"
+          
+          # Test 1 — Binary integrity
+          echo "=== Testing Binary Integrity ==="
           lipo -info "$INST_BIN/rdesk-launcher"
           lipo -info "$INST_BIN/rdesk-stub-macos"
+          file "$INST_BIN/rdesk-launcher"
+          file "$INST_BIN/rdesk-stub-macos"
           codesign --verify --verbose "$INST_BIN/rdesk-launcher"
           codesign --verify --verbose "$INST_BIN/rdesk-stub-macos"
+          
+          # Test 2 — Dynamic library linkage (verify no absolute builder paths leak)
+          echo "=== Testing Linkage Integrity ==="
+          otool -L "$INST_BIN/rdesk-launcher"
+          if otool -L "$INST_BIN/rdesk-launcher" | grep -q "/Users/"; then
+            echo "ERROR: Absolute builder path found in binary!"
+            exit 1
+          fi
+          
+          # Test 5 — Headless launcher process startup check
+          echo "=== Testing Headless Process Start ==="
+          RDESK_WWW_PATH=/tmp "$INST_BIN/rdesk-launcher" &
+          PID=$!
+          sleep 2
+          if kill -0 $PID 2>/dev/null; then
+            echo "Launcher startup check: PASS"
+            kill $PID
+            wait $PID 2>/dev/null
+          else
+            echo "Launcher startup check: FAIL (process crashed on start)"
+            exit 1
+          fi
 
       - name: Upload check results
         if: failure()

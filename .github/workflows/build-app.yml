@@ -72,6 +72,32 @@ jobs:
             portable_r_method = "installer"
           )
 
+      - name: Validate macOS App Bundle Structure
+        if: matrix.os == 'macos-latest'
+        run: |
+          BUNDLE="dist/CarsAnalyser.app"
+          
+          # Verify bundle structure components
+          echo "=== Verifying Bundle Structure ==="
+          test -f "$BUNDLE/Contents/Info.plist"     || (echo "FAIL: Info.plist missing" && exit 1)
+          test -f "$BUNDLE/Contents/PkgInfo"        || (echo "FAIL: PkgInfo missing" && exit 1)
+          test -f "$BUNDLE/Contents/MacOS/CarsAnalyser" || (echo "FAIL: Stub missing" && exit 1)
+          test -f "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher missing" && exit 1)
+          test -f "$BUNDLE/Contents/Resources/app/app.R" || (echo "FAIL: app.R missing" && exit 1)
+          test -d "$BUNDLE/Contents/Resources/R-runtime/R/bin" || (echo "FAIL: R runtime missing" && exit 1)
+          echo "Structure: PASS"
+          
+          # Verify executable permissions
+          echo "=== Verifying Executable Permissions ==="
+          test -x "$BUNDLE/Contents/MacOS/CarsAnalyser" || (echo "FAIL: Stub not executable" && exit 1)
+          test -x "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher not executable" && exit 1)
+          echo "Permissions: PASS"
+          
+          # Verify plist values
+          echo "=== Verifying Plist Configuration ==="
+          /usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$BUNDLE/Contents/Info.plist" | grep -q "CarsAnalyser" || (echo "FAIL: CFBundleExecutable misconfigured" && exit 1)
+          echo "Plist: PASS"
+
       - name: Upload Artifact
         if: always() && matrix.os != 'ubuntu-latest'
         uses: actions/upload-artifact@v4
