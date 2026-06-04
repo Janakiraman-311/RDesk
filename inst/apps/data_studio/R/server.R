@@ -358,7 +358,7 @@ init_handlers <- function(app) {
 
 
 
-# Helper — reconstruct data frame from rdesk_df_to_list() output
+# Helper - reconstruct data frame from rdesk_df_to_list() output
 reconstruct_df_from_rdesk_list <- function(lst) {
   if (is.null(lst) || length(lst$rows) == 0) return(data.frame())
   do.call(rbind, lapply(lst$rows, function(row) {
@@ -366,7 +366,7 @@ reconstruct_df_from_rdesk_list <- function(lst) {
   }))
 }
 
-# Helper — reconstruct df from JS payload
+# Helper - reconstruct df from JS payload
 reconstruct_df_from_payload <- function(data) {
   if (is.null(data)) stop("No dataset loaded.")
   

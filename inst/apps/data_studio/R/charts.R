@@ -1,7 +1,7 @@
 # All ggplot2 chart functions for Data Intelligence Studio
 
 make_overview_chart <- function(df, missing_info) {
-  # Missing value bar chart — first thing shown after load
+  # Missing value bar chart - first thing shown after load
   if (nrow(missing_info) == 0 || all(missing_info$pct_missing == 0)) {
     p <- ggplot2::ggplot() +
       ggplot2::annotate("text", x = 0.5, y = 0.5, size = 5,

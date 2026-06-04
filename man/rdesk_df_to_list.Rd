@@ -7,11 +7,30 @@
 rdesk_df_to_list(df)
 }
 \arguments{
-\item{df}{Data frame to convert}
+\item{df}{A data frame to convert. NULL or zero-row data frames are handled gracefully.}
 }
 \value{
-A list with 'rows' (list of lists) and 'cols' (character vector)
+A list with two elements:
+\describe{
+\item{rows}{A list of named lists, one per row.}
+\item{cols}{A character vector of column names.}
+}
 }
 \description{
-Convert a data frame to a list suitable for JSON serialization
+Converts a data frame into the two-part list structure that \code{rdesk.js}
+expects: a \code{rows} component (list of per-row named lists) and a
+\code{cols} component (character vector of column names). Empty or NULL
+data frames return empty containers rather than an error.
+}
+\examples{
+result <- rdesk_df_to_list(head(mtcars, 3))
+stopifnot(length(result$rows) == 3)
+stopifnot("mpg" \%in\% result$cols)
+
+# NULL input returns empty containers
+empty <- rdesk_df_to_list(NULL)
+stopifnot(length(empty$rows) == 0)
+}
+\seealso{
+\code{\link[=rdesk_plot_to_base64]{rdesk_plot_to_base64()}} for converting plot output.
 }

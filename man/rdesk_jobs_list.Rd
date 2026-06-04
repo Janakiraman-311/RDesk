@@ -7,8 +7,20 @@
 rdesk_jobs_list()
 }
 \value{
-A data.frame with job ID, started time, backend, and app ID.
+A \code{data.frame} with the following columns:
+\describe{
+\item{job_id}{Character. Unique job identifier.}
+\item{started}{POSIXct. Time the job was submitted.}
+\item{backend}{Character. Either \code{"mirai"} or \code{"callr"}.}
+\item{app_id}{Character. ID of the App instance that owns the job, or \code{NA}.}
+}
+Returns a zero-row data frame when no jobs are pending.
 }
 \description{
-List currently pending background jobs
+Returns a data frame snapshot of all jobs currently registered in the
+RDesk job registry. Useful for debugging and monitoring from the R console
+while an application is running.
+}
+\seealso{
+\code{\link[=rdesk_jobs_pending]{rdesk_jobs_pending()}}, \code{\link[=rdesk_cancel_job]{rdesk_cancel_job()}}
 }

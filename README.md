@@ -20,7 +20,7 @@
 
 **RDesk** packages your R analysis into a standalone Windows application. By eliminating the need for an HTTP server, RDesk runs fully offline and provides your users with a self-contained `.exe` that launches a native desktop interface.
 
-📖 **Read the Published Article:** [The Evolution of Local R Applications: Bridging the Desktop Deployment Gap](https://medium.com/@janakiraman.bt/the-evolution-of-local-r-applications-bridging-the-desktop-deployment-gap-79ee42069e5a) — A deep dive into the history, challenges, and architecture behind local R app deployments.
+📖 **Read the Published Article:** [The Evolution of Local R Applications: Bridging the Desktop Deployment Gap](https://medium.com/@janakiraman.bt/the-evolution-of-local-r-applications-bridging-the-desktop-deployment-gap-79ee42069e5a). A deep dive into the history, challenges, and architecture behind local R app deployments.
 
 ## Quick Start
 
@@ -86,13 +86,13 @@ RDesk is built for R developers who need to package a local statistical or data 
 
 Two apps ship with RDesk demonstrating different complexity levels.
 
-**CarsAnalyser** — minimal working dashboard
+**CarsAnalyser** - minimal working dashboard
 ```r
 app_dir <- system.file("apps/mtcars_dashboard", package = "RDesk")
 source(file.path(app_dir, "app.R"))
 ```
 
-**Data Intelligence Studio** — full-featured data profiling tool
+**Data Intelligence Studio** - full-featured data profiling tool
 ```r
 app_dir <- system.file("apps/data_studio", package = "RDesk")
 source(file.path(app_dir, "app.R"))

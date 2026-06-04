@@ -7,11 +7,19 @@
 rdesk_error_plot(message = "Error generating plot")
 }
 \arguments{
-\item{message}{Error message to display (optional)}
+\item{message}{Character string to display on the error plot.
+Defaults to \code{"Error generating plot"}.}
 }
 \value{
-A base64-encoded PNG string
+A single-element character string (data URI) or \code{NULL} if
+ggplot2 is not available.
 }
 \description{
-Generate a base64-encoded error plot
+Renders a minimal ggplot2 plot containing the supplied error message text and
+returns it as a Base64 data URI. Used as a safe fallback by
+\code{\link[=rdesk_plot_to_base64]{rdesk_plot_to_base64()}} when plot generation fails. Returns \code{NULL}
+silently if ggplot2 is not installed.
+}
+\seealso{
+\code{\link[=rdesk_plot_to_base64]{rdesk_plot_to_base64()}}
 }

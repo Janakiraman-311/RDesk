@@ -11,15 +11,44 @@ rdesk_message(
 )
 }
 \arguments{
-\item{type}{The message type/action name}
+\item{type}{Character string. The message type / action name (e.g. \code{"get_data"}).}
 
-\item{payload}{A list representing the message data}
+\item{payload}{A named list representing the message data. Defaults to an empty list.}
 
-\item{version}{The contract version (default "1.0")}
+\item{version}{IPC contract version string. Defaults to the \code{rdesk.ipc_version} option
+(currently \code{"1.0"}).}
 }
 \value{
-A list representing the standard JSON envelope
+A named list representing the standard JSON envelope. Pass this directly to
+\code{jsonlite::toJSON()} or to \code{app$send()}.
 }
 \description{
-Construct a standard RDesk IPC message envelope
+Builds the JSON envelope that both R and the JavaScript frontend use to
+exchange typed messages. Each envelope carries a unique ID, a message type
+string, a contract version, an arbitrary payload, and a millisecond-precision
+Unix timestamp.
+}
+\details{
+The envelope schema is:
+\preformatted{
+  {
+    "id":        "msg_<epoch_ms>_<random>",
+    "type":      "<action_name>",
+    "version":   "1.0",
+    "payload":   { ... },
+    "timestamp": <unix_seconds>
+  }
+}
+Large payloads (above 1 MB) trigger a warning so developers notice
+performance-sensitive serialization early.
+}
+\examples{
+# Construct a typed message with a simple payload
+msg <- rdesk_message("get_data", list(filter = "cyl == 6"))
+stopifnot(msg$type == "get_data")
+stopifnot(msg$version == "1.0")
+stopifnot(!is.null(msg$id))
+}
+\seealso{
+\code{\link[=rdesk_parse_message]{rdesk_parse_message()}} for the corresponding deserializer.
 }

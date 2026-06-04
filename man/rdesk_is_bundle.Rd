@@ -7,8 +7,16 @@
 rdesk_is_bundle()
 }
 \value{
-TRUE if running in a bundle, FALSE otherwise
+\code{TRUE} if running inside a bundled .exe or .app, \code{FALSE} otherwise.
 }
 \description{
-Check if the app is running in a bundled (standalone) environment
+Returns \code{TRUE} when the current R process was launched by the RDesk
+stub binary as part of a compiled standalone application. The stub sets the
+\code{R_BUNDLE_APP} environment variable to \code{"1"} before starting R.
+Use this predicate to switch between development-time and runtime paths
+(e.g. logging directories, asset resolution).
+}
+\examples{
+# Returns FALSE in a normal interactive R session
+rdesk_is_bundle()
 }

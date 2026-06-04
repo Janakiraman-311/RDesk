@@ -6,7 +6,27 @@
 \usage{
 rdesk_service()
 }
+\value{
+\code{invisible(NULL)}
+}
 \description{
-Processes native OS events for all open windows.
-Call this periodically if you are running apps with \code{block = FALSE}.
+Processes native OS events for all open windows and polls all pending
+background jobs for completion. This is the single function you need to
+call periodically when running apps in non-blocking mode
+(\code{block = FALSE}).
+
+In blocking mode (\code{block = TRUE}, the default) \code{app$run()} calls
+this function automatically inside its event loop and you do not need to
+call it manually.
+}
+\examples{
+if (interactive()) {
+  app <- App$new(title = "My App")
+  app$run(block = FALSE)  # non-blocking
+  # ... do other work here ...
+  rdesk_service()         # poll for events
+}
+}
+\seealso{
+\link{App} for the full application API.
 }

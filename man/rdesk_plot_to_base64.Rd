@@ -7,17 +7,35 @@
 rdesk_plot_to_base64(plot, width = 6, height = 4, dpi = 96)
 }
 \arguments{
-\item{plot}{A ggplot2 object}
+\item{plot}{A ggplot2 object to render.}
 
-\item{width}{Width in inches (default 6)}
+\item{width}{Width of the rendered image in inches. Default \code{6}.}
 
-\item{height}{Height in inches (default 4)}
+\item{height}{Height of the rendered image in inches. Default \code{4}.}
 
-\item{dpi}{DPI resolution (default 96)}
+\item{dpi}{Dots per inch resolution. Default \code{96}.}
 }
 \value{
-A base64-encoded PNG string or a fallback error plot
+A single-element character string containing the data URI,
+or the output of \code{\link[=rdesk_error_plot]{rdesk_error_plot()}} if rendering fails.
 }
 \description{
-Convert a ggplot2 object to a base64-encoded PNG string
+Renders a ggplot2 object to a temporary PNG file and returns the result as a
+Base64-encoded data URI string (\code{data:image/png;base64,...}). This
+format can be assigned directly to an \code{<img>} tag \code{src} attribute
+in the JavaScript frontend via \code{app$send()}.
+
+If ggplot2 is not installed, the function stops with a helpful message.
+If rendering fails, a fallback error plot is returned instead of \code{NULL}.
+}
+\examples{
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  p <- ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) +
+       ggplot2::geom_point()
+  b64 <- rdesk_plot_to_base64(p)
+  stopifnot(grepl("^data:image/png;base64,", b64))
+}
+}
+\seealso{
+\code{\link[=rdesk_error_plot]{rdesk_error_plot()}} for the fallback error plot.
 }

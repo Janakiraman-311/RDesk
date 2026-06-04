@@ -151,11 +151,40 @@ RDeskStorage <- R6::R6Class("RDeskStorage",
 #' On Windows, it handles multi-user data isolation by mapping key-value stores to the
 #' correct system folder depending on the requested type.
 #'
-#' @param app_name The application name, used as the subfolder name.
-#' @param type Storage type: `"roaming"` (mapped to `%APPDATA%`, for settings that roam with the user),
-#'   `"local"` (mapped to `%LOCALAPPDATA%`, for local user data/cache), or
-#'   `"shared"` (mapped to `%PROGRAMDATA%`, for machine-wide common data).
-#' @return An `RDeskStorage` R6 instance.
+#' @details
+#' The three storage types correspond to different Windows user profile folders:
+#' \describe{
+#'   \item{roaming}{User roaming folder (APPDATA). Suitable for per-user preferences
+#'     that should follow the user across machines when roaming profiles are enabled.}
+#'   \item{local}{User local folder (LOCALAPPDATA). Suitable for cache, history,
+#'     or data that is specific to one machine.}
+#'   \item{shared}{Machine-wide folder (PROGRAMDATA). Suitable for configuration
+#'     shared by all users on the same computer.}
+#' }
+#' Outside a bundled application (e.g. during development or R CMD check), all
+#' storage types fall back to a subdirectory of \code{tempdir()} to comply with
+#' CRAN policies on persistent file writes.
+#'
+#' @param app_name Character string. The application name, used as the subfolder name.
+#' @param type Storage type: one of \code{"roaming"} (user roaming folder, APPDATA),
+#'   \code{"local"} (user local folder, LOCALAPPDATA), or \code{"shared"}
+#'   (machine-wide folder, PROGRAMDATA).
+#' @return An \code{RDeskStorage} R6 instance with \code{get()}, \code{set()},
+#'   \code{remove()}, \code{clear()}, \code{keys()}, and \code{path()} methods.
+#' @seealso [RDeskStorage] for the full method reference.
+#' @examples
+#' # Create a local storage manager for an app called "MyApp"
+#' s <- rdesk_storage("MyApp", "local")
+#'
+#' # Store and retrieve a value
+#' s$set("last_filter", "cyl == 6")
+#' stopifnot(s$get("last_filter") == "cyl == 6")
+#'
+#' # List all keys
+#' s$keys()
+#'
+#' # Remove a specific key
+#' s$remove("last_filter")
 #' @export
 rdesk_storage <- function(app_name, type = c("local", "roaming", "shared")) {
   type <- match.arg(type)

@@ -9,13 +9,38 @@ async_progress(value, message = NULL)
 \arguments{
 \item{value}{Numeric value from 0 to 100 representing the progress percentage.}
 
-\item{message}{Optional character string describing the current step/state.}
+\item{message}{Optional character string describing the current step/state.
+Shown beneath the progress bar in the loading overlay.}
 }
 \value{
-Invisible \code{TRUE} if progress was written, \code{FALSE} otherwise.
+Invisible \code{TRUE} if progress was written successfully,
+\code{FALSE} if the progress file path is not set (e.g. outside a background task).
 }
 \description{
 \code{async_progress} allows a long-running background task to send progress updates back
 to the main application thread. The main thread will automatically capture these
 updates and refresh the UI loading overlay.
+}
+\details{
+Call this function from inside the function passed to \code{\link[=async]{async()}} or
+\code{\link[=rdesk_async]{rdesk_async()}}. It writes a JSON progress record to a temporary file that
+the main event loop polls every iteration. The file is cleaned up automatically
+when the job completes.
+
+The progress value should increase monotonically from 0 to 100. The loading
+overlay in the frontend updates with each new value received.
+}
+\examples{
+if (interactive()) {
+  app$on_message("heavy_task", async(function(payload) {
+    for (i in 1:10) {
+      Sys.sleep(0.5)
+      async_progress(i * 10, paste("Step", i, "of 10"))
+    }
+    "done"
+  }, app = app))
+}
+}
+\seealso{
+\code{\link[=async]{async()}}, \code{\link[=rdesk_async]{rdesk_async()}}
 }
