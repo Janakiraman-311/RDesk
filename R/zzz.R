@@ -45,7 +45,6 @@ NULL
   packageStartupMessage(
     "[RDesk] v", utils::packageVersion("RDesk"), " ready."
   )
-
   # Verify that the native launcher binary was compiled and installed.
   # rdesk_launcher_path() calls stop(), so we replicate the file check here
   # to produce a friendlier message instead of an error at attach time.
