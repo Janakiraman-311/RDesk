@@ -38,6 +38,11 @@ jobs:
         run: |
           Rscript -e "desc <- readLines('DESCRIPTION'); desc <- desc[!grepl('^OS_type:', desc)]; writeLines(desc, 'DESCRIPTION')"
 
+      - name: Make scripts executable
+        if: matrix.os != 'windows-latest'
+        run: |
+          chmod +x configure cleanup
+
       - uses: r-lib/actions/setup-pandoc@v2
 
       # ── Install check dependencies directly (no renv restore in CI) ────────
