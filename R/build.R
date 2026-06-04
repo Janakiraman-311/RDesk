@@ -942,6 +942,15 @@ rdesk_build_macos_app <- function(app_dir, app_name,
     shQuote(dmg_path)
   ))
 
+  # Copy the .app bundle to out_dir
+  out_bundle_path <- file.path(normalizePath(out_dir), bundle_name)
+  if (dir.exists(out_bundle_path)) unlink(out_bundle_path, recursive = TRUE)
+  if (Sys.info()["sysname"] == "Darwin") {
+    system2("cp", c("-R", shQuote(bundle_path), shQuote(out_dir)))
+  } else {
+    file.rename(bundle_path, out_bundle_path)
+  }
+
   # Clean up staging area
   unlink(stage_parent, recursive = TRUE)
 
