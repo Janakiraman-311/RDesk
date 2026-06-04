@@ -129,7 +129,8 @@ jobs:
           # Test 2 — Dynamic library linkage (verify no absolute builder paths leak)
           echo "=== Testing Linkage Integrity ==="
           otool -L "$INST_BIN/rdesk-launcher"
-          if otool -L "$INST_BIN/rdesk-launcher" | grep -q "/Users/"; then
+          # Only check indented library link lines to avoid false positives on the binary path itself
+          if otool -L "$INST_BIN/rdesk-launcher" | grep '^[[:space:]]' | grep -q "/Users/"; then
             echo "ERROR: Absolute builder path found in binary!"
             exit 1
           fi
