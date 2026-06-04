@@ -73,7 +73,7 @@ jobs:
           pkgs <- c(
             "R6", "jsonlite", "digest", "processx", "callr",
             "mirai", "base64enc", "zip", "knitr", "rmarkdown",
-            "rcmdcheck", "withr"
+            "rcmdcheck", "withr", "ggplot2"
           )
           installed <- rownames(installed.packages())
           to_install <- setdiff(pkgs, installed)
