@@ -647,16 +647,37 @@ rdesk_find_r_dir <- function(extracted_root) {
 
 rdesk_install_packages_to <- function(pkgs, lib_dir, r_version) {
   minor <- paste(strsplit(r_version, "\\.")[[1]][1:2], collapse = ".")
-  avail <- tryCatch(utils::available.packages(repos = "https://cloud.r-project.org", type = "win.binary", filters = list()), error = function(e) NULL)
+  
+  # Determine package type and repository URL based on operating system
+  if (.Platform$OS.type == "windows") {
+    pkg_type <- "win.binary"
+    target_repos <- sprintf("https://cloud.r-project.org/bin/windows/contrib/%s", minor)
+  } else if (Sys.info()["sysname"] == "Darwin") {
+    pkg_type <- "binary"
+    target_repos <- NULL
+  } else {
+    pkg_type <- "source"
+    target_repos <- NULL
+  }
+
+  if (is.null(target_repos)) {
+    avail <- tryCatch(utils::available.packages(repos = "https://cloud.r-project.org", type = pkg_type, filters = list()), error = function(e) NULL)
+  } else {
+    avail <- tryCatch(utils::available.packages(contriburl = target_repos, type = pkg_type, filters = list()), error = function(e) NULL)
+  }
+
   all_deps <- rdesk_resolve_deps(pkgs, avail)
   all_deps <- setdiff(all_deps, "RDesk")
-  target_repos <- sprintf("https://cloud.r-project.org/bin/windows/contrib/%s", minor)
   
   if (length(all_deps) > 0) {
     message("[RDesk]   Downloading ", length(all_deps), " packages...")
-    utils::install.packages(all_deps, lib = lib_dir, contriburl = target_repos, type = "win.binary", quiet = FALSE, dependencies = FALSE)
+    if (is.null(target_repos)) {
+      utils::install.packages(all_deps, lib = lib_dir, repos = "https://cloud.r-project.org", type = pkg_type, quiet = FALSE, dependencies = FALSE)
+    } else {
+      utils::install.packages(all_deps, lib = lib_dir, contriburl = target_repos, type = pkg_type, quiet = FALSE, dependencies = FALSE)
+    }
   }
-  
+
   # Final verification of bundled critical packages
   critical <- intersect(all_deps, c("callr", "mirai", "nanonext", "ggplot2", "processx"))
   found <- list.dirs(lib_dir, full.names = FALSE, recursive = FALSE)
