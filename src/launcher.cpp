@@ -957,6 +957,7 @@ static void remove_system_tray() {
         [[NSStatusBar systemStatusBar] removeStatusItem:g_status_item];
         g_status_item = nil;
     }
+}
 
 static void set_system_tray_menu(const std::string& payload_json) {
     if (!g_menu_handler) {

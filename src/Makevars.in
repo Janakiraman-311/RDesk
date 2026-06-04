@@ -21,8 +21,8 @@ $(LAUNCHER_BIN): launcher.cpp
 	mkdir -p ../inst/bin
 	@if [ "$(IS_MAC)" = "yes" ]; then \
 		echo "[RDesk] Compiling macOS Universal Launcher..."; \
-		$(CXX) -std=c++17 -arch arm64 $(LAUNCHER_CXXFLAGS) launcher.cpp $(LAUNCHER_LIBS) -o $(LAUNCHER_BIN)-arm64; \
-		$(CXX) -std=c++17 -arch x86_64 $(LAUNCHER_CXXFLAGS) launcher.cpp $(LAUNCHER_LIBS) -o $(LAUNCHER_BIN)-x86_64; \
+		clang++ -std=c++17 -arch arm64 $(LAUNCHER_CXXFLAGS) launcher.cpp $(LAUNCHER_LIBS) -o $(LAUNCHER_BIN)-arm64; \
+		clang++ -std=c++17 -arch x86_64 $(LAUNCHER_CXXFLAGS) launcher.cpp $(LAUNCHER_LIBS) -o $(LAUNCHER_BIN)-x86_64; \
 		lipo -create -output $(LAUNCHER_BIN) $(LAUNCHER_BIN)-arm64 $(LAUNCHER_BIN)-x86_64; \
 		codesign --force --sign - --timestamp=none $(LAUNCHER_BIN); \
 		rm -f $(LAUNCHER_BIN)-arm64 $(LAUNCHER_BIN)-x86_64; \
@@ -34,8 +34,8 @@ $(STUB_TARGET): stub_macos.c
 	mkdir -p ../inst/bin
 	@if [ "$(IS_MAC)" = "yes" ]; then \
 		echo "[RDesk] Compiling macOS Universal Stub..."; \
-		$(CC) -arch arm64 stub_macos.c -o $(STUB_BIN)-arm64; \
-		$(CC) -arch x86_64 stub_macos.c -o $(STUB_BIN)-x86_64; \
+		clang -arch arm64 stub_macos.c -o $(STUB_BIN)-arm64; \
+		clang -arch x86_64 stub_macos.c -o $(STUB_BIN)-x86_64; \
 		lipo -create -output $(STUB_BIN) $(STUB_BIN)-arm64 $(STUB_BIN)-x86_64; \
 		codesign --force --sign - --timestamp=none $(STUB_BIN); \
 		rm -f $(STUB_BIN)-arm64 $(STUB_BIN)-x86_64; \
