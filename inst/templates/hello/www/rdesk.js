@@ -590,10 +590,22 @@
 
   // Auto-init on load
   if (typeof window !== "undefined") {
-    if (document.readyState === "complete" || document.readyState === "interactive") {
+    var initOnLoad = function() {
+      // Defensive cleanup: remove any leftover dialog modal elements from the DOM
+      var orphans = document.querySelectorAll('#__rdesk_dialog_modal__');
+      for (var i = 0; i < orphans.length; i++) {
+        if (orphans[i].parentNode) {
+          orphans[i].parentNode.removeChild(orphans[i]);
+        }
+      }
+      _dialogModal = null;
       rdesk.init();
+    };
+
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      initOnLoad();
     } else {
-      window.addEventListener("DOMContentLoaded", function() { rdesk.init(); });
+      window.addEventListener("DOMContentLoaded", initOnLoad);
     }
   }
 

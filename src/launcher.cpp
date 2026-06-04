@@ -98,6 +98,7 @@ static std::string g_www_path;
     NSString *prefix = @"rdesk://app/";
     if ([urlPath hasPrefix:prefix]) {
         NSString *rel = [urlPath substringFromIndex:prefix.length];
+        rel = [rel stringByRemovingPercentEncoding];
         
         NSRange qRange = [rel rangeOfString:@"?"];
         if (qRange.location != NSNotFound) {
@@ -185,6 +186,13 @@ static void uri_scheme_request_cb(WebKitURISchemeRequest* request,
   std::string prefix = "rdesk://app/";
   if (path.substr(0, prefix.size()) == prefix) {
     std::string rel  = path.substr(prefix.size());
+    
+    // URL decode the path
+    char* unescaped = g_uri_unescape_string(rel.c_str(), nullptr);
+    if (unescaped) {
+      rel = std::string(unescaped);
+      g_free(unescaped);
+    }
     
     // Remove query/hash
     size_t q = rel.find('?');
@@ -669,6 +677,44 @@ static std::string get_clipboard_text() {
     return result;
 }
 #endif // _WIN32
+
+#ifdef __APPLE__
+static bool set_clipboard_text(const std::string& text) {
+    @autoreleasepool {
+        NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+        [pasteboard declareTypes:@[NSPasteboardTypeString] owner:nil];
+        return [pasteboard setString:[NSString stringWithUTF8String:text.c_str()] forType:NSPasteboardTypeString];
+    }
+}
+
+static std::string get_clipboard_text() {
+    @autoreleasepool {
+        NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+        NSString *str = [pasteboard stringForType:NSPasteboardTypeString];
+        return str ? std::string([str UTF8String]) : "";
+    }
+}
+#endif // __APPLE__
+
+#ifdef WEBVIEW_GTK
+static bool set_clipboard_text(const std::string& text) {
+    GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+    gtk_clipboard_set_text(clipboard, text.c_str(), -1);
+    gtk_clipboard_store(clipboard);
+    return true;
+}
+
+static std::string get_clipboard_text() {
+    GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+    char* text = gtk_clipboard_wait_for_text(clipboard);
+    if (text) {
+        std::string res(text);
+        g_free(text);
+        return res;
+    }
+    return "";
+}
+#endif // WEBVIEW_GTK
 
 // ── Watchdog Thread for Parent PID ──────────────────────────────────────────
 #ifdef _WIN32
@@ -1435,7 +1481,10 @@ int main(int argc, char* argv[]) {
     unsigned long parent_pid = 0;
     if (args.size() > 5) {
         try {
-            parent_pid = std::stoul(args[5]);
+            unsigned long pid_val = std::stoul(args[5]);
+            if (pid_val <= 0xFFFFFFFF) {
+                parent_pid = pid_val;
+            }
         } catch (...) {}
     }
 

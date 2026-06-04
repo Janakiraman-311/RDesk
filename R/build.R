@@ -123,14 +123,21 @@ build_app <- function(app_dir = ".",
   if (is.null(app_name)) app_name <- "MyRDeskApp"
   if (is.null(version))  version  <- "1.0.0"
 
-  # Route to macOS app bundler on Darwin systems
-  if (.Platform$OS.type != "windows" && Sys.info()["sysname"] == "Darwin") {
+  # Route to macOS/Linux bundler on non-Windows platforms
+  if (Sys.info()["sysname"] == "Darwin") {
     return(rdesk_build_macos_app(
       app_dir     = app_dir,
       app_name    = app_name,
       app_version = version,
       out_dir     = out_dir,
       sign        = TRUE
+    ))
+  } else if (.Platform$OS.type != "windows") {
+    return(rdesk_build_linux_app(
+      app_dir     = app_dir,
+      app_name    = app_name,
+      app_version = version,
+      out_dir     = out_dir
     ))
   }
 
@@ -971,7 +978,7 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
 
   for (lib in libs) {
     result <- system2("otool", c("-L", shQuote(lib)), stdout = TRUE, stderr = FALSE)
-    has_absolute <- any(grepl("/Library/Frameworks/R", result))
+    has_absolute <- any(grepl("^\\s+/", result) & !grepl("@", result))
 
     if (has_absolute) {
       system2("install_name_tool",
@@ -1044,4 +1051,126 @@ rdesk_write_info_plist <- function(contents_dir, app_name, app_version) {
   )
   
   writeLines(plist_content, plist_path)
+}
+
+#' Build a Linux application bundle
+#' @keywords internal
+rdesk_build_linux_app <- function(app_dir, app_name,
+                                  app_version = "1.0.0",
+                                  out_dir     = tempdir()) {
+
+  dist_name <- paste0(app_name, "-", app_version)
+  
+  stage_parent <- file.path(tempdir(), "rdesk_staging_linux")
+  if (dir.exists(stage_parent)) unlink(stage_parent, recursive = TRUE)
+  dir.create(stage_parent, recursive = TRUE)
+
+  stage_root <- file.path(stage_parent, dist_name)
+  dir.create(stage_root, recursive = TRUE)
+
+  message("[RDesk] Building Linux app bundle: ", dist_name)
+
+  # 1. Create directory structure
+  dirs <- c(
+    file.path(stage_root, "app", "www"),
+    file.path(stage_root, "packages", "library")
+  )
+  lapply(dirs, dir.create, recursive = TRUE, showWarnings = FALSE)
+
+  # 2. Copy launcher binary
+  launcher_src <- rdesk_launcher_path()
+  launcher_dst <- file.path(stage_root, "rdesk-launcher")
+  file.copy(launcher_src, launcher_dst)
+  Sys.chmod(launcher_dst, "0755")
+
+  # 3. Copy app files
+  message("[RDesk] Copying app files...")
+  rdesk_copy_dir(app_dir, file.path(stage_root, "app"), exclude = rdesk_app_exclusions())
+
+  # 4. Bundle packages
+  message("[RDesk] Bundling packages...")
+  pkg_dst <- file.path(stage_root, "packages", "library")
+  
+  core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", 
+                 "ggplot2", "dplyr", "digest", "zip", "callr", "httpuv", 
+                 "mirai", "nanonext", "rcmdcheck", "renv", "rstudioapi")
+  
+  desc_path <- file.path(app_dir, "DESCRIPTION")
+  extra_pkgs <- character(0)
+  if (file.exists(desc_path)) {
+    desc <- read.dcf(desc_path)
+    for (field in c("Depends", "Imports", "Suggests")) {
+      if (field %in% colnames(desc)) {
+        val <- as.character(desc[1, field])
+        val_clean <- gsub("\\([^)]+\\)", "", val)
+        pkgs <- trimws(unlist(strsplit(val_clean, ",")))
+        pkgs <- pkgs[pkgs != "" & pkgs != "R" & pkgs != "RDesk"]
+        extra_pkgs <- c(extra_pkgs, pkgs)
+      }
+    }
+  }
+  all_pkgs <- unique(c(core_pkgs, extra_pkgs))
+  rdesk_install_packages_to(all_pkgs, pkg_dst, paste0(R.version$major, ".", R.version$minor))
+
+  # Copy RDesk package directory directly to pkg_dst
+  installed_rdesk <- system.file(package = "RDesk")
+  if (nzchar(installed_rdesk)) {
+    rdesk_copy_dir(installed_rdesk, file.path(pkg_dst, "RDesk"))
+  }
+
+  # 5. Generate run.sh startup script
+  run_sh_path <- file.path(stage_root, "run.sh")
+  run_sh_content <- c(
+    "#!/usr/bin/env bash",
+    "# ============================================================================",
+    sprintf("# RDesk Application Startup Script: %s", app_name),
+    "# ============================================================================",
+    "",
+    "# Find script directory",
+    "DIR=\"$( cd \"$( dirname \"${BASH_SOURCE[0]}\" )\" && pwd )\"",
+    "",
+    "# Check if R is installed",
+    "if ! command -v Rscript &> /dev/null; then",
+    "    echo \"ERROR: Rscript is not installed or not in your PATH. Please install R to run this application.\"",
+    "    exit 1",
+    "fi",
+    "",
+    "# Configure environment for portable/bundled package dependencies",
+    "export R_LIBS_USER=\"$DIR/packages/library\"",
+    sprintf("export R_APP_NAME=\"%s\"", app_name),
+    "export R_BUNDLE_APP=\"1\"",
+    "",
+    "# Launch binary using system R context",
+    "message=\"[RDesk] Launching application...\"",
+    "echo \"$message\"",
+    sprintf("exec \"$DIR/rdesk-launcher\" \"rdesk://app/index.html\" \"%s\" \"1200\" \"800\" \"$DIR/app/www\" \"$$\"", app_name),
+    ""
+  )
+  writeLines(run_sh_content, run_sh_path)
+  Sys.chmod(run_sh_path, "0755")
+
+  # 6. Create tarball (.tar.gz)
+  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  tar_path <- file.path(normalizePath(out_dir), paste0(dist_name, ".tar.gz"))
+  if (file.exists(tar_path)) file.remove(tar_path)
+
+  message("[RDesk] Packaging tarball...")
+  old_wd <- getwd()
+  on.exit(setwd(old_wd), add = TRUE)
+  setwd(stage_parent)
+  
+  # Standard POSIX tar
+  ret <- system2("tar", c("-czf", shQuote(tar_path), shQuote(dist_name)))
+  if (ret != 0) {
+    # Try using R internal tar
+    utils::tar(tar_path, files = dist_name, compression = "gzip")
+  }
+
+  # Clean up staging area
+  setwd(old_wd)
+  unlink(stage_parent, recursive = TRUE)
+
+  message("[RDesk] Linux bundle output directory: ", out_dir)
+  message("[RDesk] Done! Tarball built at: ", tar_path)
+  invisible(list(bundle = file.path(out_dir, dist_name), tarball = tar_path))
 }

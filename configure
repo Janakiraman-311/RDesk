@@ -10,11 +10,25 @@ if [ "$UNAME_S" = "Darwin" ]; then
   STUB_TARGET="../inst/bin/rdesk-stub-macos"
   IS_MAC="yes"
 else
-  # Linux/Unix - check for webkit2gtk
+  # Linux/Unix - check for GTK3 and webkit2gtk
+  if ! pkg-config --exists gtk+-3.0; then
+    echo "ERROR: GTK3 dev headers not found. Install with:"
+    echo "  Ubuntu/Debian: sudo apt-get install libgtk-3-dev"
+    echo "  Fedora/RHEL:   sudo dnf install gtk3-devel"
+    echo "  Arch Linux:    sudo pacman -S gtk3"
+    exit 1
+  fi
+
   if pkg-config --exists webkit2gtk-4.1; then
     WEBKIT_PKG="webkit2gtk-4.1"
-  else
+  elif pkg-config --exists webkit2gtk-4.0; then
     WEBKIT_PKG="webkit2gtk-4.0"
+  else
+    echo "ERROR: webkit2gtk-4.1 or webkit2gtk-4.0 dev headers not found. Install with:"
+    echo "  Ubuntu/Debian: sudo apt-get install libwebkit2gtk-4.1-dev"
+    echo "  Fedora/RHEL:   sudo dnf install webkit2gtk3-devel"
+    echo "  Arch Linux:    sudo pacman -S webkit2gtk"
+    exit 1
   fi
   
   GTK_CFLAGS=`pkg-config --cflags gtk+-3.0 $WEBKIT_PKG`

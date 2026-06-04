@@ -30,9 +30,17 @@ rdesk_sanitize_log_component <- function(x) {
 #' Resolve the bundled log directory for an app
 #' @keywords internal
 rdesk_log_dir <- function(app_name = Sys.getenv("R_APP_NAME", "RDeskApp")) {
-  # If running as a standalone bundle, use LocalAppData
+  # If running as a standalone bundle, use OS-appropriate user data directory
   if (rdesk_is_bundle()) {
-    base_dir <- Sys.getenv("LOCALAPPDATA")
+    base_dir <- if (.Platform$OS.type == "windows") {
+      Sys.getenv("LOCALAPPDATA")
+    } else if (Sys.info()[["sysname"]] == "Darwin") {
+      file.path(Sys.getenv("HOME"), "Library/Application Support")
+    } else {
+      # Linux/Unix - XDG standard
+      Sys.getenv("XDG_DATA_HOME", file.path(Sys.getenv("HOME"), ".local/share"))
+    }
+    
     if (nzchar(base_dir)) {
       return(file.path(base_dir, "RDesk", rdesk_sanitize_log_component(app_name)))
     }
