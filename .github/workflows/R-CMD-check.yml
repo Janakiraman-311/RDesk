@@ -172,11 +172,10 @@ jobs:
 
           # Test storage system
           withr::with_tempdir({
-            paths <- list(local = ".", roaming = ".", shared = ".")
-            prefs <- RDesk:::rdesk_prefs_make(paths)
+            prefs <- rdesk_storage("TestApp", "local")
             prefs$set("test_key", "test_value")
             stopifnot(prefs$get("test_key") == "test_value")
-            prefs$reset()
+            prefs$remove("test_key")
             stopifnot(is.null(prefs$get("test_key")))
             cat("Storage system: PASS\n")
           })
