@@ -107,10 +107,13 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           R CMD INSTALL .
-          lipo -info inst/bin/rdesk-launcher
-          lipo -info inst/bin/rdesk-stub-macos
-          codesign --verify --verbose inst/bin/rdesk-launcher
-          codesign --verify --verbose inst/bin/rdesk-stub-macos
+          # Query the installed package binary directory
+          INST_BIN=$(Rscript -e "cat(system.file('bin', package = 'RDesk'))")
+          echo "Installed binary directory: $INST_BIN"
+          lipo -info "$INST_BIN/rdesk-launcher"
+          lipo -info "$INST_BIN/rdesk-stub-macos"
+          codesign --verify --verbose "$INST_BIN/rdesk-launcher"
+          codesign --verify --verbose "$INST_BIN/rdesk-stub-macos"
 
       - name: Upload check results
         if: failure()
