@@ -9,7 +9,8 @@ rdesk_open_window(
   title = "RDesk",
   width = 1200,
   height = 800,
-  www_path = ""
+  www_path = "",
+  log_file = NULL
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ rdesk_open_window(
 \item{height}{Window height}
 
 \item{www_path}{Path to the local assets directory}
+
+\item{log_file}{Optional path to a log file for the C++ launcher}
 }
 \value{
 A processx process object

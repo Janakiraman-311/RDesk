@@ -1,5 +1,6 @@
 ABI
 ALTREP
+APPDATA
 Async
 CDN
 CMD
@@ -8,6 +9,7 @@ Centric
 Ctrl
 DOM
 DSL
+Deserializes
 DesktopDeployR
 Dialogs
 Frontend
@@ -16,10 +18,12 @@ IPC
 InnoSetup
 JS
 KPI
+LOCALAPPDATA
 Lifecycle
 MultiByteToWideChar
 MyRDeskApp
 POSIXct
+PROGRAMDATA
 Pharma
 PostWebMessageAsString
 Pre
@@ -46,6 +50,7 @@ cancelled
 centralised
 checkable
 csv
+deserializer
 dev
 dialogs
 distributable
@@ -59,6 +64,7 @@ gapped
 getOption
 ggplot
 github
+glassmorphism
 hardcoded
 hostname
 hostnames
@@ -96,6 +102,7 @@ serializable
 standardised
 stdin
 subfolder
+subprocess
 synchronisation
 unscoped
 vendored

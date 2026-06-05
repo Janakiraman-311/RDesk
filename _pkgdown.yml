@@ -137,6 +137,8 @@ navbar:
           href: articles/ai_skill.html
         - text: "Why RDesk?"
           href: articles/rdesk-article.html
+        - text: "Medium Blog Post"
+          href: "https://medium.com/@janakiraman.bt/the-evolution-of-local-r-applications-bridging-the-desktop-deployment-gap-79ee42069e5a"
     cran:
       icon: fa-cube
       href: https://cran.r-project.org/package=RDesk
