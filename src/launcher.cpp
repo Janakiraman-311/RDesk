@@ -10,6 +10,7 @@
 #include <functional>
 #include <sstream>
 #include <vector>
+#include <fstream>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -56,6 +57,8 @@ static std::atomic<bool>  g_intercept_close{false};
 static webview::webview*  g_webview = nullptr;
 static std::mutex         g_out_mutex;
 static std::mutex         g_webview_mutex;
+static std::ofstream      g_log_file;
+static std::mutex         g_log_mutex;
 
 #ifdef _WIN32
   static ICoreWebView2*     g_core_webview = nullptr;
@@ -65,10 +68,24 @@ static std::mutex         g_webview_mutex;
   static const UINT         WM_TRAYICON = WM_USER + 1;
 #endif
 
+static void log_message(const std::string& msg) {
+    std::lock_guard<std::mutex> lk(g_log_mutex);
+    if (g_log_file.is_open()) {
+        g_log_file << msg << "\n";
+        g_log_file.flush();
+    }
+}
+
 static void write_stdout(const std::string& line) {
     std::lock_guard<std::mutex> lk(g_out_mutex);
     std::cout << line << "\n";
     std::cout.flush();
+    
+    if (g_log_file.is_open()) {
+        std::lock_guard<std::mutex> llk(g_log_mutex);
+        g_log_file << "[TX] " << line << "\n";
+        g_log_file.flush();
+    }
 }
 
 static void dispatch_to_webview(const std::function<void()>& fn) {
@@ -1425,6 +1442,7 @@ static void process_command(const std::string& line) {
 static void stdin_reader() {
     std::string line;
     while (std::getline(std::cin, line)) {
+        log_message("[RX] " + line);
         if (line.empty()) continue;
         process_command(line);
         if (g_quit.load()) break;
@@ -1444,15 +1462,31 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     int    argc;
     LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
     std::vector<std::string> args;
+    std::string log_file_path;
     for (int i = 1; i < argc; ++i) {
         int len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
         std::string s(len - 1, '\0');
         WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, &s[0], len, nullptr, nullptr);
-        args.push_back(s);
+        if (s.rfind("--log-file=", 0) == 0) {
+            log_file_path = s.substr(11);
+        } else {
+            args.push_back(s);
+        }
     }
     LocalFree(wargv);
 #else
 int main(int argc, char* argv[]) {
+    std::vector<std::string> args;
+    std::string log_file_path;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg.rfind("--log-file=", 0) == 0) {
+            log_file_path = arg.substr(11);
+        } else {
+            args.push_back(arg);
+        }
+    }
+
     #ifdef WEBVIEW_GTK
         rdesk_silence_webkit_diagnostics();
         rdesk_redirect_gtk_output();
@@ -1463,12 +1497,16 @@ int main(int argc, char* argv[]) {
         setup_macos_scheme_interceptor();
     #endif
 
-    std::vector<std::string> args;
-    for (int i = 1; i < argc; ++i) args.push_back(argv[i]);
 #endif
 
+    if (!log_file_path.empty()) {
+        g_log_file.open(log_file_path, std::ios_base::app);
+        log_message("[RDesk] Launcher started. Log file initialized.");
+    }
+
     if (args.empty()) {
-        std::cerr << "Usage: rdesk-launcher <url> <title> <width> <height> [www_path] [parent_pid]\n";
+        std::cerr << "Usage: rdesk-launcher <url> <title> <width> <height> [www_path] [parent_pid] [--log-file=path]\n";
+        log_message("[RDesk] ERROR: Missing arguments.");
         return 1;
     }
 

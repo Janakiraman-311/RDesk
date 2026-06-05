@@ -47,16 +47,23 @@ rdesk_launcher_path <- function() {
 #' @param width Window width
 #' @param height Window height
 #' @param www_path Path to the local assets directory
+#' @param log_file Optional path to a log file for the C++ launcher
 #' @return A processx process object
 #' @keywords internal
-rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, www_path = "") {
+rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, www_path = "", log_file = NULL) {
   launcher <- rdesk_launcher_path()
 
   message("[RDesk] Window opened: ", url)
 
+  if (is.null(log_file)) {
+    log_file <- tempfile("rdesk_launcher_", fileext = ".log")
+  }
+  
+  launcher_args <- c(url, title, as.character(width), as.character(height), www_path, as.character(Sys.getpid()), paste0("--log-file=", log_file))
+
   proc <- processx::process$new(
     command = launcher,
-    args    = c(url, title, as.character(width), as.character(height), www_path, as.character(Sys.getpid())),
+    args    = launcher_args,
     stdin   = "|",   # allow writing QUIT and other commands
     stdout  = "|",   # pipe so we can read READY signal and events
     stderr  = "|",
@@ -92,7 +99,11 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
   if (!ready) {
     err <- paste(proc$read_error_lines(), collapse = "\n")
     proc$kill()
-    stop("[RDesk] Launcher failed to start correctly: ", err)
+    log_content <- ""
+    if (file.exists(log_file)) {
+      log_content <- paste(readLines(log_file, warn = FALSE), collapse = "\n")
+    }
+    stop("[RDesk] Launcher failed to start correctly:\n", err, "\nLauncher Log:\n", log_content)
   }
 
   .rdesk_window_buffers[[as.character(proc$get_pid())]] <- buffered
