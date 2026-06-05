@@ -221,8 +221,7 @@ build_app <- function(app_dir = ".",
 
   # Always include RDesk and its hard deps that might not be on CRAN
   core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", 
-                 "ggplot2", "dplyr", "digest", "zip", "callr", "httpuv", 
-                 "mirai", "nanonext", "rcmdcheck", "renv", "rstudioapi")
+                 "digest", "zip", "callr", "mirai", "nanonext")
   all_pkgs  <- unique(c(core_pkgs, include_packages))
 
   rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
@@ -342,7 +341,7 @@ rdesk_validate_build_inputs <- function(app_dir,
     stop("[Validation Failed] www/ directory not found in: ", app_dir)
 
   # 2. Package check
-  core_pkgs <- c("R6", "jsonlite", "processx", "base64enc", "ggplot2", "dplyr", "zip")
+  core_pkgs <- c("R6", "jsonlite", "processx", "base64enc", "zip")
   all_pkgs  <- unique(c(core_pkgs, extra_pkgs))
   missing   <- all_pkgs[!vapply(all_pkgs, requireNamespace, logical(1), quietly = TRUE)]
   if (length(missing) > 0) {
@@ -686,7 +685,7 @@ rdesk_install_packages_to <- function(pkgs, lib_dir, r_version) {
   }
 
   # Final verification of bundled critical packages
-  critical <- intersect(all_deps, c("callr", "mirai", "nanonext", "ggplot2", "processx"))
+  critical <- intersect(all_deps, c("callr", "mirai", "nanonext", "processx"))
   found <- list.dirs(lib_dir, full.names = FALSE, recursive = FALSE)
   missing <- setdiff(critical, found)
   if (length(missing) > 0) {
@@ -887,8 +886,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   pkg_dst <- file.path(contents, "Resources", "packages", "library")
   
   core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", 
-                 "ggplot2", "dplyr", "digest", "zip", "callr", "httpuv", 
-                 "mirai", "nanonext", "rcmdcheck", "renv", "rstudioapi")
+                 "digest", "zip", "callr", "mirai", "nanonext")
   
   desc_path <- file.path(app_dir, "DESCRIPTION")
   extra_pkgs <- character(0)
@@ -1092,8 +1090,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   pkg_dst <- file.path(stage_root, "packages", "library")
   
   core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", 
-                 "ggplot2", "dplyr", "digest", "zip", "callr", "httpuv", 
-                 "mirai", "nanonext", "rcmdcheck", "renv", "rstudioapi")
+                 "digest", "zip", "callr", "mirai", "nanonext")
   
   desc_path <- file.path(app_dir, "DESCRIPTION")
   extra_pkgs <- character(0)
