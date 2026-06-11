@@ -136,11 +136,13 @@ rdesk_new_pkg <- function(name,
 # @keywords internal
 rdesk_write_pkg_file <- function(template_name, pkg_dir,
                                   vars, dest_name = NULL) {
+  # system.file() cannot locate dotfiles (e.g. .gitignore) on Windows,
+  # so we always resolve the folder via find.package() for reliability.
   template_dir <- system.file("templates/proprietary_pkg",
                                package = "RDesk")
-  if (!nzchar(template_dir)) {
-    template_dir <- file.path(find.package("RDesk"),
-                              "inst", "templates", "proprietary_pkg")
+  if (!nzchar(template_dir) || !dir.exists(template_dir)) {
+    pkg_root     <- tryCatch(find.package("RDesk"), error = function(e) "")
+    template_dir <- file.path(pkg_root, "inst", "templates", "proprietary_pkg")
   }
 
   template_path <- file.path(template_dir, template_name)
