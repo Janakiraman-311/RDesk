@@ -13,14 +13,14 @@
 #'   Default "core_algorithm".
 #' @param licence One of "Proprietary", "MIT", "GPL-3". Default
 #'   "Proprietary" for commercial packages.
-#' @param open Logical. Open in RStudio after creation. Default TRUE.
+#' @param open Logical. Open in RStudio after creation. Default FALSE.
 #' @return Path to created package directory, invisibly.
 #' @export
 rdesk_new_pkg <- function(name,
                             path           = "..",
                             algorithm_name = "core_algorithm",
                             licence        = "Proprietary",
-                            open           = TRUE) {
+                            open           = FALSE) {
 
   # == Validation ========================================================
   if (missing(name) || !nzchar(trimws(name))) {

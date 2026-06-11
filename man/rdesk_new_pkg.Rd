@@ -9,7 +9,7 @@ rdesk_new_pkg(
   path = "..",
   algorithm_name = "core_algorithm",
   licence = "Proprietary",
-  open = TRUE
+  open = FALSE
 )
 }
 \arguments{
@@ -25,7 +25,7 @@ Default "core_algorithm".}
 \item{licence}{One of "Proprietary", "MIT", "GPL-3". Default
 "Proprietary" for commercial packages.}
 
-\item{open}{Logical. Open in RStudio after creation. Default TRUE.}
+\item{open}{Logical. Open in RStudio after creation. Default FALSE.}
 }
 \value{
 Path to created package directory, invisibly.
