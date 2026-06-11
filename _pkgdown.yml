@@ -190,6 +190,11 @@ reference:
   - title: "Build & Distribute"
     desc: "Package your app into a self-contained ZIP or Windows installer."
     contents: [build_app]
+  - title: "Commercial IP protection"
+    desc: "Compile proprietary algorithms to binary for client distribution"
+    contents:
+      - rdesk_new_pkg
+      - rdesk_verify_protection
   - title: "IPC Communication"
     desc: "Low-level helpers for the RDesk message envelope protocol."
     contents: [rdesk_message, rdesk_parse_message]

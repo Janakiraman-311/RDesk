@@ -20,7 +20,8 @@ build_app(
   license_file = NULL,
   icon_file = NULL,
   prune_runtime = TRUE,
-  dry_run = FALSE
+  dry_run = FALSE,
+  proprietary_packages = NULL
 )
 }
 \arguments{
@@ -69,6 +70,9 @@ the bundled R runtime to reduce size (~15-20MB saving). Default TRUE.}
 
 \item{dry_run}{If TRUE, performs a quick validation of the app structure and
 environment without performing the full build. Default FALSE.}
+
+\item{proprietary_packages}{Character vector of paths to proprietary package
+source directories to compile and bundle without source. Default NULL.}
 }
 \value{
 Path to the created zip file, invisibly.

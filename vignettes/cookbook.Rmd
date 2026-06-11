@@ -254,3 +254,57 @@ install.packages("mori")   # CRAN, v0.2.0+
 - Requires R >= 4.3.
 
 **See also:** [mori documentation](https://shikokuchuo.net/mori/)
+
+## Protect proprietary algorithms with compiled C++
+
+When distributing apps to clients, compile your algorithms to binary
+so source code is never included in the bundle.
+
+**Step 1 — Create your proprietary package**
+
+```r
+# One-time setup per project
+RDesk::rdesk_new_pkg(
+  name           = "ClientAnalytics",
+  algorithm_name = "signal_detection"
+)
+```
+
+**Step 2 — Write your algorithm in C++**
+
+Edit `ClientAnalytics/src/signal_detection.cpp`.
+Replace the example with your proprietary algorithm.
+Run `Rcpp::compileAttributes("ClientAnalytics")` after changes.
+
+**Step 3 — Test locally**
+
+```r
+devtools::load_all("ClientAnalytics")
+Sys.setenv(ClientAnalytics_LICENCE_KEY = "DEV_KEY")
+signal_detection(your_data, multiplier = 2.5)
+```
+
+**Step 4 — Bundle in your app**
+
+```r
+RDesk::build_app(
+  app_dir              = "ClinicalViewer",
+  app_name             = "ClinicalViewer",
+  build_installer      = TRUE,
+  proprietary_packages = "path/to/ClientAnalytics"
+)
+```
+
+**Step 5 — Verify protection**
+
+```r
+RDesk::rdesk_verify_protection(
+  build_dir = "dist/ClinicalViewer",
+  pkg_names = "ClientAnalytics"
+)
+# ClientAnalytics         PROTECTED  -- .rdb only, no source
+#                           Binary: ClientAnalytics.dll
+```
+
+The client receives `ClientAnalytics.dll` (compiled binary) and
+`ClientAnalytics.rdb` (bytecode). No readable source code is included.

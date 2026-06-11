@@ -1,0 +1,13 @@
+# Compiled outputs — never commit these
+src/*.o
+src/*.so
+src/*.dll
+src/RcppExports.cpp
+R/RcppExports.R
+
+# R package build artifacts
+*.tar.gz
+*.Rcheck/
+
+# Never commit source to any shared repository
+# Your .cpp files contain proprietary algorithms

@@ -57,6 +57,8 @@ Suggests:
     ggplot2,
     devtools,
     rstudioapi,
-    renv
+    renv,
+    Rcpp (>= 1.0.0),
+    desc
 VignetteBuilder: knitr
 Config/testthat/edition: 3
