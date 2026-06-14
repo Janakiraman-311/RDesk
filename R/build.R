@@ -33,8 +33,6 @@
 #'   the bundled R runtime to reduce size (~15-20MB saving). Default TRUE.
 #' @param dry_run If TRUE, performs a quick validation of the app structure and 
 #'   environment without performing the full build. Default FALSE.
-#' @param proprietary_packages Character vector of paths to proprietary package 
-#'   source directories to compile and bundle without source. Default NULL.
 #' @return Path to the created zip file, invisibly.
 #' @examples
 #' # Prepare an app directory (following scaffold example)
@@ -62,8 +60,7 @@ build_app <- function(app_dir = ".",
                       license_file = NULL,
                       icon_file    = NULL,
                       prune_runtime = TRUE,
-                      dry_run       = FALSE,
-                      proprietary_packages = NULL) {
+                      dry_run       = FALSE) {
 
   # Restore options on exit
   old_opts <- options(timeout = max(1200, getOption("timeout")))
@@ -133,16 +130,14 @@ build_app <- function(app_dir = ".",
       app_name    = app_name,
       app_version = version,
       out_dir     = out_dir,
-      sign        = TRUE,
-      proprietary_packages = proprietary_packages
+      sign        = TRUE
     ))
   } else if (.Platform$OS.type != "windows") {
     return(rdesk_build_linux_app(
       app_dir     = app_dir,
       app_name    = app_name,
       app_version = version,
-      out_dir     = out_dir,
-      proprietary_packages = proprietary_packages
+      out_dir     = out_dir
     ))
   }
 
@@ -224,23 +219,10 @@ build_app <- function(app_dir = ".",
   pkg_lib <- file.path(stage_root, "packages", "library")
   dir.create(pkg_lib, recursive = TRUE)
 
-  # Compile and bundle proprietary packages first
-  proprietary_names <- character(0)
-  if (!is.null(proprietary_packages)) {
-    if (is.character(proprietary_packages)) {
-      proprietary_packages <- normalizePath(
-        proprietary_packages, mustWork = FALSE
-      )
-    }
-    comp_results <- rdesk_bundle_proprietary(proprietary_packages, pkg_lib)
-    proprietary_names <- names(comp_results)
-  }
-
   # Always include RDesk and its hard deps that might not be on CRAN
   core_pkgs <- c("RDesk", "R6", "jsonlite", "processx", "base64enc", 
                  "digest", "zip", "callr", "mirai", "nanonext")
   all_pkgs  <- unique(c(core_pkgs, include_packages))
-  all_pkgs  <- setdiff(all_pkgs, proprietary_names)
 
   rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
 
@@ -297,11 +279,6 @@ build_app <- function(app_dir = ".",
   
   stub_exe <- file.path(stage_root, paste0(app_name, ".exe"))
   rdesk_build_stub(stub_src, stub_exe, app_name)
-
-  # Verify IP protection if proprietary packages were compiled
-  if (length(proprietary_names) > 0) {
-    rdesk_verify_protection(stage_root, proprietary_names)
-  }
 
   # ---- Step 6: Zip everything ----------------------------------------------
   message("[RDesk] Step 6/6 - creating zip archive...")
@@ -830,8 +807,7 @@ rdesk_snapshot_bundle <- function(lib_dir, stage_root) {
 rdesk_build_macos_app <- function(app_dir, app_name,
                                   app_version = "1.0.0",
                                   out_dir     = tempdir(),
-                                  sign        = TRUE,
-                                  proprietary_packages = NULL) {
+                                  sign        = TRUE) {
 
   bundle_name <- paste0(app_name, ".app")
   
@@ -926,20 +902,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
       }
     }
   }
-
-  proprietary_names <- character(0)
-  if (!is.null(proprietary_packages)) {
-    if (is.character(proprietary_packages)) {
-      proprietary_packages <- normalizePath(
-        proprietary_packages, mustWork = FALSE
-      )
-    }
-    comp_results <- rdesk_bundle_proprietary(proprietary_packages, pkg_dst)
-    proprietary_names <- names(comp_results)
-  }
-
   all_pkgs <- unique(c(core_pkgs, extra_pkgs))
-  all_pkgs <- setdiff(all_pkgs, proprietary_names)
   rdesk_install_packages_to(all_pkgs, pkg_dst, paste0(R.version$major, ".", R.version$minor))
 
   # Copy RDesk package directory directly to pkg_dst
@@ -970,11 +933,6 @@ rdesk_build_macos_app <- function(app_dir, app_name,
 
   # 11. Ad-hoc code sign
   if (sign) rdesk_sign_macos_app(bundle_path)
-
-  # Verify IP protection if proprietary packages were compiled
-  if (length(proprietary_names) > 0) {
-    rdesk_verify_protection(file.path(bundle_path, "Contents", "Resources"), proprietary_names)
-  }
 
   # 12. Create DMG
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
@@ -1097,8 +1055,7 @@ rdesk_write_info_plist <- function(contents_dir, app_name, app_version) {
 #' @keywords internal
 rdesk_build_linux_app <- function(app_dir, app_name,
                                   app_version = "1.0.0",
-                                  out_dir     = tempdir(),
-                                  proprietary_packages = NULL) {
+                                  out_dir     = tempdir()) {
 
   dist_name <- paste0(app_name, "-", app_version)
   
@@ -1149,20 +1106,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
       }
     }
   }
-
-  proprietary_names <- character(0)
-  if (!is.null(proprietary_packages)) {
-    if (is.character(proprietary_packages)) {
-      proprietary_packages <- normalizePath(
-        proprietary_packages, mustWork = FALSE
-      )
-    }
-    comp_results <- rdesk_bundle_proprietary(proprietary_packages, pkg_dst)
-    proprietary_names <- names(comp_results)
-  }
-
   all_pkgs <- unique(c(core_pkgs, extra_pkgs))
-  all_pkgs <- setdiff(all_pkgs, proprietary_names)
   rdesk_install_packages_to(all_pkgs, pkg_dst, paste0(R.version$major, ".", R.version$minor))
 
   # Copy RDesk package directory directly to pkg_dst
@@ -1202,11 +1146,6 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   writeLines(run_sh_content, run_sh_path)
   Sys.chmod(run_sh_path, "0755")
 
-  # Verify IP protection if proprietary packages were compiled
-  if (length(proprietary_names) > 0) {
-    rdesk_verify_protection(stage_root, proprietary_names)
-  }
-
   # 6. Create tarball (.tar.gz)
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
   tar_path <- file.path(normalizePath(out_dir), paste0(dist_name, ".tar.gz"))
@@ -1231,253 +1170,4 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   message("[RDesk] Linux bundle output directory: ", out_dir)
   message("[RDesk] Done! Tarball built at: ", tar_path)
   invisible(list(bundle = file.path(out_dir, dist_name), tarball = tar_path))
-}
-
-# ============================================================
-# SECTION: Proprietary package compilation
-# ============================================================
-
-#' Compile and bundle proprietary Rcpp packages
-#'
-#' Called internally by build_app() when proprietary_packages is set.
-#' Compiles C++ source to binary, installs without source, bundles
-#' the Rcpp dependency, and verifies source was stripped.
-#'
-#' @param pkg_paths Character vector of paths to proprietary package
-#'   source directories.
-#' @param lib_dir Path to the bundle's package library directory.
-#' @return Named list of compilation results per package.
-#' @keywords internal
-rdesk_bundle_proprietary <- function(pkg_paths, lib_dir) {
-
-  if (!requireNamespace("Rcpp", quietly = TRUE)) {
-    stop("[RDesk] Rcpp required for proprietary packages.\n",
-         "Install with: install.packages('Rcpp')")
-  }
-  if (!requireNamespace("devtools", quietly = TRUE)) {
-    stop("[RDesk] devtools required for proprietary packages.\n",
-         "Install with: install.packages('devtools')")
-  }
-
-  # Rcpp itself must be in the bundle for .dll to load at runtime
-  message("[RDesk] Bundling Rcpp runtime dependency...")
-  rcpp_installed <- dir.exists(file.path(lib_dir, "Rcpp"))
-  if (!rcpp_installed) {
-    utils::install.packages(
-      "Rcpp",
-      lib   = lib_dir,
-      repos = "https://cloud.r-project.org",
-      quiet = TRUE,
-      type  = if (.Platform$OS.type == "windows") "win.binary" else "source"
-    )
-    message("[RDesk]   Rcpp bundled")
-  } else {
-    message("[RDesk]   Rcpp already in bundle")
-  }
-
-  results <- list()
-
-  for (pkg_path in pkg_paths) {
-    pkg_path <- normalizePath(pkg_path, mustWork = TRUE)
-    desc_path <- file.path(pkg_path, "DESCRIPTION")
-
-    if (!file.exists(desc_path)) {
-      stop("[RDesk] Not a valid R package (no DESCRIPTION): ", pkg_path)
-    }
-
-    pkg_name <- read.dcf(desc_path, fields = "Package")[1, 1]
-    message("\n[RDesk] Compiling proprietary package: ", pkg_name)
-    message("[RDesk]   Source: ", pkg_path)
-
-    # == Step 1: Regenerate Rcpp bindings =============================
-    message("[RDesk]   Generating Rcpp attribute bindings...")
-    tryCatch(
-      Rcpp::compileAttributes(pkg_path),
-      error = function(e) {
-        stop("[RDesk] compileAttributes failed for ", pkg_name, ":\n",
-             e$message)
-      }
-    )
-
-    # == Step 2: Build source tarball =================================
-    message("[RDesk]   Building source tarball (compiling C++)...")
-    build_dir <- tempfile(pattern = paste0("rdesk_build_", pkg_name))
-    dir.create(build_dir)
-    on.exit(unlink(build_dir, recursive = TRUE), add = TRUE)
-
-    tarball <- tryCatch(
-      devtools::build(
-        pkg   = pkg_path,
-        path  = build_dir,
-        quiet = TRUE
-      ),
-      error = function(e) {
-        stop("[RDesk] C++ compilation failed for ", pkg_name, ":\n",
-             e$message, "\n",
-             "Ensure Rtools is installed and g++ is available.")
-      }
-    )
-
-    message("[RDesk]   Compilation successful: ", basename(tarball))
-
-    # == Step 3: Install without source into bundle library ===========
-    message("[RDesk]   Installing (stripping source)...")
-    tryCatch(
-      utils::install.packages(
-        tarball,
-        lib          = lib_dir,
-        repos        = NULL,
-        type         = "source",
-        quiet        = TRUE,
-        INSTALL_opts = c(
-          "--no-staged-install",
-          "--no-keep.source",   # strips .R source -> .rdb binary only
-          "--no-docs",          # strips documentation
-          "--no-test-load",     # skip test loading (no licence key in build env)
-          "--no-multiarch"      # single arch - matches build machine
-        )
-      ),
-      error = function(e) {
-        stop("[RDesk] Installation failed for ", pkg_name, ":\n", e$message)
-      }
-    )
-
-    # == Step 4: Verify source stripped, binary present ===============
-    installed_dir <- file.path(lib_dir, pkg_name)
-    rdb_path      <- file.path(installed_dir, "R",
-                               paste0(pkg_name, ".rdb"))
-    dll_name      <- if (.Platform$OS.type == "windows")
-                       paste0(pkg_name, ".dll")
-                     else
-                       paste0(pkg_name, ".so")
-    dll_path      <- file.path(installed_dir, "libs",
-                               if (.Platform$OS.type == "windows")
-                                 file.path("x64", dll_name)
-                               else
-                                 dll_name)
-
-    # Check .rdb exists (bytecode installed correctly)
-    if (!file.exists(rdb_path)) {
-      warning("[RDesk] .rdb not found at: ", rdb_path,
-              "\nPackage may not have installed correctly.")
-    }
-
-    # Check .dll/.so exists (C++ compiled successfully)
-    dll_exists <- file.exists(dll_path)
-    if (!dll_exists) {
-      # Try alternative path without x64 subdirectory
-      dll_path_alt <- file.path(installed_dir, "libs", dll_name)
-      dll_exists   <- file.exists(dll_path_alt)
-      if (dll_exists) dll_path <- dll_path_alt
-    }
-
-    if (!dll_exists) {
-      warning("[RDesk] Binary library not found.\n",
-              "Package may be pure R (no C++) - this is acceptable.\n",
-              "Expected at: ", dll_path)
-    }
-
-    # Check NO .R source files in installed R/ directory
-    r_source_files <- list.files(
-      file.path(installed_dir, "R"),
-      pattern = "\\.R$"
-    )
-
-    # Report results
-    message("[RDesk]   Results for ", pkg_name, ":")
-    message("[RDesk]     .rdb binary:    ",
-            if (file.exists(rdb_path)) "PRESENT" else "MISSING")
-    message("[RDesk]     .dll binary:    ",
-            if (dll_exists) paste0("PRESENT (",
-                                    round(file.info(dll_path)$size / 1024),
-                                    " KB)") else "NOT FOUND (pure R)")
-    message("[RDesk]     .R source:      ",
-            if (length(r_source_files) == 0) "STRIPPED (PROTECTED)"
-            else paste0("PRESENT (", length(r_source_files), " files -- WARNING)"))
-
-    if (length(r_source_files) > 0) {
-      warning("[RDesk] Source files found in installed package: ",
-              paste(r_source_files, collapse = ", "),
-              "\nSource may be visible to end users.")
-    }
-
-    results[[pkg_name]] <- list(
-      name       = pkg_name,
-      rdb        = file.exists(rdb_path),
-      dll        = dll_exists,
-      dll_path   = if (dll_exists) dll_path else NULL,
-      protected  = length(r_source_files) == 0
-    )
-  }
-
-  message("\n[RDesk] Proprietary package compilation complete.")
-  invisible(results)
-}
-
-
-#' Verify proprietary package protection in a built bundle
-#'
-#' Run after build_app() to confirm source was stripped from all
-#' proprietary packages in the output bundle.
-#'
-#' @param build_dir Path to the built app directory (e.g. "dist/MyApp").
-#' @param pkg_names Character vector of proprietary package names to check.
-#' @return Named logical vector: TRUE = protected, FALSE = source exposed.
-#' @export
-rdesk_verify_protection <- function(build_dir, pkg_names) {
-  results <- logical(length(pkg_names))
-  names(results) <- pkg_names
-
-  cat("[RDesk] Verifying IP protection in bundle:", build_dir, "\n\n")
-
-  for (pkg in pkg_names) {
-    pkg_dir  <- file.path(build_dir, "packages", "library", pkg)
-    r_dir    <- file.path(pkg_dir, "R")
-
-    if (!dir.exists(pkg_dir)) {
-      cat(sprintf("  %-20s NOT FOUND in bundle\n", pkg))
-      results[pkg] <- FALSE
-      next
-    }
-
-    # Check for .R source files
-    r_files  <- list.files(r_dir, pattern = "\\.R$")
-
-    # Check for .rdb
-    rdb      <- file.exists(file.path(r_dir, paste0(pkg, ".rdb")))
-
-    # Check for binary
-    dll_files <- list.files(
-      file.path(pkg_dir, "libs"),
-      pattern = "\\.(dll|so|dylib)$",
-      recursive = TRUE
-    )
-
-    protected <- length(r_files) == 0 && rdb
-
-    cat(sprintf("  %-20s ", pkg))
-    if (protected) {
-      cat("PROTECTED  -- .rdb only, no source\n")
-      if (length(dll_files) > 0) {
-        cat(sprintf("  %-20s   Binary: %s\n", "",
-                    paste(dll_files, collapse = ", ")))
-      }
-    } else {
-      cat("EXPOSED    -- source files present\n")
-      for (f in r_files) {
-        cat(sprintf("  %-20s   Found: R/%s\n", "", f))
-      }
-    }
-    results[pkg] <- protected
-  }
-
-  cat("\n")
-  if (all(results)) {
-    cat("[RDesk] All proprietary packages: PROTECTED\n")
-  } else {
-    cat("[RDesk] WARNING: Some packages have exposed source.\n")
-    cat("        Check install options and rebuild.\n")
-  }
-
-  invisible(results)
 }

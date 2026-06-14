@@ -8,8 +8,7 @@ rdesk_build_linux_app(
   app_dir,
   app_name,
   app_version = "1.0.0",
-  out_dir = tempdir(),
-  proprietary_packages = NULL
+  out_dir = tempdir()
 )
 }
 \description{
