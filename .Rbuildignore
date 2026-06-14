@@ -39,5 +39,7 @@
 ^scratch($|/)
 ^.*\.Rcheck($|/)
 ^inst/bin($|/)
+^linux_build_test\.sh$
+^log\.txt$
 
 
