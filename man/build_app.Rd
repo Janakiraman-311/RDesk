@@ -26,7 +26,7 @@ build_app(
 \arguments{
 \item{app_dir}{Path to the app directory (must contain app.R and www/)}
 
-\item{out_dir}{Output directory for the zip file (created if not exists)}
+\item{out_dir}{Output directory for the built artifact (created if needed)}
 
 \item{app_name}{Name of the application. Defaults to name in DESCRIPTION or "MyRDeskApp".}
 
@@ -38,9 +38,10 @@ build_app(
 RDesk's own dependencies are always included automatically.}
 
 \item{portable_r_method}{How to provision the bundled R runtime when
-\code{runtime_dir = "download"} is used explicitly. \code{"extract_only"} requires
-standalone 7-Zip and never launches the R installer. \code{"installer"} allows
-the legacy silent installer path explicitly.}
+\code{runtime_dir = "download"} is used explicitly on Windows.
+\code{"extract_only"} requires standalone 7-Zip and never launches the
+R installer. \code{"installer"} allows the legacy silent installer path
+explicitly.}
 
 \item{runtime_dir}{Controls which R runtime is bundled with the app.
 \itemize{
@@ -48,13 +49,16 @@ the legacy silent installer path explicitly.}
 installation. Guarantees the bundled packages and the runtime are the
 same R version, eliminating renv version-mismatch crashes.
 \item A filesystem path -- copies that R installation root directly.
-\item \code{"download"} -- downloads a portable R installer from CRAN
-(legacy behaviour; requires network; risks version mismatch with renv).
+\item \code{"download"} -- downloads a portable R installer from CRAN on
+Windows only (legacy behaviour; requires network; risks version
+mismatch with renv).
 }}
 
 \item{overwrite}{If TRUE, overwrite existing output. Default FALSE.}
 
-\item{build_installer}{If TRUE, also build a Windows installer (.exe) using InnoSetup.}
+\item{build_installer}{If TRUE, also build a platform installer when
+supported: a Windows \code{.exe} via InnoSetup or a macOS \code{.dmg}. Linux
+currently produces only the bundle and \code{.tar.gz} archive.}
 
 \item{publisher}{Documentation for the application publisher (used in installer).}
 
@@ -71,7 +75,7 @@ the bundled R runtime to reduce size (~15-20MB saving). Default TRUE.}
 environment without performing the full build. Default FALSE.}
 }
 \value{
-Path to the created zip file, invisibly.
+The built artifact path or bundle metadata, invisibly.
 }
 \description{
 Build a self-contained distributable from an RDesk application

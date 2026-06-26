@@ -31,17 +31,6 @@ NULL
 }
 
 .onAttach <- function(libname, pkgname) {
-  # Inform users on non-Windows platforms that GUI features require Windows 10+.
-  # The IPC layer and async utilities work on all platforms; only the native
-  # WKWebView/Win32 launcher is Windows-specific.
-  if (.Platform$OS.type != "windows") {
-    packageStartupMessage(
-      "[RDesk] RDesk requires Windows 10 or later for native window support.\n",
-      "  macOS and Linux support is planned for v2.0.\n",
-      "  See: https://github.com/Janakiraman-311/RDesk"
-    )
-  }
-
   packageStartupMessage(
     "[RDesk] v", utils::packageVersion("RDesk"), " ready."
   )

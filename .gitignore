@@ -14,26 +14,26 @@ renv/sandbox/
 *.Rcheck/
 .temp/
 staging/
-*.txt
+log.txt
 
-# C++ and Biaries
+# C++ and binaries
 **/build/
-**/*.exe
-**/*.dll
-**/*.so
-**/*.pdb
-**/*.o
-**/*.obj
-**/*.a
-**/*.lib
+src/*.exe
+src/*.dll
+src/*.so
+src/*.pdb
+src/*.o
+src/*.obj
+src/*.a
+src/*.lib
 **/.vs/
-**/*.signature.p7s
-**/*.tlb
 
 # RDesk Specific
+inst/bin/
 inst/bin/*.exe
 inst/bin/rdesk-launcher
 inst/bin/*.dll
+launcher_src/
 launcher_src/launcher/*.exe
 launcher_src/launcher/build/
 launcher_src/launcher/out/

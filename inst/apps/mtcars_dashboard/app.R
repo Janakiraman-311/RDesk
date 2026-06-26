@@ -2,9 +2,21 @@
 # Thin entry point
 
 resolve_app_dir <- function() {
-  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  args <- commandArgs(trailingOnly = FALSE)
+
+  # Check for Rscript --file=...
+  file_arg <- grep("^--file=", args, value = TRUE)
   if (length(file_arg) > 0) {
     script_path <- normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)
+    if (nzchar(script_path) && file.exists(script_path)) {
+      return(dirname(script_path))
+    }
+  }
+
+  # Check for R -f ...
+  f_idx <- which(args == "-f")
+  if (length(f_idx) > 0 && f_idx < length(args)) {
+    script_path <- normalizePath(args[f_idx + 1], winslash = "/", mustWork = FALSE)
     if (nzchar(script_path) && file.exists(script_path)) {
       return(dirname(script_path))
     }
@@ -33,6 +45,12 @@ if (!nzchar(Sys.getenv("R_BUNDLE_APP")) && is_dev) {
   devtools::load_all(pkg_root)
 } else {
   suppressPackageStartupMessages(library(RDesk))
+}
+
+# Force callr backend in bundled mode to avoid nanonext/mirai daemon socket
+# conflicts with the processx pipe-based launcher IPC.
+if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+  options(rdesk.async_backend = "callr")
 }
 
 suppressPackageStartupMessages(library(ggplot2))

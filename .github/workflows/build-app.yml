@@ -27,17 +27,16 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+          # libgtk-3-dev / libwebkit2gtk-4.1-dev — required to compile rdesk-launcher.
+          # gcc — required to compile the Linux stub binary inside rdesk_build_linux_app().
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev gcc xvfb xauth
 
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.5.1'
           use-public-rspm: true
 
-      - name: Configure DESCRIPTION for non-Windows installation
-        if: matrix.os != 'windows-latest'
-        run: |
-          Rscript -e "desc <- readLines('DESCRIPTION'); desc <- desc[!grepl('^OS_type:', desc)]; writeLines(desc, 'DESCRIPTION')"
+
 
       - name: Make scripts executable
         if: matrix.os != 'windows-latest'
@@ -52,7 +51,7 @@ jobs:
         shell: Rscript {0}
         run: |
           devtools::install(pkg = ".", upgrade = FALSE, quick = TRUE)
-          
+
           # Verify binary was built and placed in the installed package library
           binary_name <- if (.Platform$OS.type == "windows") "rdesk-launcher.exe" else "rdesk-launcher"
           launcher <- system.file("bin", binary_name, package = "RDesk")
@@ -62,21 +61,24 @@ jobs:
           cat("Launcher verified at: ", launcher, "\n")
 
       - name: Build App
-        if: matrix.os != 'ubuntu-latest'
         shell: Rscript {0}
         run: |
-          RDesk::build_app(
-            app_dir = "inst/apps/mtcars_dashboard", 
-            app_name = "CarsAnalyser", 
-            out_dir = "dist",
-            portable_r_method = "installer"
+          args <- list(
+            app_dir = "inst/apps/mtcars_dashboard",
+            app_name = "CarsAnalyser",
+            version = "1.0.0",
+            out_dir = "dist"
           )
+          if (.Platform$OS.type == "windows") {
+            args$portable_r_method <- "installer"
+          }
+          do.call(RDesk::build_app, args)
 
       - name: Validate macOS App Bundle Structure
         if: matrix.os == 'macos-latest'
         run: |
           BUNDLE="dist/CarsAnalyser.app"
-          
+
           # Verify bundle structure components
           echo "=== Verifying Bundle Structure ==="
           test -f "$BUNDLE/Contents/Info.plist"     || (echo "FAIL: Info.plist missing" && exit 1)
@@ -86,20 +88,111 @@ jobs:
           test -f "$BUNDLE/Contents/Resources/app/app.R" || (echo "FAIL: app.R missing" && exit 1)
           test -d "$BUNDLE/Contents/Resources/R-runtime/R/bin" || (echo "FAIL: R runtime missing" && exit 1)
           echo "Structure: PASS"
-          
+
           # Verify executable permissions
           echo "=== Verifying Executable Permissions ==="
           test -x "$BUNDLE/Contents/MacOS/CarsAnalyser" || (echo "FAIL: Stub not executable" && exit 1)
           test -x "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher not executable" && exit 1)
           echo "Permissions: PASS"
-          
+
           # Verify plist values
           echo "=== Verifying Plist Configuration ==="
           /usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$BUNDLE/Contents/Info.plist" | grep -q "CarsAnalyser" || (echo "FAIL: CFBundleExecutable misconfigured" && exit 1)
           echo "Plist: PASS"
 
+      - name: Validate Linux App Bundle Structure
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          BUNDLE="dist/CarsAnalyser-1.0.0"
+
+          echo "=== Verifying Linux Bundle Structure ==="
+          # Stub binary (entry point compiled from stub_linux.c)
+          test -f "$BUNDLE/CarsAnalyser"       || (echo "FAIL: stub binary missing" && exit 1)
+          # WebView launcher binary
+          test -f "$BUNDLE/rdesk-launcher"     || (echo "FAIL: rdesk-launcher missing" && exit 1)
+          # App sources
+          test -f "$BUNDLE/app/app.R"          || (echo "FAIL: app/app.R missing" && exit 1)
+          # Bundled R runtime
+          test -d "$BUNDLE/R-runtime/R/bin"    || (echo "FAIL: R-runtime/R/bin missing" && exit 1)
+          echo "Structure: PASS"
+
+          echo "=== Verifying Executable Permissions ==="
+          test -x "$BUNDLE/CarsAnalyser"       || (echo "FAIL: stub not executable" && exit 1)
+          test -x "$BUNDLE/rdesk-launcher"     || (echo "FAIL: rdesk-launcher not executable" && exit 1)
+          echo "Permissions: PASS"
+
+      - name: Smoke Test macOS App Bundle
+        if: matrix.os == 'macos-latest'
+        run: |
+          set -euo pipefail
+          echo "=== Running macOS App Smoke Test ==="
+          ./dist/CarsAnalyser.app/Contents/MacOS/CarsAnalyser &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+
+          for i in {1..10}; do
+            if ! kill -0 $PID 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if kill -0 $PID 2>/dev/null; then
+            echo "App is running successfully (active event loop)"
+            kill $PID || true
+            exit 0
+          else
+            if wait $PID; then
+              STATUS=0
+            else
+              STATUS=$?
+            fi
+            if [ $STATUS -eq 0 ]; then
+              echo "App exited successfully (CI mode)"
+              exit 0
+            else
+              echo "App crashed with exit code $STATUS"
+              exit 1
+            fi
+          fi
+
+      - name: Smoke Test Linux App Bundle
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -euo pipefail
+          echo "=== Running Linux App Smoke Test ==="
+          xvfb-run --auto-servernum ./dist/CarsAnalyser-1.0.0/CarsAnalyser &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+
+          for i in {1..10}; do
+            if ! kill -0 $PID 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if kill -0 $PID 2>/dev/null; then
+            echo "App is running successfully (active event loop)"
+            kill $PID || true
+            exit 0
+          else
+            if wait $PID; then
+              STATUS=0
+            else
+              STATUS=$?
+            fi
+            if [ $STATUS -eq 0 ]; then
+              echo "App exited successfully (CI mode)"
+              exit 0
+            else
+              echo "App crashed with exit code $STATUS"
+              exit 1
+            fi
+          fi
+
       - name: Upload Artifact
-        if: always() && matrix.os != 'ubuntu-latest'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: CarsAnalyser-dist-${{ matrix.os }}

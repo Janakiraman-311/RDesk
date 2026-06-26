@@ -10,7 +10,7 @@
   function handleMessage(evt) {
     try {
       var envelope = (typeof evt.data === 'string') ? JSON.parse(evt.data) : evt.data;
-      
+
       // Internal navigation handler
       if (envelope.type === "__navigate__") {
         window.location.href = envelope.payload.path;
@@ -24,7 +24,7 @@
 
       var type     = envelope.type;
       var payload  = envelope.payload || {};
-      
+
       var handlers = _handlers[type] || [];
       handlers.forEach(function (h) {
         try { h(payload); } catch (e) {
@@ -37,22 +37,37 @@
   }
 
   function initBridge() {
-    if (typeof window !== "undefined" && window.chrome && window.chrome.webview) {
-      window.chrome.webview.addEventListener('message', handleMessage);
-      _connected = true;
-      
-      // Flush any messages sent before bridge was ready
-      var q = _queue.slice();
-      _queue = [];
-      q.forEach(function (msg) { window.chrome.webview.postMessage(msg); });
-      
-      _ready_fns.forEach(function (fn) {
-        try { fn(); } catch (e) { console.error("[rdesk] ready fn error", e); }
-      });
-      console.log("[rdesk] Native IPC bridge connected.");
-    } else {
-      // WebView2 object might take a moment to inject
-      setTimeout(initBridge, 50);
+    if (typeof window !== "undefined") {
+      if (window.chrome && window.chrome.webview) {
+        // Windows (WebView2)
+        window.chrome.webview.addEventListener('message', handleMessage);
+        _connected = true;
+      } else if (typeof window.rdesk_send_to_r === "function" || typeof rdesk_send_to_r === "function") {
+        // macOS / Linux (WebKit / webview.h bindings)
+        window.addEventListener('message', handleMessage);
+        _connected = true;
+      }
+
+      if (_connected) {
+        // Flush any messages sent before bridge was ready
+        var q = _queue.slice();
+        _queue = [];
+        q.forEach(function (msg) {
+          if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.postMessage(msg);
+          } else {
+            (window.rdesk_send_to_r || rdesk_send_to_r)(msg);
+          }
+        });
+
+        _ready_fns.forEach(function (fn) {
+          try { fn(); } catch (e) { console.error("[rdesk] ready fn error", e); }
+        });
+        console.log("[rdesk] Native IPC bridge connected.");
+      } else {
+        // WebView2 object might take a moment to inject, or bindings to load
+        setTimeout(initBridge, 50);
+      }
     }
   }
 
@@ -77,8 +92,13 @@
         timestamp: Date.now() / 1000
       };
 
-      if (_connected && window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage(JSON.stringify(msg));
+      if (_connected) {
+        var strMsg = JSON.stringify(msg);
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage(strMsg);
+        } else if (typeof window.rdesk_send_to_r === "function" || typeof rdesk_send_to_r === "function") {
+          (window.rdesk_send_to_r || rdesk_send_to_r)(strMsg);
+        }
       } else {
         _queue.push(JSON.stringify(msg));
       }
@@ -237,13 +257,13 @@
       "max-width:350px",
       "background:" + (colors[payload.type] || colors.info)
     ].join(";");
-    
+
     toast.textContent = payload.message;
     document.body.appendChild(toast);
 
     // Frame delay for transition
-    requestAnimationFrame(function() { 
-      toast.style.opacity = "1"; 
+    requestAnimationFrame(function() {
+      toast.style.opacity = "1";
       toast.style.transform = "translateY(0)";
     });
 
@@ -590,10 +610,22 @@
 
   // Auto-init on load
   if (typeof window !== "undefined") {
-    if (document.readyState === "complete" || document.readyState === "interactive") {
+    var initOnLoad = function() {
+      // Defensive cleanup: remove any leftover dialog modal elements from the DOM
+      var orphans = document.querySelectorAll('#__rdesk_dialog_modal__');
+      for (var i = 0; i < orphans.length; i++) {
+        if (orphans[i].parentNode) {
+          orphans[i].parentNode.removeChild(orphans[i]);
+        }
+      }
+      _dialogModal = null;
       rdesk.init();
+    };
+
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      initOnLoad();
     } else {
-      window.addEventListener("DOMContentLoaded", function() { rdesk.init(); });
+      window.addEventListener("DOMContentLoaded", initOnLoad);
     }
   }
 

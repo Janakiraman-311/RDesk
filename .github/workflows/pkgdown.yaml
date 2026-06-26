@@ -12,8 +12,8 @@ concurrency:
 
 jobs:
   pkgdown:
-    # RDesk is an OS_type: Windows package. Site building requires RDesk installation 
-    # to run vignettes (library(RDesk)), so we must build on a Windows runner.
+    # Build pkgdown on Windows because the site examples and vignettes exercise
+    # the native launcher tooling that is most stable on the Windows CI runner.
     runs-on: windows-latest
     permissions:
       contents: write

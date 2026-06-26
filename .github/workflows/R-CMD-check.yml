@@ -39,10 +39,7 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: true
 
-      - name: Configure DESCRIPTION for non-Windows installation
-        if: matrix.os != 'windows-latest'
-        run: |
-          Rscript -e "desc <- readLines('DESCRIPTION'); desc <- desc[!grepl('^OS_type:', desc)]; writeLines(desc, 'DESCRIPTION')"
+
 
       - name: Make scripts executable
         if: matrix.os != 'windows-latest'
@@ -97,8 +94,9 @@ jobs:
             cat(paste(res$errors, collapse = "\n"))
             stop("R CMD check failed with errors")
           }
-          # Expected: 1 note (-mwindows, pre-approved by CRAN).
           # Print any notes so they are visible in the log.
+          # For a submission candidate we want clear visibility into
+          # platform-specific notes rather than silently assuming one.
           if (length(res$notes) > 0) {
             cat("Notes:\n")
             cat(paste(res$notes, collapse = "\n"))

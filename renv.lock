@@ -227,12 +227,7 @@
       "Maintainer": "Charlie Gao <charlie.gao@posit.co>",
       "Repository": "CRAN"
     },
-    "pkgdown": {
-      "Package": "pkgdown",
-      "Version": "2.2.0",
-      "Source": "Repository",
-      "Repository": "CRAN"
-    },
+
     "processx": {
       "Package": "processx",
       "Version": "3.8.6",
@@ -367,12 +362,7 @@
       "Maintainer": "Kevin Ushey <kevin@rstudio.com>",
       "Repository": "CRAN"
     },
-    "urlchecker": {
-      "Package": "urlchecker",
-      "Version": "1.0.1",
-      "Source": "Repository",
-      "Repository": "CRAN"
-    },
+
     "zip": {
       "Package": "zip",
       "Version": "2.3.3",

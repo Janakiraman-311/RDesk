@@ -99,6 +99,6 @@ int main(int argc, char* argv[]) {
     execv(rscript_path, args);
 
     // execv only returns if execution failed
-    perror("[RDesk Stub] execv failed to launch Rscript");
+    perror("[RDesk] execv failed to launch Rscript");
     return 1;
 }

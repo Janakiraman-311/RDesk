@@ -618,7 +618,11 @@ App <- R6::R6Class("App",
         rdesk_start_daemons()  # Pre-warm worker pool
       }
 
-      url <- "https://app.rdesk/index.html"
+      if (.Platform$OS.type == "windows") {
+        url <- "https://app.rdesk/index.html"
+      } else {
+        url <- "rdesk://app/index.html"
+      }
 
       private$.window_proc <- rdesk_open_window(
         url      = url,
