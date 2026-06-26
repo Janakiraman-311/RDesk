@@ -1178,7 +1178,11 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     }
 
     result <- system2("otool", c("-L", shQuote(lib)), stdout = TRUE, stderr = FALSE)
-    stale <- grep("^\\s+/Users/|^\\s+/opt/R|^\\s+/usr/local/lib/R|^\\s+/Library/Frameworks/R.framework", result, value = TRUE)
+    stale <- result[grepl("^\\s+/", result) &
+                    !grepl("@", result) &
+                    !grepl("^\\s+/System/Library/", result) &
+                    !grepl("^\\s+/usr/lib/", result) &
+                    !grepl("^\\s+/opt/X11/", result)]
     if (length(stale) > 0) {
       for (entry in stale) {
         old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
@@ -1211,7 +1215,11 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     }
 
     result <- system2("otool", c("-L", shQuote(launcher_path)), stdout = TRUE, stderr = FALSE)
-    stale <- grep("^\\s+/Users/|^\\s+/opt/R|^\\s+/usr/local/lib/R|^\\s+/Library/Frameworks/R.framework", result, value = TRUE)
+    stale <- result[grepl("^\\s+/", result) &
+                    !grepl("@", result) &
+                    !grepl("^\\s+/System/Library/", result) &
+                    !grepl("^\\s+/usr/lib/", result) &
+                    !grepl("^\\s+/opt/X11/", result)]
     for (entry in stale) {
       old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
       new_path <- paste0("@rpath/", basename(old_path))
@@ -1233,7 +1241,11 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     if (!file.exists(exe)) next
     result <- system2("otool", c("-L", shQuote(exe)), stdout = TRUE, stderr = FALSE)
     # Rewrite any absolute paths that point at the build machine's R installation
-    stale <- grep("^\\s+/Users/|^\\s+/opt/R|^\\s+/usr/local/lib/R|^\\s+/Library/Frameworks/R.framework", result, value = TRUE)
+    stale <- result[grepl("^\\s+/", result) &
+                    !grepl("@", result) &
+                    !grepl("^\\s+/System/Library/", result) &
+                    !grepl("^\\s+/usr/lib/", result) &
+                    !grepl("^\\s+/opt/X11/", result)]
     for (entry in stale) {
       old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
       new_path <- paste0("@rpath/", basename(old_path))
