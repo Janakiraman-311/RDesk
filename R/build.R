@@ -1036,6 +1036,9 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   # 7. Fix dynamic library paths (otool and install_name_tool)
   rdesk_fix_macos_rpaths(bundle_path)
 
+  # 7b. Patch framework ID to fix segfaults caused by system R fallback
+  rdesk_patch_macos_R_framework_id(bundle_path)
+
   # 8. Generate Info.plist
   rdesk_write_info_plist(contents, app_name, app_version)
 
@@ -1252,6 +1255,20 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
 
   message("[RDesk]   Patched ", length(macho_binaries), " Mach-O binaries - audit PASSED.")
   invisible(macho_binaries)
+}
+rdesk_patch_macos_R_framework_id <- function(app_bundle_path) {
+  if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
+  message("[RDesk] Patching R framework identifier to prevent system R fallback...")
+
+  libr <- list.files(app_bundle_path, pattern = "^libR\\.dylib$", recursive = TRUE, full.names = TRUE)
+  for (f in libr) {
+    if (Sys.readlink(f) != "") next
+    script <- "s/org\\.R-project\\.R/org.X-project.R/g"
+    rc <- system2("perl", c("-pi", "-e", shQuote(script), shQuote(f)), stdout = FALSE, stderr = FALSE)
+    if (rc == 0L) {
+      message("[RDesk]   Successfully patched: ", basename(f))
+    }
+  }
 }
 
 rdesk_sign_macos_app <- function(app_bundle, identity = "-") {
