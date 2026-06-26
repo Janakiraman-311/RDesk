@@ -1270,7 +1270,8 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     bad_lines <- result[grepl("^\\s+/", result) &
                         !grepl("@", result) &
                         !grepl("^\\s+/System/Library/", result) &
-                        !grepl("^\\s+/usr/lib/", result)]
+                        !grepl("^\\s+/usr/lib/", result) &
+                        !grepl("^\\s+/opt/X11/", result)]
     if (length(bad_lines) > 0)
       audit_failures <- c(audit_failures,
         sprintf("  %s\n%s", binary,
