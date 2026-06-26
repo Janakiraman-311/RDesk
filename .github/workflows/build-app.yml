@@ -100,6 +100,12 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$BUNDLE/Contents/Info.plist" | grep -q "CarsAnalyser" || (echo "FAIL: CFBundleExecutable misconfigured" && exit 1)
           echo "Plist: PASS"
 
+          # Debug otool output for launcher and stub
+          echo "=== Launcher Dependency List ==="
+          otool -L "$BUNDLE/Contents/Resources/bin/rdesk-launcher"
+          echo "=== Stub Dependency List ==="
+          otool -L "$BUNDLE/Contents/MacOS/CarsAnalyser"
+
       - name: Validate Linux App Bundle Structure
         if: matrix.os == 'ubuntu-latest'
         run: |

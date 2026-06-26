@@ -1177,6 +1177,14 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
       next
     }
 
+    # If the file is a shared library (.dylib), change its install name ID to be relative
+    if (grepl("\\.dylib$", lib)) {
+      new_id <- paste0("@rpath/", basename(lib))
+      message("[RDesk]   Updating ID for ", basename(lib), " -> ", new_id)
+      system2("install_name_tool", c("-id", shQuote(new_id), shQuote(lib)),
+              stdout = FALSE, stderr = FALSE)
+    }
+
     result <- system2("otool", c("-L", shQuote(lib)), stdout = TRUE, stderr = FALSE)
     stale <- result[grepl("^\\s+/", result) &
                     !grepl("@", result) &
@@ -1187,6 +1195,7 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
       for (entry in stale) {
         old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
         new_path <- paste0("@rpath/", basename(old_path))
+        message("[RDesk]   Changing dep in ", basename(lib), ": ", old_path, " -> ", new_path)
         system2("install_name_tool",
                 c("-change", shQuote(old_path), shQuote(new_path), shQuote(lib)),
                 stdout = FALSE, stderr = FALSE)
@@ -1195,7 +1204,11 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     }
 
     result       <- system2("otool", c("-L", shQuote(lib)), stdout = TRUE, stderr = FALSE)
-    has_absolute <- any(grepl("^\\s+/", result) & !grepl("@", result))
+    has_absolute <- any(grepl("^\\s+/", result) &
+                        !grepl("@", result) &
+                        !grepl("^\\s+/System/Library/", result) &
+                        !grepl("^\\s+/usr/lib/", result) &
+                        !grepl("^\\s+/opt/X11/", result))
     if (has_absolute)
       add_rpath(lib, rpath)
   }
@@ -1223,6 +1236,7 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     for (entry in stale) {
       old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
       new_path <- paste0("@rpath/", basename(old_path))
+      message("[RDesk]   Changing dep in launcher: ", old_path, " -> ", new_path)
       system2("install_name_tool",
               c("-change", shQuote(old_path), shQuote(new_path), shQuote(launcher_path)),
               stdout = FALSE, stderr = FALSE)
@@ -1249,6 +1263,7 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     for (entry in stale) {
       old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
       new_path <- paste0("@rpath/", basename(old_path))
+      message("[RDesk]   Changing dep in R executable (", exe_name, "): ", old_path, " -> ", new_path)
       system2("install_name_tool",
               c("-change", shQuote(old_path), shQuote(new_path), shQuote(exe)),
               stdout = FALSE, stderr = FALSE)
