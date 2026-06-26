@@ -1160,32 +1160,45 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
 
   target_dir <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "lib")
 
-  # ---- 1. Patch .so / .dylib files -----------------------------------------
-  libs <- c(
-    list.files(app_bundle_path, pattern = "\\.so$",    recursive = TRUE, full.names = TRUE),
-    list.files(app_bundle_path, pattern = "\\.dylib$", recursive = TRUE, full.names = TRUE)
-  )
-  for (lib in libs) {
-    lib_dir <- dirname(lib)
-    rel_path <- rdesk_relative_path(lib_dir, target_dir)
+  # Find all Mach-O binaries in the bundle
+  all_files <- list.files(app_bundle_path, recursive = TRUE, full.names = TRUE)
+  all_files <- all_files[!dir.exists(all_files)]
+
+  # Filter by possible executable/library files first
+  is_possible <- grepl("\\.(so|dylib)$", all_files) |
+                 grepl("/bin/", all_files) |
+                 grepl("/MacOS/", all_files)
+  possible_files <- all_files[is_possible]
+
+  macho_binaries <- character(0)
+  for (f in possible_files) {
+    rc <- system2("otool", c("-h", shQuote(f)), stdout = FALSE, stderr = FALSE)
+    if (rc == 0L) {
+      macho_binaries <- c(macho_binaries, f)
+    }
+  }
+
+  for (bin in macho_binaries) {
+    bin_dir <- dirname(bin)
+    rel_path <- rdesk_relative_path(bin_dir, target_dir)
     rpath <- if (rel_path == ".") "@loader_path" else paste0("@loader_path/", rel_path)
 
     # Verification check:
-    resolved_dir <- file.path(lib_dir, rel_path)
+    resolved_dir <- file.path(bin_dir, rel_path)
     if (is.na(resolved_dir) || !dir.exists(resolved_dir)) {
       message("[RDesk]   Skipping unresolved/non-bundle library path: ", resolved_dir)
       next
     }
 
-    # If the file is a shared library (.dylib), change its install name ID to be relative
-    if (grepl("\\.dylib$", lib)) {
-      new_id <- paste0("@rpath/", basename(lib))
-      message("[RDesk]   Updating ID for ", basename(lib), " -> ", new_id)
-      system2("install_name_tool", c("-id", shQuote(new_id), shQuote(lib)),
+    # If it is a shared library (.dylib), change its install name ID to be relative
+    if (grepl("\\.dylib$", bin) && Sys.readlink(bin) == "") {
+      new_id <- paste0("@rpath/", basename(bin))
+      message("[RDesk]   Updating ID for ", basename(bin), " -> ", new_id)
+      system2("install_name_tool", c("-id", shQuote(new_id), shQuote(bin)),
               stdout = FALSE, stderr = FALSE)
     }
 
-    result <- system2("otool", c("-L", shQuote(lib)), stdout = TRUE, stderr = FALSE)
+    result <- system2("otool", c("-L", shQuote(bin)), stdout = TRUE, stderr = FALSE)
     stale <- result[grepl("^\\s+/", result) &
                     !grepl("@", result) &
                     !grepl("^\\s+/System/Library/", result) &
@@ -1195,104 +1208,29 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
       for (entry in stale) {
         old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
         new_path <- paste0("@rpath/", basename(old_path))
-        message("[RDesk]   Changing dep in ", basename(lib), ": ", old_path, " -> ", new_path)
+        message("[RDesk]   Changing dep in ", basename(bin), ": ", old_path, " -> ", new_path)
         system2("install_name_tool",
-                c("-change", shQuote(old_path), shQuote(new_path), shQuote(lib)),
+                c("-change", shQuote(old_path), shQuote(new_path), shQuote(bin)),
                 stdout = FALSE, stderr = FALSE)
       }
-      add_rpath(lib, rpath)
+      add_rpath(bin, rpath)
     }
 
-    result       <- system2("otool", c("-L", shQuote(lib)), stdout = TRUE, stderr = FALSE)
+    result       <- system2("otool", c("-L", shQuote(bin)), stdout = TRUE, stderr = FALSE)
     has_absolute <- any(grepl("^\\s+/", result) &
                         !grepl("@", result) &
                         !grepl("^\\s+/System/Library/", result) &
                         !grepl("^\\s+/usr/lib/", result) &
                         !grepl("^\\s+/opt/X11/", result))
     if (has_absolute)
-      add_rpath(lib, rpath)
+      add_rpath(bin, rpath)
   }
 
-  # ---- 2. Patch the WebView launcher binary ---------------------------------
-  launcher_path <- file.path(app_bundle_path, "Contents", "Resources", "bin", "rdesk-launcher")
-  if (file.exists(launcher_path)) {
-    lib_dir <- dirname(launcher_path)
-    rel_path <- rdesk_relative_path(lib_dir, target_dir)
-    rpath <- if (rel_path == ".") "@loader_path" else paste0("@loader_path/", rel_path)
-
-    # Verification check:
-    resolved_dir <- file.path(lib_dir, rel_path)
-    if (is.na(resolved_dir) || !dir.exists(resolved_dir)) {
-      stop("[RDesk] RPath resolution verification failed for launcher: ", launcher_path,
-           "\nResolved path does not exist: ", resolved_dir)
-    }
-
-    result <- system2("otool", c("-L", shQuote(launcher_path)), stdout = TRUE, stderr = FALSE)
-    stale <- result[grepl("^\\s+/", result) &
-                    !grepl("@", result) &
-                    !grepl("^\\s+/System/Library/", result) &
-                    !grepl("^\\s+/usr/lib/", result) &
-                    !grepl("^\\s+/opt/X11/", result)]
-    for (entry in stale) {
-      old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
-      new_path <- paste0("@rpath/", basename(old_path))
-      message("[RDesk]   Changing dep in launcher: ", old_path, " -> ", new_path)
-      system2("install_name_tool",
-              c("-change", shQuote(old_path), shQuote(new_path), shQuote(launcher_path)),
-              stdout = FALSE, stderr = FALSE)
-    }
-
-    add_rpath(launcher_path, rpath)
-  }
-
-  # ---- 3. Patch Rscript and R executables in the bundled R runtime ----------
-  # These binaries dlopen() libR.dylib at runtime; the @rpath must point at
-  # the bundled copy so they do not fall back to (or fail to find) the
-  # build-machine's system R installation.
-  r_bin_dir <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "bin")
-  for (exe_name in c("Rscript", "R")) {
-    exe <- file.path(r_bin_dir, exe_name)
-    if (!file.exists(exe)) next
-    result <- system2("otool", c("-L", shQuote(exe)), stdout = TRUE, stderr = FALSE)
-    # Rewrite any absolute paths that point at the build machine's R installation
-    stale <- result[grepl("^\\s+/", result) &
-                    !grepl("@", result) &
-                    !grepl("^\\s+/System/Library/", result) &
-                    !grepl("^\\s+/usr/lib/", result) &
-                    !grepl("^\\s+/opt/X11/", result)]
-    for (entry in stale) {
-      old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
-      new_path <- paste0("@rpath/", basename(old_path))
-      message("[RDesk]   Changing dep in R executable (", exe_name, "): ", old_path, " -> ", new_path)
-      system2("install_name_tool",
-              c("-change", shQuote(old_path), shQuote(new_path), shQuote(exe)),
-              stdout = FALSE, stderr = FALSE)
-    }
-
-    rel_path <- rdesk_relative_path(r_bin_dir, target_dir)
-    rpath <- if (rel_path == ".") "@loader_path" else paste0("@loader_path/", rel_path)
-
-    # Verification check:
-    resolved_dir <- file.path(r_bin_dir, rel_path)
-    if (is.na(resolved_dir) || !dir.exists(resolved_dir)) {
-      stop("[RDesk] RPath resolution verification failed for R executable: ", exe,
-           "\nResolved path does not exist: ", resolved_dir)
-    }
-
-    add_rpath(exe, rpath)
-    message("[RDesk]   Patched rpath in: ", exe_name)
-  }
-
-  # ---- 4. Absolute-path audit -----------------------------------------------
-  # Walk every Mach-O binary in the bundle and verify that none still reference
-  # absolute paths pointing at the build machine.
+  # ---- Absolute-path audit --------------------------------------------------
   message("[RDesk] Running absolute-path audit...")
-  all_macho <- c(libs, launcher_path,
-                 file.path(r_bin_dir, c("Rscript", "R")))
-  all_macho <- all_macho[file.exists(all_macho)]
-
   audit_failures <- character(0)
-  for (binary in all_macho) {
+  for (binary in macho_binaries) {
+    if (Sys.readlink(binary) != "") next # skip symlinks
     result    <- system2("otool", c("-L", shQuote(binary)), stdout = TRUE, stderr = FALSE)
     bad_lines <- result[grepl("^\\s+/", result) &
                         !grepl("@", result) &
@@ -1312,13 +1250,43 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
          "\nRun 'otool -L <binary>' on each file to diagnose.")
   }
 
-  message("[RDesk]   Patched ", length(libs), " shared libraries - audit PASSED.")
-  invisible(libs)
+  message("[RDesk]   Patched ", length(macho_binaries), " Mach-O binaries - audit PASSED.")
+  invisible(macho_binaries)
 }
 
 rdesk_sign_macos_app <- function(app_bundle, identity = "-") {
   if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
 
+  message("[RDesk] Code signing macOS app components...")
+
+  # Find all Mach-O binaries in the bundle to sign individually
+  all_files <- list.files(app_bundle, recursive = TRUE, full.names = TRUE)
+  all_files <- all_files[!dir.exists(all_files)]
+
+  is_possible <- grepl("\\.(so|dylib)$", all_files) |
+                 grepl("/bin/", all_files) |
+                 grepl("/MacOS/", all_files)
+  possible_files <- all_files[is_possible]
+
+  macho_binaries <- character(0)
+  for (f in possible_files) {
+    if (Sys.readlink(f) != "") next # skip symlinks
+    rc <- system2("otool", c("-h", shQuote(f)), stdout = FALSE, stderr = FALSE)
+    if (rc == 0L) {
+      macho_binaries <- c(macho_binaries, f)
+    }
+  }
+
+  # Sign each binary individually
+  for (bin in macho_binaries) {
+    rc <- system2("codesign", c("--force", "--sign", shQuote(identity), shQuote(bin)),
+                  stdout = FALSE, stderr = FALSE)
+    if (rc != 0) {
+      warning("[RDesk]   Failed to sign component: ", bin)
+    }
+  }
+
+  # Finally sign the bundle itself
   result <- system2(
     "codesign",
     c("--force", "--deep", "--sign", shQuote(identity), shQuote(app_bundle)),
