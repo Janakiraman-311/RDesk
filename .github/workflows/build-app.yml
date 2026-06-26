@@ -45,7 +45,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::devtools, any::rcmdcheck, any::withr
+          extra-packages: any::devtools, any::rcmdcheck, any::withr, any::ggplot2, any::dplyr, any::broom
 
       - name: Verify Rtools/Compiler and Install Package
         shell: Rscript {0}
