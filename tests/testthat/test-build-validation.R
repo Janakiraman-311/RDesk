@@ -36,3 +36,26 @@ test_that("rdesk_validate_build_inputs() passes with correct structure", {
     }
   })
 })
+
+test_that("rdesk_relative_path() resolves same-directory and nested-directory cases correctly", {
+  withr::with_tempdir({
+    dir.create("a/b/c", recursive = TRUE)
+    dir.create("a/b/d", recursive = TRUE)
+    
+    p_ab <- file.path(getwd(), "a/b")
+    p_abc <- file.path(getwd(), "a/b/c")
+    p_abd <- file.path(getwd(), "a/b/d")
+    
+    # Same directory
+    expect_equal(rdesk_relative_path(p_abc, p_abc), ".")
+    
+    # Nested directory (to is deeper)
+    expect_equal(rdesk_relative_path(p_ab, p_abc), "c")
+    
+    # Parent directory (from is deeper)
+    expect_equal(rdesk_relative_path(p_abc, p_ab), "..")
+    
+    # Sibling directory
+    expect_equal(rdesk_relative_path(p_abc, p_abd), "../d")
+  })
+})

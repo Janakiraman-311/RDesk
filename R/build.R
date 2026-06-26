@@ -911,6 +911,10 @@ rdesk_build_macos_app <- function(app_dir, app_name,
                                   use_download = FALSE,
                                   sign        = TRUE) {
 
+  # Normalize out_dir immediately to prevent working directory issues
+  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  out_dir <- normalizePath(out_dir, winslash = "/", mustWork = FALSE)
+
   # Validate arguments
   if (use_download || identical(runtime_dir, "download")) {
     stop("[Validation Failed] runtime_dir = 'download' is not supported on macOS.")
@@ -1116,7 +1120,11 @@ rdesk_relative_path <- function(from, to) {
   ups <- length(from_parts) - common_len
   up_path <- paste(rep("..", ups), collapse = "/")
 
-  down_parts <- to_parts[(common_len + 1):length(to_parts)]
+  if (common_len >= length(to_parts)) {
+    down_parts <- character()
+  } else {
+    down_parts <- to_parts[(common_len + 1):length(to_parts)]
+  }
   down_path  <- paste(down_parts, collapse = "/")
 
   if (nchar(up_path) > 0 && nchar(down_path) > 0) {
@@ -1125,6 +1133,10 @@ rdesk_relative_path <- function(from, to) {
     rel_path <- up_path
   } else {
     rel_path <- down_path
+  }
+
+  if (rel_path == "") {
+    rel_path <- "."
   }
 
   rel_path
@@ -1160,9 +1172,9 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
 
     # Verification check:
     resolved_dir <- file.path(lib_dir, rel_path)
-    if (!dir.exists(resolved_dir)) {
-      stop("[RDesk] RPath resolution verification failed for: ", lib,
-           "\nResolved path does not exist: ", resolved_dir)
+    if (is.na(resolved_dir) || !dir.exists(resolved_dir)) {
+      message("[RDesk]   Skipping unresolved/non-bundle library path: ", resolved_dir)
+      next
     }
 
     result       <- system2("otool", c("-L", shQuote(lib)), stdout = TRUE, stderr = FALSE)
@@ -1180,7 +1192,7 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
 
     # Verification check:
     resolved_dir <- file.path(lib_dir, rel_path)
-    if (!dir.exists(resolved_dir)) {
+    if (is.na(resolved_dir) || !dir.exists(resolved_dir)) {
       stop("[RDesk] RPath resolution verification failed for launcher: ", launcher_path,
            "\nResolved path does not exist: ", resolved_dir)
     }
@@ -1212,7 +1224,7 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
 
     # Verification check:
     resolved_dir <- file.path(r_bin_dir, rel_path)
-    if (!dir.exists(resolved_dir)) {
+    if (is.na(resolved_dir) || !dir.exists(resolved_dir)) {
       stop("[RDesk] RPath resolution verification failed for R executable: ", exe,
            "\nResolved path does not exist: ", resolved_dir)
     }
@@ -1317,6 +1329,10 @@ rdesk_build_linux_app <- function(app_dir, app_name,
                                   portable_r_method = "extract_only",
                                   build_installer = FALSE,
                                   use_download = FALSE) {
+
+  # Normalize out_dir immediately to prevent working directory issues
+  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  out_dir <- normalizePath(out_dir, winslash = "/", mustWork = FALSE)
 
   # Validate arguments
   if (use_download || identical(runtime_dir, "download")) {
