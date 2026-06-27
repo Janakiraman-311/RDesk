@@ -1273,7 +1273,7 @@ rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
     idx <- grep("^[ \t]*R_HOME_DIR=", lines)
     if (length(idx) > 0) {
       message("[RDesk]   Found R_HOME_DIR line: ", lines[idx][1])
-      lines[idx] <- 'R_HOME_DIR="$(cd "$(dirname "$0")"/.. && pwd)"'
+      lines[idx] <- 'R_HOME_DIR="$(cd "$(dirname "$0")"/.. && pwd)"\necho "[RDesk Debug] BUNDLED bin/R RUNNING: R_HOME_DIR=\'${R_HOME_DIR}\', R_HOME=\'${R_HOME}\', argv0=\'$0\'" >&2'
       writeLines(lines, r_bin)
       Sys.chmod(r_bin, "0755")
       message("[RDesk]   Successfully patched bin/R shell script.")
