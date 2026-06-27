@@ -106,6 +106,13 @@ jobs:
           echo "=== Stub Dependency List ==="
           otool -L "$BUNDLE/Contents/MacOS/CarsAnalyser"
 
+          # Debug R wrapper script and libR.dylib ID
+          echo "=== Debug bin/R content ==="
+          grep -i "R_HOME_DIR" "$BUNDLE/Contents/Resources/R-runtime/R/bin/R" || true
+          echo "=== Check libR.dylib framework ID ==="
+          strings "$BUNDLE/Contents/Resources/R-runtime/R/lib/libR.dylib" | grep -E "org\.[RX]-project\.R" || true
+
+
       - name: Validate Linux App Bundle Structure
         if: matrix.os == 'ubuntu-latest'
         run: |

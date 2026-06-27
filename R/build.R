@@ -1309,14 +1309,20 @@ rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
   r_bin <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "bin", "R")
   if (file.exists(r_bin)) {
     lines <- readLines(r_bin)
-    idx <- grep("^R_HOME_DIR=", lines)
+    idx <- grep("^[ \t]*R_HOME_DIR=", lines)
     if (length(idx) > 0) {
+      message("[RDesk]   Found R_HOME_DIR line: ", lines[idx][1])
       lines[idx] <- 'R_HOME_DIR="$(cd "$(dirname "$0")"/.. && pwd)"'
       writeLines(lines, r_bin)
       Sys.chmod(r_bin, "0755")
       message("[RDesk]   Successfully patched bin/R shell script.")
     } else {
-      warning("[RDesk]   Could not find '^R_HOME_DIR=' in bin/R script.")
+      warning("[RDesk]   Could not find '^[ \t]*R_HOME_DIR=' in bin/R script.")
+      debug_idx <- grep("R_HOME_DIR", lines)
+      if (length(debug_idx) > 0) {
+        message("[RDesk]   Lines containing 'R_HOME_DIR' in bin/R:")
+        for (i in debug_idx) message("    Line ", i, ": ", lines[i])
+      }
     }
   } else {
     warning("[RDesk]   bin/R script not found at: ", r_bin)
