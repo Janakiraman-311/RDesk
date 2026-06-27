@@ -1039,6 +1039,9 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   # 7b. Patch framework ID to fix segfaults caused by system R fallback
   rdesk_patch_macos_R_framework_id(bundle_path)
 
+  # 7c. Patch R shell script wrapper to resolve R_HOME_DIR dynamically
+  rdesk_patch_macos_R_shell_script(bundle_path)
+
   # 8. Generate Info.plist
   rdesk_write_info_plist(contents, app_name, app_version)
 
@@ -1298,6 +1301,28 @@ rdesk_patch_macos_R_framework_id <- function(app_bundle_path) {
     }
   }
 }
+
+rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
+  if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
+  message("[RDesk] Patching bin/R shell script to make R_HOME_DIR dynamic...")
+
+  r_bin <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "bin", "R")
+  if (file.exists(r_bin)) {
+    lines <- readLines(r_bin)
+    idx <- grep("^R_HOME_DIR=", lines)
+    if (length(idx) > 0) {
+      lines[idx] <- 'R_HOME_DIR="$(cd "$(dirname "$0")"/.. && pwd)"'
+      writeLines(lines, r_bin)
+      Sys.chmod(r_bin, "0755")
+      message("[RDesk]   Successfully patched bin/R shell script.")
+    } else {
+      warning("[RDesk]   Could not find '^R_HOME_DIR=' in bin/R script.")
+    }
+  } else {
+    warning("[RDesk]   bin/R script not found at: ", r_bin)
+  }
+}
+
 
 rdesk_sign_macos_app <- function(app_bundle, identity = "-") {
   if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
