@@ -1297,7 +1297,7 @@ rdesk_patch_macos_R_framework_id <- function(app_bundle_path) {
       close(con)
       message("[RDesk]   Successfully patched: ", basename(f))
     } else {
-      warning("[RDesk]   Could not find 'org.R-project.R' in ", basename(f))
+      stop("[RDesk]   CRITICAL: Could not find 'org.R-project.R' in ", basename(f))
     }
   }
 }
@@ -1309,6 +1309,13 @@ rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
   r_bin <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "bin", "R")
   if (file.exists(r_bin)) {
     lines <- readLines(r_bin)
+    
+    # Print first 20 lines for GHA debugging
+    message("[RDesk]   First 20 lines of bin/R:")
+    for (i in 1:min(20, length(lines))) {
+      message(sprintf("    [%02d]: %s", i, lines[i]))
+    }
+    
     idx <- grep("^[ \t]*R_HOME_DIR=", lines)
     if (length(idx) > 0) {
       message("[RDesk]   Found R_HOME_DIR line: ", lines[idx][1])
@@ -1317,15 +1324,16 @@ rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
       Sys.chmod(r_bin, "0755")
       message("[RDesk]   Successfully patched bin/R shell script.")
     } else {
-      warning("[RDesk]   Could not find '^[ \t]*R_HOME_DIR=' in bin/R script.")
-      debug_idx <- grep("R_HOME_DIR", lines)
-      if (length(debug_idx) > 0) {
-        message("[RDesk]   Lines containing 'R_HOME_DIR' in bin/R:")
-        for (i in debug_idx) message("    Line ", i, ": ", lines[i])
+      # Debug print all lines containing R_HOME to find the right variable name
+      message("[RDesk]   All lines containing R_HOME:")
+      r_home_lines <- grep("R_HOME", lines)
+      for (i in r_home_lines) {
+        message(sprintf("    [%02d]: %s", i, lines[i]))
       }
+      stop("[RDesk]   CRITICAL: Could not find '^[ \t]*R_HOME_DIR=' in bin/R script.")
     }
   } else {
-    warning("[RDesk]   bin/R script not found at: ", r_bin)
+    stop("[RDesk]   CRITICAL: bin/R script not found at: ", r_bin)
   }
 }
 
