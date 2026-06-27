@@ -1255,6 +1255,7 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
 
   message("[RDesk]   Patched ", length(macho_binaries), " Mach-O binaries - audit PASSED.")
   invisible(macho_binaries)
+}
 rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
   if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
   message("[RDesk] Patching bin/R shell script to make R_HOME_DIR dynamic...")
