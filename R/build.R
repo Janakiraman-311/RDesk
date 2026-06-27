@@ -1263,10 +1263,38 @@ rdesk_patch_macos_R_framework_id <- function(app_bundle_path) {
   libr <- list.files(app_bundle_path, pattern = "^libR\\.dylib$", recursive = TRUE, full.names = TRUE)
   for (f in libr) {
     if (Sys.readlink(f) != "") next
-    script <- "s/org\\.R-project\\.R/org.X-project.R/g"
-    rc <- system2("perl", c("-pi", "-e", shQuote(script), shQuote(f)), stdout = FALSE, stderr = FALSE)
-    if (rc == 0L) {
+    
+    sz <- file.info(f)$size
+    if (is.na(sz) || sz == 0) next
+    
+    con <- file(f, "rb")
+    raw_data <- readBin(con, "raw", n = sz)
+    close(con)
+    
+    old_raw <- charToRaw("org.R-project.R")
+    new_raw <- charToRaw("org.X-project.R")
+    
+    # Fast matching of raw vector subsequence
+    first_byte <- old_raw[1]
+    candidates <- which(raw_data == first_byte)
+    
+    replaced <- FALSE
+    for (cand in candidates) {
+      if (cand + length(old_raw) - 1 <= length(raw_data)) {
+        if (all(raw_data[cand:(cand + length(old_raw) - 1)] == old_raw)) {
+          raw_data[cand:(cand + length(old_raw) - 1)] <- new_raw
+          replaced <- TRUE
+        }
+      }
+    }
+    
+    if (replaced) {
+      con <- file(f, "wb")
+      writeBin(raw_data, con)
+      close(con)
       message("[RDesk]   Successfully patched: ", basename(f))
+    } else {
+      warning("[RDesk]   Could not find 'org.R-project.R' in ", basename(f))
     }
   }
 }
