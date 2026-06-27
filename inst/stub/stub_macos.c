@@ -50,14 +50,14 @@ int main(int argc, char* argv[]) {
     strncpy(contents_path, real_exec_path, PATH_MAX - 1);
     contents_path[PATH_MAX - 1] = '\0';
 
-    // Target binary: Contents/Resources/R-runtime/R/bin/Rscript
-    char rscript_path[PATH_MAX];
-    snprintf(rscript_path, sizeof(rscript_path), "%s/Resources/R-runtime/R/bin/Rscript", contents_path);
+    // Target binary: Contents/Resources/R-runtime/R/bin/R
+    char r_path[PATH_MAX];
+    snprintf(r_path, sizeof(r_path), "%s/Resources/R-runtime/R/bin/R", contents_path);
 
-    // Verify Rscript exists
+    // Verify R executable exists
     struct stat st;
-    if (stat(rscript_path, &st) != 0) {
-        fprintf(stderr, "[RDesk Stub] Error: R runtime not found at: %s\n", rscript_path);
+    if (stat(r_path, &st) != 0) {
+        fprintf(stderr, "[RDesk Stub] Error: R runtime not found at: %s\n", r_path);
         return 1;
     }
 
@@ -87,18 +87,21 @@ int main(int argc, char* argv[]) {
     putenv("R_BUNDLE_APP=1");
     putenv(app_name_env);
 
-    // Prepare execv arguments: Rscript --vanilla Contents/Resources/app/app.R
+    // Prepare execv arguments: R --vanilla --no-echo --no-restore -f Contents/Resources/app/app.R
     char* const args[] = {
-        rscript_path,
+        r_path,
         "--vanilla",
+        "--no-echo",
+        "--no-restore",
+        "-f",
         app_r_path,
         NULL
     };
 
-    // Execute Rscript
-    execv(rscript_path, args);
+    // Execute R
+    execv(r_path, args);
 
     // execv only returns if execution failed
-    perror("[RDesk] execv failed to launch Rscript");
+    perror("[RDesk] execv failed to launch R");
     return 1;
 }
