@@ -106,9 +106,7 @@ jobs:
           echo "=== Stub Dependency List ==="
           otool -L "$BUNDLE/Contents/MacOS/CarsAnalyser"
 
-          # Debug R wrapper script
-          echo "=== Debug bin/R content ==="
-          grep -i "R_HOME_DIR" "$BUNDLE/Contents/Resources/R-runtime/R/bin/R" || true
+
 
 
       - name: Validate Linux App Bundle Structure

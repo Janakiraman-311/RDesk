@@ -1263,27 +1263,13 @@ rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
   r_bin <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "bin", "R")
   if (file.exists(r_bin)) {
     lines <- readLines(r_bin)
-    
-    # Print first 20 lines for GHA debugging
-    message("[RDesk]   First 20 lines of bin/R:")
-    for (i in 1:min(20, length(lines))) {
-      message(sprintf("    [%02d]: %s", i, lines[i]))
-    }
-    
     idx <- grep("^[ \t]*R_HOME_DIR=", lines)
     if (length(idx) > 0) {
-      message("[RDesk]   Found R_HOME_DIR line: ", lines[idx][1])
-      lines[idx] <- 'R_HOME_DIR="$(cd "$(dirname "$0")"/.. && pwd)"\necho "[RDesk Debug] BUNDLED bin/R RUNNING: R_HOME_DIR=\'${R_HOME_DIR}\', R_HOME=\'${R_HOME}\', argv0=\'$0\'" >&2'
+      lines[idx] <- 'R_HOME_DIR="$(cd "$(dirname "$0")"/.. && pwd)"'
       writeLines(lines, r_bin)
       Sys.chmod(r_bin, "0755")
       message("[RDesk]   Successfully patched bin/R shell script.")
     } else {
-      # Debug print all lines containing R_HOME to find the right variable name
-      message("[RDesk]   All lines containing R_HOME:")
-      r_home_lines <- grep("R_HOME", lines)
-      for (i in r_home_lines) {
-        message(sprintf("    [%02d]: %s", i, lines[i]))
-      }
       stop("[RDesk]   CRITICAL: Could not find '^[ \t]*R_HOME_DIR=' in bin/R script.")
     }
   } else {
