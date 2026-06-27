@@ -1036,9 +1036,6 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   # 7. Fix dynamic library paths (otool and install_name_tool)
   rdesk_fix_macos_rpaths(bundle_path)
 
-  # 7b. Patch framework ID to fix segfaults caused by system R fallback
-  rdesk_patch_macos_R_framework_id(bundle_path)
-
   # 7c. Patch R shell script wrapper to resolve R_HOME_DIR dynamically
   rdesk_patch_macos_R_shell_script(bundle_path)
 
@@ -1258,50 +1255,6 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
 
   message("[RDesk]   Patched ", length(macho_binaries), " Mach-O binaries - audit PASSED.")
   invisible(macho_binaries)
-}
-rdesk_patch_macos_R_framework_id <- function(app_bundle_path) {
-  if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
-  message("[RDesk] Patching R framework identifier to prevent system R fallback...")
-
-  libr <- list.files(app_bundle_path, pattern = "^libR\\.dylib$", recursive = TRUE, full.names = TRUE)
-  for (f in libr) {
-    if (Sys.readlink(f) != "") next
-    
-    sz <- file.info(f)$size
-    if (is.na(sz) || sz == 0) next
-    
-    con <- file(f, "rb")
-    raw_data <- readBin(con, "raw", n = sz)
-    close(con)
-    
-    old_raw <- charToRaw("org.R-project.R")
-    new_raw <- charToRaw("org.X-project.R")
-    
-    # Fast matching of raw vector subsequence
-    first_byte <- old_raw[1]
-    candidates <- which(raw_data == first_byte)
-    
-    replaced <- FALSE
-    for (cand in candidates) {
-      if (cand + length(old_raw) - 1 <= length(raw_data)) {
-        if (all(raw_data[cand:(cand + length(old_raw) - 1)] == old_raw)) {
-          raw_data[cand:(cand + length(old_raw) - 1)] <- new_raw
-          replaced <- TRUE
-        }
-      }
-    }
-    
-    if (replaced) {
-      con <- file(f, "wb")
-      writeBin(raw_data, con)
-      close(con)
-      message("[RDesk]   Successfully patched: ", basename(f))
-    } else {
-      stop("[RDesk]   CRITICAL: Could not find 'org.R-project.R' in ", basename(f))
-    }
-  }
-}
-
 rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
   if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
   message("[RDesk] Patching bin/R shell script to make R_HOME_DIR dynamic...")
