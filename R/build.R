@@ -720,13 +720,20 @@ rdesk_validate_non_windows_runtime <- function(r_home, platform_label) {
   current_r_version <- paste0(R.version$major, ".", R.version$minor)
   runtime_r_version <- rdesk_detect_runtime_version(r_home)
 
-  if (!identical(runtime_r_version, current_r_version)) {
+  # Check major and minor version only (tolerance for patch version mismatches)
+  current_parts <- strsplit(current_r_version, "\\.")[[1]]
+  runtime_parts <- strsplit(runtime_r_version, "\\.")[[1]]
+  
+  current_major_minor <- paste(current_parts[1:min(2, length(current_parts))], collapse = ".")
+  runtime_major_minor <- paste(runtime_parts[1:min(2, length(runtime_parts))], collapse = ".")
+
+  if (!identical(runtime_major_minor, current_major_minor)) {
     stop(
       "[Validation Failed] ", platform_label,
-      " builds currently require the bundled runtime to match the running R version.\n",
+      " builds currently require the bundled runtime minor version to match the running R version.\n",
       "Current R session: ", current_r_version, "\n",
       "Bundled runtime: ", runtime_r_version, "\n",
-      "Re-run build_app() from R ", runtime_r_version,
+      "Re-run build_app() from R ", runtime_major_minor, ".x",
       " or use a runtime_dir that matches the current session."
     )
   }
@@ -1038,6 +1045,19 @@ rdesk_build_macos_app <- function(app_dir, app_name,
 
   # 7c. Patch R shell script wrapper to resolve R_HOME_DIR dynamically
   rdesk_patch_macos_R_shell_script(bundle_path)
+
+  # 7d. Pre-flight check: Verify that the bundled R runtime actually loads and executes
+  message("[RDesk] Running pre-flight check on bundled R runtime...")
+  test_script <- file.path(bundle_path, "Contents", "Resources", "R-runtime", "R", "bin", "R")
+  test_res <- tryCatch({
+    system2(test_script, c("--vanilla", "--no-echo", "--no-restore", "-e", shQuote("cat('OK')")), stdout = TRUE, stderr = TRUE)
+  }, error = function(e) {
+    stop("[RDesk] Bundled R runtime pre-flight execution check failed: ", e$message)
+  })
+  if (!any(grepl("OK", test_res))) {
+    stop("[RDesk] Bundled R runtime pre-flight execution check failed. Output: ", paste(test_res, collapse = "\n"))
+  }
+  message("[RDesk]   Pre-flight check PASSED.")
 
   # 8. Generate Info.plist
   rdesk_write_info_plist(contents, app_name, app_version)
@@ -1563,6 +1583,20 @@ rdesk_build_linux_app <- function(app_dir, app_name,
 
   writeLines(rscript_content, rscript_wrapper_path)
   Sys.chmod(rscript_wrapper_path, "0755")
+
+  # 2.8 Pre-flight check: Verify that the bundled R runtime and Rscript wrapper actually execute
+  message("[RDesk] Running pre-flight check on bundled Linux R runtime...")
+  test_script <- file.path(r_dst, "bin", "Rscript")
+  test_res <- tryCatch({
+    system2(test_script, c("-e", shQuote("cat('OK')")), stdout = TRUE, stderr = TRUE)
+  }, error = function(e) {
+    stop("[RDesk] Linux bundled R runtime pre-flight execution check failed: ", e$message)
+  })
+  if (!any(grepl("OK", test_res))) {
+    stop("[RDesk] Linux bundled R runtime pre-flight execution check failed. Output: ", paste(test_res, collapse = "\n"))
+  }
+  message("[RDesk]   Pre-flight check PASSED.")
+
 
   # 3. Copy app files
   message("[RDesk] Copying app files...")

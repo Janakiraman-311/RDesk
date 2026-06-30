@@ -21,8 +21,18 @@ Thank you for your interest in RDesk!
 ## Development setup
 
 1. Clone the repository
-2. Install Rtools44 from https://cran.r-project.org/bin/windows/Rtools/
-3. Install dependencies: `devtools::install_deps()`
+2. Install system dependencies / compiler tools:
+   - **Windows**: Install Rtools44 or Rtools45 from https://cran.r-project.org/bin/windows/Rtools/
+   - **macOS**: Install Xcode Command Line Tools (`xcode-select --install`).
+   - **Linux (Debian/Ubuntu)**: Install compilers and WebKit/GTK development libraries:
+     ```bash
+     sudo apt-get install build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+     ```
+   - **Linux (Fedora/RHEL)**:
+     ```bash
+     sudo dnf install gcc-c++ pkgconfig gtk3-devel webkit2gtk3-devel
+     ```
+3. Install R dependencies: `devtools::install_deps()`
 4. Run checks: `devtools::check()`
 
 ## Important: OneDrive / synced folder warning

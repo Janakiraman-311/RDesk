@@ -16,10 +16,17 @@ rdesk_launcher_path <- function() {
   # Source-built launcher is in bin/ after install
   binary_name <- if (.Platform$OS.type == "windows") "rdesk-launcher.exe" else "rdesk-launcher"
   
-  # Correction 3: Check if in bundle mode on macOS
-  if (rdesk_is_bundle() && .Platform$OS.type != "windows" && Sys.info()["sysname"] == "Darwin") {
-    path <- normalizePath(file.path(getwd(), "..", "bin", binary_name), mustWork = FALSE)
-    message("[RDesk] Bundled macOS launcher path: ", path)
+  # If running inside a bundle on macOS or Linux, resolve path relative to R.home()
+  # to be robust against changes in working directory (CWD)
+  if (rdesk_is_bundle() && .Platform$OS.type != "windows") {
+    r_home <- R.home()
+    if (Sys.info()["sysname"] == "Darwin") {
+      # macOS: Contents/Resources/bin/rdesk-launcher
+      path <- normalizePath(file.path(r_home, "..", "..", "bin", binary_name), mustWork = FALSE)
+    } else {
+      # Linux: rdesk-launcher at the bundle root
+      path <- normalizePath(file.path(r_home, "..", "..", binary_name), mustWork = FALSE)
+    }
     if (file.exists(path)) return(path)
   }
 
