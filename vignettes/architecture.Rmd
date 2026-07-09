@@ -25,13 +25,13 @@ if (nzchar(app_path)) {
 }
 ```
 
-RDesk is built on a "Source-to-Binary" philosophy that combines the flexibility of R with the security and performance of native Windows APIs.
+RDesk is built on a "Source-to-Binary" philosophy that combines the flexibility of R with the security and performance of native platform APIs.
 
 ## The Three Components
 
 ### 1. The Native Launcher (`launcher.cpp`)
 A lightweight (66.5kb) C++ application that:
-- Initializes the **WebView2** runtime.
+- Initializes the native webview runtime (WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux).
 - Establishes a **Zero-Port IPC** bridge using standard input/output (stdin/stdout).
 - Manages the parent window, native menus, and system tray.
 - Includes an **Anti-Zombie Watchdog** that ensures R processes are cleaned up when the UI closes.
@@ -60,6 +60,6 @@ Unlike traditional R web frameworks, RDesk does not open any network ports (`htt
 
 When you run `app$run()`:
 1. R spawns the native launcher as a child process.
-2. The launcher opens the Windows window and starts the Chromium-based WebView2.
+2. The launcher opens the native window and starts the platform webview.
 3. R enters a `while(private$.running)` loop, servicing the stdin/stdout pipes.
 4. When the user closes the window, the launcher signals R to exit, ensuring a clean shutdown of all background worker nodes.

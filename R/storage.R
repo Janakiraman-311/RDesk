@@ -88,11 +88,36 @@ RDeskStorage <- R6::R6Class("RDeskStorage",
 
     .resolve_dir = function() {
       if (rdesk_is_bundle()) {
-        base_dir <- switch(private$.type,
-          "roaming" = Sys.getenv("APPDATA"),
-          "local"   = Sys.getenv("LOCALAPPDATA"),
-          "shared"  = Sys.getenv("PROGRAMDATA")
-        )
+        base_dir <- ""
+        if (.Platform$OS.type == "windows") {
+          base_dir <- switch(private$.type,
+            "roaming" = Sys.getenv("APPDATA"),
+            "local"   = Sys.getenv("LOCALAPPDATA"),
+            "shared"  = Sys.getenv("PROGRAMDATA")
+          )
+        } else if (Sys.info()[["sysname"]] == "Darwin") {
+          home <- Sys.getenv("HOME")
+          base_dir <- switch(private$.type,
+            "roaming" = file.path(home, "Library", "Application Support"),
+            "local"   = file.path(home, "Library", "Application Support"),
+            "shared"  = "/Library/Application Support"
+          )
+        } else {
+          # Linux: XDG config/data directories
+          home <- Sys.getenv("HOME")
+          base_dir <- switch(private$.type,
+            "roaming" = {
+              xdg_conf <- Sys.getenv("XDG_CONFIG_HOME")
+              if (nzchar(xdg_conf)) xdg_conf else file.path(home, ".config")
+            },
+            "local"   = {
+              xdg_data <- Sys.getenv("XDG_DATA_HOME")
+              if (nzchar(xdg_data)) xdg_data else file.path(home, ".local", "share")
+            },
+            "shared"  = "/var/lib"
+          )
+        }
+
         if (nzchar(base_dir)) {
           target <- file.path(base_dir, "RDesk", private$.app_name)
           

@@ -29,11 +29,11 @@ if (nzchar(app_path)) {
 
 Data analysts build powerful tools in R, but sharing them with non-technical users is difficult. Shiny is excellent for web dashboards, but it requires a server and a steady network connection.
 
-**RDesk** solves this by packaging your R code into a **native Windows desktop application**. It runs as a standalone `.exe` with zero network overhead and no server required.
+**RDesk** solves this by packaging your R code into a **native desktop application**. It runs as a standalone bundle/executable with zero network overhead and no server required.
 
 ## 1. Installation
 
-RDesk works out-of-the-box on modern Windows systems. You only need **R** and **Rtools** installed.
+RDesk works out-of-the-box on modern systems (Windows, macOS, and Linux). You only need **R** and a C++ compiler/toolchain (like Rtools on Windows, Xcode Command Line Tools on macOS, or GCC/clang on Linux) installed.
 
 ```r
 # Install from CRAN

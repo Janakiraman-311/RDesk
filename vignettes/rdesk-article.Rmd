@@ -63,7 +63,7 @@ However, RInside is designed primarily for C++ developers. It requires writing a
 
 ## RDesk Design Philosophy
 
-RDesk was designed to provide R developers with a pure R workflow for building self-contained, port-free Windows desktop applications. The architecture relies on five core pillars:
+RDesk was designed to provide R developers with a pure R workflow for building self-contained, port-free desktop applications. The architecture relies on five core pillars:
 
 1. **Zero-Port IPC**: RDesk utilizes WebView2's virtual hostname API for static assets. Dynamic messaging between R and the UI uses stdin/stdout pipes and WebView2's native message bridge. The application does not bind to any network interface.
 2. **R-Centric Event Loop**: R operates as the primary process, managing the application state and event loop. The C++ launcher acts as a lightweight window container, ensuring that R is always in control.
@@ -113,11 +113,9 @@ RDesk::build_app(
 
 ---
 
-## Future Considerations
+## Cross-Platform Considerations
 
-RDesk v1.0 is designed exclusively for the Windows operating system, utilizing WebView2 and Win32 process management APIs. 
-
-Cross-platform support is under active research for future iterations. The underlying webview library vendored in RDesk supports WKWebView (macOS) and WebKitGTK (Linux) at the abstraction level. For multi-platform server deployments, web-based Shiny deployments remain the standard recommendation. For zero-port native Windows distribution with a pure R workflow, RDesk provides a focused, self-contained solution.
+RDesk supports Windows, macOS, and Linux natively, utilizing platform-specific webview runtimes (WebView2 on Windows, WKWebView on macOS, and WebKitGTK on Linux) and robust process isolation. Standalone app bundles and installers can be compiled directly on each target platform.
 
 ---
 
