@@ -38,9 +38,17 @@ NULL
 #' stopifnot(msg$version == "1.0")
 #' stopifnot(!is.null(msg$id))
 #' @export
+.rdesk_msg_id_counter <- local({
+  n <- 0L
+  function() {
+    n <<- n + 1L
+    n
+  }
+})
+
 rdesk_message <- function(type, payload = list(), version = getOption("rdesk.ipc_version", "1.0")) {
   msg <- list(
-    id = paste0("msg_", format(Sys.time(), "%s%OS3"), "_", sample.int(9999, 1)),
+    id = paste0("msg_", format(Sys.time(), "%s%OS3"), "_", .rdesk_msg_id_counter(), "_", sample.int(9999999, 1)),
     type = type,
     version = version,
     payload = payload,

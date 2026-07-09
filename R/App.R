@@ -1008,8 +1008,17 @@ rdesk_auto_update <- function(version_url,
     )
   }
 
-  # Temporary path for the new installer
-  dest <- file.path(tempdir(), paste0("update-", latest, "-setup.exe"))
+  # Determine platform-specific file extension
+  if (.Platform$OS.type == "windows") {
+    ext <- "exe"
+  } else if (Sys.info()["sysname"] == "Darwin") {
+    ext <- if (grepl("\\.pkg($|\\?)", download_url, ignore.case = TRUE)) "pkg" else "dmg"
+  } else {
+    ext <- if (grepl("\\.deb($|\\?)", download_url, ignore.case = TRUE)) "deb" else "tar.gz"
+  }
+
+  # Temporary path for the new installer/package
+  dest <- file.path(tempdir(), paste0("update-", latest, ".", ext))
 
   tryCatch({
     message("[RDesk] Downloading update version ", latest, "...")
@@ -1020,11 +1029,18 @@ rdesk_auto_update <- function(version_url,
       Sys.sleep(1.5)
     }
 
-    # Launch installer silently and quit
-    # /SILENT /SUPPRESSMSGBOXES /NORESTART is standard for InnoSetup
-    message("[RDesk] Executing silent installer: ", dest)
-    system2(dest, args = c("/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"),
-            wait = FALSE)
+    # Launch platform-appropriate installation procedure
+    if (.Platform$OS.type == "windows") {
+      message("[RDesk] Executing silent installer: ", dest)
+      system2(dest, args = c("/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"),
+              wait = FALSE)
+    } else if (Sys.info()["sysname"] == "Darwin") {
+      message("[RDesk] Opening update package: ", dest)
+      system2("open", shQuote(dest), wait = FALSE)
+    } else {
+      message("[RDesk] Opening update package: ", dest)
+      system2("xdg-open", shQuote(dest), wait = FALSE)
+    }
 
     if (!is.null(app)) {
       app$quit()

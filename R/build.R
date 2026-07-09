@@ -127,10 +127,14 @@ build_app <- function(app_dir = ".",
   if (is.null(app_name)) app_name <- "MyRDeskApp"
   if (is.null(version))  version  <- "1.0.0"
 
-  # ---- Pre-flight Validation (Common) ---------------------------------------
-  rdesk_validate_build_inputs_common(
+  # ---- Pre-flight Validation -------------------------------------------------
+  rdesk_validate_build_inputs(
     app_dir = app_dir,
-    extra_pkgs = include_packages
+    extra_pkgs = include_packages,
+    build_installer = build_installer,
+    portable_r_method = portable_r_method,
+    runtime_dir = user_runtime_dir,
+    use_download = use_download
   )
 
   # Route to macOS/Linux bundler on non-Windows platforms
@@ -160,16 +164,6 @@ build_app <- function(app_dir = ".",
       use_download      = use_download
     ))
   }
-
-  # ---- Pre-flight Validation -----------------------------------------------
-  rdesk_validate_build_inputs(
-    app_dir = app_dir,
-    extra_pkgs = include_packages,
-    build_installer = build_installer,
-    portable_r_method = portable_r_method,
-    runtime_dir = user_runtime_dir,
-    use_download = use_download
-  )
 
   if (is.null(r_version))
     r_version <- paste0(R.version$major, ".", R.version$minor)
@@ -338,12 +332,23 @@ build_app <- function(app_dir = ".",
   invisible(zip_path)
 }
 
-#' Validate common build inputs across all platforms
+#' Validate build inputs before starting the process
 #' @keywords internal
 #' @param app_dir Path to app directory.
 #' @param extra_pkgs Character vector of packages.
-rdesk_validate_build_inputs_common <- function(app_dir, extra_pkgs) {
-  message("[RDesk] Common pre-flight validation...")
+#' @param build_installer Logical.
+#' @param portable_r_method Method for R portability.
+#' @param runtime_dir Path to pre-existing runtime.
+rdesk_validate_build_inputs <- function(app_dir,
+                                        extra_pkgs,
+                                        build_installer = FALSE,
+                                        portable_r_method = c("extract_only", "installer"),
+                                        runtime_dir = NULL,
+                                        use_download = FALSE) {
+  portable_r_method <- match.arg(portable_r_method)
+  platform <- Sys.info()[["sysname"]]
+
+  message("[RDesk] Running pre-flight check...")
 
   # 1. Essential files
   if (!file.exists(file.path(app_dir, "app.R")))
@@ -361,68 +366,42 @@ rdesk_validate_build_inputs_common <- function(app_dir, extra_pkgs) {
          "\nPlease install them before building.")
   }
 
-  # 3. Compiler check for macOS and Linux (needed for stub compilation)
-  if (.Platform$OS.type != "windows") {
-    sysname <- Sys.info()[["sysname"]]
-    if (sysname == "Darwin") {
-      # macOS: check clang
-      ret <- tryCatch(system2("clang", "--version", stdout = FALSE, stderr = FALSE), error = function(e) 127)
-      if (ret != 0) {
-        stop("[Validation Failed] clang compiler is required on macOS to build the launcher stub.")
-      }
-    } else if (sysname == "Linux") {
-      # Linux: check gcc
-      ret <- tryCatch(system2("gcc", "--version", stdout = FALSE, stderr = FALSE), error = function(e) 127)
-      if (ret != 0) {
-        stop("[Validation Failed] gcc compiler is required on Linux to build the launcher stub.")
-      }
+  # 3. Compiler check
+  if (platform == "Windows") {
+    tryCatch(rdesk_find_gpp(), error = function(e) {
+      stop("[Validation Failed] Rtools (g++) is required to build the launcher stub.\n",
+           "Error: ", e$message)
+    })
+  } else if (platform == "Darwin") {
+    ret <- tryCatch(system2("clang", "--version", stdout = FALSE, stderr = FALSE), error = function(e) 127)
+    if (ret != 0) {
+      stop("[Validation Failed] clang compiler is required on macOS to build the launcher stub.")
+    }
+  } else if (platform == "Linux") {
+    ret <- tryCatch(system2("gcc", "--version", stdout = FALSE, stderr = FALSE), error = function(e) 127)
+    if (ret != 0) {
+      stop("[Validation Failed] gcc compiler is required on Linux to build the launcher stub.")
     }
   }
 
-  message("[RDesk] Common pre-flight check passed.")
-}
+  # 4. Runtime provisioning validation
+  if (platform != "Windows" && use_download) {
+    stop("[Validation Failed] runtime_dir = 'download' is not supported on ", platform, ".")
+  }
 
-#' Validate build inputs before starting the process
-#' @keywords internal
-#' @param app_dir Path to app directory.
-#' @param extra_pkgs Character vector of packages.
-#' @param build_installer Logical.
-#' @param portable_r_method Method for R portability.
-#' @param runtime_dir Path to pre-existing runtime.
-rdesk_validate_build_inputs <- function(app_dir,
-                                        extra_pkgs,
-                                        build_installer = FALSE,
-                                        portable_r_method = c("extract_only", "installer"),
-                                        runtime_dir = NULL,
-                                        use_download = FALSE) {
-  portable_r_method <- match.arg(portable_r_method)
-
-  # Run common validation first
-  rdesk_validate_build_inputs_common(app_dir, extra_pkgs)
-
-  # 3. Rtools check (needed for stub compilation)
-  tryCatch(rdesk_find_gpp(), error = function(e) {
-    stop("[Validation Failed] Rtools (g++) is required to build the launcher stub.\n",
-         "Error: ", e$message)
-  })
-
-  # 3b. Runtime provisioning validation
   if (!is.null(runtime_dir)) {
-    # Explicit path supplied - must contain bin/
     if (!dir.exists(file.path(runtime_dir, "bin"))) {
       stop("[Validation Failed] runtime_dir must point to an R installation root containing bin/.\n",
            "Provided path: ", runtime_dir)
     }
-  } else if (use_download && portable_r_method == "extract_only") {
-    # Download path requested - check for 7-Zip
+  } else if (platform == "Windows" && use_download && portable_r_method == "extract_only") {
     sevenzip <- rdesk_find_7zip()
     if (is.null(sevenzip)) {
       message("[RDesk]   Warning: Standalone 7-Zip not found.")
       message("[RDesk]   Switching to portable_r_method='installer' (no extra tools needed).")
       assign("portable_r_method", "installer", envir = parent.frame())
     }
-  } else {
-    # Default auto-detect path - validate R.home() is accessible
+  } else if (!use_download) {
     r_home <- R.home()
     if (!dir.exists(file.path(r_home, "bin"))) {
       stop("[Validation Failed] Cannot locate your R installation at R.home(): ", r_home,
@@ -433,15 +412,19 @@ rdesk_validate_build_inputs <- function(app_dir,
             " at ", r_home)
   }
 
-  # 4. InnoSetup check
+  # 5. Installer/Packaging checks
   if (build_installer) {
-    iscc <- rdesk_find_iscc()
-    if (is.null(iscc)) {
-      stop("[Validation Failed] InnoSetup (ISCC.exe) not found.\n",
-           "It is required to build the .exe installer.\n",
-           "Download it from: https://jrsoftware.org/isdl.php")
+    if (platform == "Windows") {
+      iscc <- rdesk_find_iscc()
+      if (is.null(iscc)) {
+        stop("[Validation Failed] InnoSetup (ISCC.exe) not found.\n",
+             "It is required to build the .exe installer.\n",
+             "Download it from: https://jrsoftware.org/isdl.php")
+      }
+      message("[RDesk]   InnoSetup found: ", iscc)
+    } else if (platform == "Linux") {
+      stop("[Validation Failed] build_installer = TRUE is not supported on Linux (only .tar.gz bundle is produced).")
     }
-    message("[RDesk]   InnoSetup found: ", iscc)
   }
 
   message("[RDesk] Pre-flight check passed.")
@@ -922,16 +905,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
   out_dir <- normalizePath(out_dir, winslash = "/", mustWork = FALSE)
 
-  # Validate arguments
-  if (use_download || identical(runtime_dir, "download")) {
-    stop("[Validation Failed] runtime_dir = 'download' is not supported on macOS.")
-  }
-  if (!is.null(runtime_dir)) {
-    if (!dir.exists(file.path(runtime_dir, "bin"))) {
-      stop("[Validation Failed] runtime_dir must point to an R installation root containing bin/.\n",
-           "Provided path: ", runtime_dir)
-    }
-  }
+
 
   bundle_name <- paste0(app_name, ".app")
 
@@ -1397,19 +1371,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
   out_dir <- normalizePath(out_dir, winslash = "/", mustWork = FALSE)
 
-  # Validate arguments
-  if (use_download || identical(runtime_dir, "download")) {
-    stop("[Validation Failed] runtime_dir = 'download' is not supported on Linux.")
-  }
-  if (!is.null(runtime_dir)) {
-    if (!dir.exists(file.path(runtime_dir, "bin"))) {
-      stop("[Validation Failed] runtime_dir must point to an R installation root containing bin/.\n",
-           "Provided path: ", runtime_dir)
-    }
-  }
-  if (build_installer) {
-    stop("[Validation Failed] build_installer = TRUE is not supported on Linux (only .tar.gz bundle is produced).")
-  }
+
 
   dist_name <- paste0(app_name, "-", app_version)
 
