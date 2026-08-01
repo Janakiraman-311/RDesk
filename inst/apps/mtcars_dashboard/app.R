@@ -15,11 +15,6 @@ resolve_app_dir <- function() {
     }
   }
 
-  # Bundled launchers run the app from the app resource directory.
-  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
-    return(normalizePath(getwd(), winslash = "/", mustWork = TRUE))
-  }
-
   args <- commandArgs(trailingOnly = FALSE)
 
   # Check for Rscript --file=...
@@ -38,6 +33,11 @@ resolve_app_dir <- function() {
     if (nzchar(script_path) && file.exists(script_path)) {
       return(dirname(script_path))
     }
+  }
+
+  # Fallback for bundled launchers that do not pass a script path.
+  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+    return(normalizePath(getwd(), winslash = "/", mustWork = TRUE))
   }
 
   if (!nzchar(Sys.getenv("R_BUNDLE_APP"))) {

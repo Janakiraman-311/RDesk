@@ -14,10 +14,6 @@ resolve_app_dir <- function() {
     }
   }
 
-  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
-    return(normalizePath(getwd(), winslash = "/", mustWork = TRUE))
-  }
-
   args <- commandArgs(trailingOnly = FALSE)
   file_arg <- grep("^--file=", args, value = TRUE)
   if (length(file_arg) > 0L) {
@@ -31,6 +27,10 @@ resolve_app_dir <- function() {
     script_path <- normalizePath(args[f_idx[1] + 1L],
                                  winslash = "/", mustWork = FALSE)
     if (file.exists(script_path)) return(dirname(script_path))
+  }
+
+  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+    return(normalizePath(getwd(), winslash = "/", mustWork = TRUE))
   }
 
   rstudio_path <- tryCatch(

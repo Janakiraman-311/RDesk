@@ -16,11 +16,6 @@ resolve_app_dir <- function() {
     }
   }
 
-  # Bundled launchers run the app from the app resource directory.
-  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
-    return(normalizePath(getwd(), winslash = "/", mustWork = TRUE))
-  }
-
   # Support Rscript/R -f launches outside the working directory.
   args <- commandArgs(trailingOnly = FALSE)
   file_arg <- grep("^--file=", args, value = TRUE)
@@ -35,6 +30,11 @@ resolve_app_dir <- function() {
     script_path <- normalizePath(args[f_idx[1] + 1L],
                                  winslash = "/", mustWork = FALSE)
     if (file.exists(script_path)) return(dirname(script_path))
+  }
+
+  # Fallback for bundled launchers that do not pass a script path.
+  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+    return(normalizePath(getwd(), winslash = "/", mustWork = TRUE))
   }
 
   # Use the editor context only when it actually refers to this app.
