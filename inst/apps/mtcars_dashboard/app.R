@@ -2,19 +2,27 @@
 # Thin entry point
 
 resolve_app_dir <- function() {
-  # 1. Check if executing via source()
+  # source() exposes the sourced file as `ofile`; prefer it over the
+  # active editor document or the outer script that launched the app.
   for (i in rev(seq_len(sys.nframe()))) {
     frame <- sys.frame(i)
-    if (exists("ofile", envir = frame, inherits = FALSE)) {
-      ofile <- get("ofile", envir = frame)
-      if (is.character(ofile) && nzchar(ofile) && file.exists(ofile)) {
-        return(dirname(normalizePath(ofile, winslash = "/", mustWork = TRUE)))
-      }
+    if (!exists("ofile", envir = frame, inherits = FALSE)) next
+
+    ofile <- get("ofile", envir = frame)
+    if (is.character(ofile) && length(ofile) == 1L &&
+        nzchar(ofile) && file.exists(ofile)) {
+      return(dirname(normalizePath(ofile, winslash = "/", mustWork = TRUE)))
     }
   }
 
-  # 2. Check command line arguments (e.g. Rscript --file=... or R -f ...)
+  # Bundled launchers run the app from the app resource directory.
+  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+    return(normalizePath(getwd(), winslash = "/", mustWork = TRUE))
+  }
+
   args <- commandArgs(trailingOnly = FALSE)
+
+  # Check for Rscript --file=...
   file_arg <- grep("^--file=", args, value = TRUE)
   if (length(file_arg) > 0) {
     script_path <- normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)
@@ -23,6 +31,7 @@ resolve_app_dir <- function() {
     }
   }
 
+  # Check for R -f ...
   f_idx <- which(args == "-f")
   if (length(f_idx) > 0 && f_idx < length(args)) {
     script_path <- normalizePath(args[f_idx + 1], winslash = "/", mustWork = FALSE)
@@ -31,18 +40,15 @@ resolve_app_dir <- function() {
     }
   }
 
-  # 3. Check for active document context (Positron/RStudio tab)
   if (!nzchar(Sys.getenv("R_BUNDLE_APP"))) {
     rstudio_path <- tryCatch(rstudioapi::getActiveDocumentContext()$path, error = function(e) "")
-    if (nzchar(rstudio_path) && file.exists(rstudio_path)) {
-      base_name <- basename(rstudio_path)
-      if (base_name %in% c("app.R", "server.R") || grepl("/apps/", rstudio_path, fixed = TRUE)) {
-        return(dirname(normalizePath(rstudio_path, winslash = "/", mustWork = TRUE)))
-      }
+    if (is.character(rstudio_path) && length(rstudio_path) == 1L &&
+        nzchar(rstudio_path) && basename(rstudio_path) == "app.R" &&
+        file.exists(rstudio_path)) {
+      return(dirname(normalizePath(rstudio_path, winslash = "/", mustWork = TRUE)))
     }
   }
 
-  # 4. Fallback to current working directory
   normalizePath(getwd(), winslash = "/", mustWork = TRUE)
 }
 
@@ -81,7 +87,7 @@ if (length(r_files) == 0) {
   stop("[mtcars_dashboard] No R source files found in: ", r_dir)
 }
 
-invisible(lapply(r_files, source))
+invisible(lapply(r_files, function(path) source(path, local = .GlobalEnv)))
 
 # Handle startup logging for bundled apps
 if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
@@ -124,9 +130,11 @@ tryCatch({
     rdesk_watch(app)
   }
 
-  if (exists("init_handlers")) {
-    init_handlers(app, .env)
+  if (!exists("init_handlers", mode = "function", envir = .GlobalEnv,
+              inherits = FALSE)) {
+    stop("[mtcars_dashboard] init_handlers() was not loaded from ", r_dir)
   }
+  init_handlers(app, .env)
 
   app$run()
 

@@ -3,9 +3,6 @@
 
 push_update <- function(app, env) {
   df <- env$filtered
-  # Sourcing local helpers since they aren't in a package
-  lapply(list.files(file.path(env$app_dir, "R"), pattern = "\\.R$", full.names = TRUE), source)
-  
   app$send("data_update", list(
     kpis    = kpis(df),
     chart   = plot_to_b64(make_plot(df, env$x_var, env$y_var, env$plot_type)),
@@ -39,9 +36,6 @@ init_handlers <- function(app, env) {
   app$on_message("set_cyl_filter", async(function(msg) {
     env$cyl_filter <- as.numeric(unlist(msg$cyls))
     apply_filters(env)
-    
-    # Sourcing local helpers
-    lapply(list.files(file.path(env$app_dir, "R"), pattern = "\\.R$", full.names = TRUE), source)
     
     list(
       kpis    = kpis(env$filtered),

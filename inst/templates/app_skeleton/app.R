@@ -2,47 +2,47 @@
 # Generated: {{DATE}}
 
 resolve_app_dir <- function() {
-  # 1. Check if executing via source()
+  # Prefer the actual app.R path when this file is sourced by another script.
   for (i in rev(seq_len(sys.nframe()))) {
     frame <- sys.frame(i)
-    if (exists("ofile", envir = frame, inherits = FALSE)) {
-      ofile <- get("ofile", envir = frame)
-      if (is.character(ofile) && nzchar(ofile) && file.exists(ofile)) {
-        return(dirname(normalizePath(ofile, winslash = "/", mustWork = TRUE)))
-      }
+    if (!exists("ofile", envir = frame, inherits = FALSE)) next
+
+    ofile <- get("ofile", envir = frame)
+    if (is.character(ofile) && length(ofile) == 1L &&
+        nzchar(ofile) && file.exists(ofile)) {
+      return(dirname(normalizePath(ofile, winslash = "/", mustWork = TRUE)))
     }
   }
 
-  # 2. Check command line arguments (e.g. Rscript --file=... or R -f ...)
+  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+    return(normalizePath(getwd(), winslash = "/", mustWork = TRUE))
+  }
+
   args <- commandArgs(trailingOnly = FALSE)
   file_arg <- grep("^--file=", args, value = TRUE)
-  if (length(file_arg) > 0) {
-    script_path <- normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)
-    if (nzchar(script_path) && file.exists(script_path)) {
-      return(dirname(script_path))
-    }
+  if (length(file_arg) > 0L) {
+    script_path <- normalizePath(sub("^--file=", "", file_arg[1]),
+                                 winslash = "/", mustWork = FALSE)
+    if (file.exists(script_path)) return(dirname(script_path))
   }
 
   f_idx <- which(args == "-f")
-  if (length(f_idx) > 0 && f_idx < length(args)) {
-    script_path <- normalizePath(args[f_idx + 1], winslash = "/", mustWork = FALSE)
-    if (nzchar(script_path) && file.exists(script_path)) {
-      return(dirname(script_path))
-    }
+  if (length(f_idx) > 0L && f_idx[1] < length(args)) {
+    script_path <- normalizePath(args[f_idx[1] + 1L],
+                                 winslash = "/", mustWork = FALSE)
+    if (file.exists(script_path)) return(dirname(script_path))
   }
 
-  # 3. Check for active document context (Positron/RStudio tab)
-  if (!nzchar(Sys.getenv("R_BUNDLE_APP"))) {
-    rstudio_path <- tryCatch(rstudioapi::getActiveDocumentContext()$path, error = function(e) "")
-    if (nzchar(rstudio_path) && file.exists(rstudio_path)) {
-      base_name <- basename(rstudio_path)
-      if (base_name %in% c("app.R", "server.R") || grepl("/apps/", rstudio_path, fixed = TRUE)) {
-        return(dirname(normalizePath(rstudio_path, winslash = "/", mustWork = TRUE)))
-      }
-    }
+  rstudio_path <- tryCatch(
+    rstudioapi::getActiveDocumentContext()$path,
+    error = function(e) ""
+  )
+  if (is.character(rstudio_path) && length(rstudio_path) == 1L &&
+      nzchar(rstudio_path) && basename(rstudio_path) == "app.R" &&
+      file.exists(rstudio_path)) {
+    return(dirname(normalizePath(rstudio_path, winslash = "/", mustWork = TRUE)))
   }
 
-  # 4. Fallback to current working directory
   normalizePath(getwd(), winslash = "/", mustWork = TRUE)
 }
 
@@ -60,10 +60,20 @@ if (!nzchar(Sys.getenv("R_BUNDLE_APP")) && is_dev) {
 }
 
 # Source all R/ modules
-lapply(
-  list.files(file.path(app_dir, "R"), pattern = "\\.R$", full.names = TRUE),
-  source
-)
+r_dir <- file.path(app_dir, "R")
+if (!dir.exists(r_dir)) {
+  stop("[RDesk scaffold] R/ directory not found at: ", r_dir)
+}
+r_files <- sort(list.files(r_dir, pattern = "\\.R$", full.names = TRUE))
+if (length(r_files) == 0L) {
+  stop("[RDesk scaffold] No R source files found in: ", r_dir)
+}
+invisible(lapply(r_files, function(path) source(path, local = .GlobalEnv)))
+
+if (!exists("init_handlers", mode = "function", envir = .GlobalEnv,
+            inherits = FALSE)) {
+  stop("[RDesk scaffold] init_handlers() was not loaded from: ", r_dir)
+}
 
 # Launch
 app <- App$new(
