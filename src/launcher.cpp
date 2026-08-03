@@ -30,7 +30,15 @@ using json = nlohmann::json;
   #pragma comment(lib, "ole32.lib")
 #elif defined(__APPLE__)
   #define WEBVIEW_COCOA 1
+#if defined(__clang__)
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  #pragma clang diagnostic ignored "-Wdeprecated-literal-operator"
+#endif
   #include "webview/webview.h"
+#if defined(__clang__)
+  #pragma clang diagnostic pop
+#endif
   #import <Cocoa/Cocoa.h>
   #import <WebKit/WebKit.h>
   #include <unistd.h>
