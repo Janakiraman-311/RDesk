@@ -4,7 +4,11 @@
 UNAME_S=`uname -s`
 
 if [ "$UNAME_S" = "Darwin" ]; then
-  LAUNCHER_CXXFLAGS="-DWEBVIEW_COCOA=1 -I../inst/include -x objective-c++"
+  # The vendored webview header and newer Apple SDK headers emit compatibility
+  # warnings that would otherwise fail strict R CMD check builds.
+  MAC_WARNING_FLAGS="-Wno-unknown-warning-option -Wno-deprecated-declarations -Wno-deprecated-literal-operator"
+  LAUNCHER_CXXFLAGS="-DWEBVIEW_COCOA=1 -I../inst/include -x objective-c++ $MAC_WARNING_FLAGS"
+  PKG_CXXFLAGS="$MAC_WARNING_FLAGS"
   LAUNCHER_LIBS="-framework WebKit -framework Cocoa"
   STUB_BIN="../inst/bin/rdesk-stub-macos"
   STUB_TARGET="../inst/bin/rdesk-stub-macos"
@@ -35,6 +39,7 @@ else
   GTK_LIBS=`pkg-config --libs gtk+-3.0 $WEBKIT_PKG`
   
   LAUNCHER_CXXFLAGS="-DWEBVIEW_GTK=1 -I../inst/include $GTK_CFLAGS"
+  PKG_CXXFLAGS=""
   LAUNCHER_LIBS="$GTK_LIBS"
   STUB_BIN=""
   STUB_TARGET="stub_dummy"
@@ -43,6 +48,7 @@ fi
 
 # Substitute variables in src/Makevars.in to generate src/Makevars
 sed -e "s|@LAUNCHER_CXXFLAGS@|$LAUNCHER_CXXFLAGS|g" \
+    -e "s|@PKG_CXXFLAGS@|$PKG_CXXFLAGS|g" \
     -e "s|@LAUNCHER_LIBS@|$LAUNCHER_LIBS|g" \
     -e "s|@STUB_BIN@|$STUB_BIN|g" \
     -e "s|@STUB_TARGET@|$STUB_TARGET|g" \
