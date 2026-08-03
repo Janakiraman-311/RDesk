@@ -90,8 +90,8 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
         if (ready_idx > 1) {
           buffered <- c(buffered, lines[seq_len(ready_idx - 1L)])
         }
-        trailing <- lines[seq.int(ready_idx + 1L, length(lines))]
-        if (length(trailing) > 0) {
+        if (ready_idx < length(lines)) {
+          trailing <- lines[(ready_idx + 1L):length(lines)]
           buffered <- c(buffered, trailing)
         }
         ready <- TRUE

@@ -16,7 +16,10 @@ Authors@R: c(
     person(given   = "Microsoft Corporation",
            role    = "cph",
            comment = "WebView2 SDK (src/webview2_sdk/)")
-  )
+   )
+Author: Janakiraman G [aut, cre], Serge Zaitsev [cph], Niels Lohmann [cph],
+    Microsoft Corporation [cph]
+Maintainer: Janakiraman G <janakiraman.bt@gmail.com>
 Description: Build native desktop applications for Windows, macOS, and
     Linux using 'R' and embedded webviews. Provides a robust 'R6'-based
     event loop, asynchronous background task management via 'mirai' and
@@ -55,6 +58,8 @@ Suggests:
     knitr,
     rmarkdown,
     ggplot2,
+    dplyr,
+    broom,
     devtools,
     rstudioapi,
     renv

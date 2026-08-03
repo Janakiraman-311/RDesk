@@ -23,7 +23,7 @@ jobs:
       # once 1.0.5 is already live on CRAN.
       _R_CHECK_CRAN_INCOMING_REMOTE_: "FALSE"
       _R_CHECK_CRAN_INCOMING_: "FALSE"
-      _R_CHECK_FORCE_SUGGESTS_: "FALSE"
+      _R_CHECK_FORCE_SUGGESTS_: "TRUE"
 
     steps:
       - uses: actions/checkout@v4
@@ -69,8 +69,10 @@ jobs:
           }
           pkgs <- c(
             "R6", "jsonlite", "digest", "processx", "callr",
-            "mirai", "base64enc", "zip", "knitr", "rmarkdown",
-            "rcmdcheck", "withr", "ggplot2"
+            "mirai", "base64enc", "zip", "testthat", "withr",
+            "knitr", "rmarkdown", "ggplot2", "dplyr", "broom", "devtools",
+            "rstudioapi",
+            "renv", "rcmdcheck"
           )
           installed <- rownames(installed.packages())
           to_install <- setdiff(pkgs, installed)
@@ -87,7 +89,7 @@ jobs:
         run: |
           res <- rcmdcheck::rcmdcheck(
             args      = c("--no-manual", "--as-cran"),
-            error_on  = "error",
+            error_on  = "warning",
             check_dir = "check"
           )
           if (length(res$errors) > 0) {

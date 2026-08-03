@@ -454,8 +454,11 @@ async <- function(fn,
         
         # Source app modules to ensure handlers and helpers (like make_chart) are available
         if (!is.null(.app_dir) && dir.exists(file.path(.app_dir, "R"))) {
-          r_files <- list.files(file.path(.app_dir, "R"), pattern = "\\.R$", full.names = TRUE)
-          invisible(lapply(r_files, source))
+          r_files <- sort(list.files(file.path(.app_dir, "R"),
+                                     pattern = "\\.R$", full.names = TRUE))
+          invisible(lapply(r_files, function(path) {
+            source(path, local = .GlobalEnv)
+          }))
         }
         
         # Run the developer's function
