@@ -70,6 +70,7 @@ int main(int argc, char* argv[]) {
     char r_libs_env[PATH_MAX * 2 + 64];
     char r_share_env[PATH_MAX + 32];
     char r_doc_env[PATH_MAX + 32];
+    char r_bundle_root_env[PATH_MAX + 32];
     char app_name_env[256];
 
     const char* app_name = "{{APP_NAME}}";
@@ -78,12 +79,14 @@ int main(int argc, char* argv[]) {
     snprintf(r_libs_env, sizeof(r_libs_env), "R_LIBS=%s/Resources/packages/library:%s/Resources/R-runtime/R/library", contents_path, contents_path);
     snprintf(r_share_env, sizeof(r_share_env), "R_SHARE_DIR=%s/Resources/R-runtime/R/share", contents_path);
     snprintf(r_doc_env, sizeof(r_doc_env), "R_DOC_DIR=%s/Resources/R-runtime/R/doc", contents_path);
+    snprintf(r_bundle_root_env, sizeof(r_bundle_root_env), "R_BUNDLE_ROOT=%s/Resources", contents_path);
     snprintf(app_name_env, sizeof(app_name_env), "R_APP_NAME=%s", app_name);
 
     putenv(r_home_env);
     putenv(r_libs_env);
     putenv(r_share_env);
     putenv(r_doc_env);
+    putenv(r_bundle_root_env);
     putenv("R_BUNDLE_APP=1");
     putenv(app_name_env);
 

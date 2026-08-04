@@ -60,9 +60,9 @@ Navigate to the `MyDashboard` folder and run `app.R` to see the results.
 
 The core value of RDesk is the ability to turn your R code into a standalone `.exe` that runs on any machine without requiring a pre-installed R version.
 
-> **First build note:** The initial build takes 3-5 minutes as RDesk 
-> downloads and bundles a portable R runtime. Subsequent builds 
-> complete in under 30 seconds.
+> **First build note:** RDesk copies the active R runtime and already-installed
+> package dependencies into the bundle. Install application dependencies in
+> the development library before calling `build_app()`.
 
 ```r
 # Build a portable ZIP bundle

@@ -74,6 +74,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // Set a flag so the R code knows it's running in a bundle
     _wputenv(L"R_BUNDLE_APP=1");
     _wputenv(L"R_APP_NAME={{APP_NAME}}");
+    const std::wstring bundle_root_env = L"R_BUNDLE_ROOT=" + base.wstring();
+    _wputenv(bundle_root_env.c_str());
 
     const std::wstring app_name = L"{{APP_NAME}}";
     const std::wstring safe_log_name = sanitize_log_component(app_name);

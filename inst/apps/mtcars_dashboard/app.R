@@ -2,6 +2,16 @@
 # Thin entry point
 
 resolve_app_dir <- function() {
+  # Bundled stubs provide the authoritative app root. This avoids relying on
+  # source() call-stack details, which differ across R and native launchers.
+  bundle_root <- Sys.getenv("R_BUNDLE_ROOT")
+  if (nzchar(bundle_root)) {
+    bundled_app <- file.path(bundle_root, "app")
+    if (file.exists(file.path(bundled_app, "app.R"))) {
+      return(normalizePath(bundled_app, winslash = "/", mustWork = TRUE))
+    }
+  }
+
   # source() exposes the sourced file as `ofile`; prefer it over the
   # active editor document or the outer script that launched the app.
   for (i in rev(seq_len(sys.nframe()))) {
@@ -108,7 +118,6 @@ cleanup_bundle_logging <- function() {
     if (exists("sink_conn", inherits = FALSE) && isOpen(sink_conn)) close(sink_conn)
   }
 }
-on.exit(cleanup_bundle_logging(), add = TRUE)
 
 tryCatch({
   .env <- new.env(parent = .GlobalEnv)
@@ -143,4 +152,6 @@ tryCatch({
     cat(sprintf("\n[%s] CRITICAL ERROR:\n%s\n", Sys.time(), e$message))
   }
   stop(e)
+}, finally = {
+  cleanup_bundle_logging()
 })

@@ -1,11 +1,3 @@
-#if defined(__APPLE__) && defined(__clang__)
-// Apple SDK/libc++ compatibility warnings occur while standard headers load.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#pragma clang diagnostic ignored "-Wdeprecated-literal-operator"
-#pragma clang diagnostic ignored "-Wunknown-warning-option"
-#endif
-
 #include <iostream>
 #include <string>
 #include <thread>
@@ -60,10 +52,6 @@ using json = nlohmann::json;
 #endif
 
 // ── Global state ─────────────────────────────────────────────────────────────
-#if defined(__APPLE__) && defined(__clang__)
-#pragma clang diagnostic pop
-#endif
-
 static std::atomic<bool>  g_quit{false};
 static std::atomic<bool>  g_intercept_close{false};
 static webview::webview*  g_webview = nullptr;

@@ -7,6 +7,14 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r package-status}
+RDesk::rdesk_is_bundle()
+```
+
 Deploying R applications to users who do not have R installed presents a significant challenge for R developers. While web-based frameworks like Shiny are highly effective for centralized server deployments, distributing desktop tools to individual machines has historically involved substantial architectural trade-offs.
 
 Understanding the history of desktop R deployment architectures helps clarify the design decisions behind RDesk and how it provides a standalone, port-free alternative.

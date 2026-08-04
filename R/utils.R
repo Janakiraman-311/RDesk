@@ -96,7 +96,7 @@ rdesk_resolve_www <- function(www_dir) {
   if (dir.exists(path)) {
     target_js <- file.path(path, "rdesk.js")
     
-    # In dev mode, always copy to reflect library changes
+    # Copy only when the bundled bridge has actually changed.
     src_js <- system.file("www", "rdesk.js", package = "RDesk")
     if (src_js == "" || !file.exists(src_js)) {
       src_js <- file.path(getwd(), "inst", "www", "rdesk.js")

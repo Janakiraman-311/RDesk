@@ -238,7 +238,7 @@ build_app <- function(app_dir = ".",
                  "digest", "zip", "callr", "mirai", "nanonext")
   all_pkgs  <- unique(c(core_pkgs, include_packages))
 
-  rdesk_install_packages_to(all_pkgs, pkg_lib, r_version)
+  rdesk_copy_installed_packages_to(all_pkgs, pkg_lib)
 
   # Install RDesk separately from the local source tree or the installed package.
   message("[RDesk]   Bundling RDesk package...")
@@ -253,10 +253,15 @@ build_app <- function(app_dir = ".",
 
   if (is_rdesk_source) {
     message("[RDesk]     Source tree detected.")
+    if (!requireNamespace("pkgbuild", quietly = TRUE)) {
+      stop("[build_app] pkgbuild is required when building from the RDesk source tree.\n",
+           "Install it with install.packages('pkgbuild') or build from an installed RDesk package.")
+    }
     # Build to binary zip to avoid 'in use' installation errors
     tmp_bin <- file.path(tempdir(), "RDesk_bundle.zip")
-    suppressMessages(devtools::build(rdesk_src, binary = TRUE, path = tempdir(), quiet = TRUE))
-    # devtools::build returns the path, but find it just in case
+    suppressMessages(pkgbuild::build(rdesk_src, binary = TRUE, dest_path = tempdir(),
+                                     vignettes = FALSE, manual = FALSE, quiet = TRUE))
+    # pkgbuild::build returns the path, but find it just in case
     zip_files <- list.files(tempdir(), pattern = "^RDesk_.*\\.zip$", full.names = TRUE)
     if (length(zip_files) > 0) {
       zip::unzip(zip_files[1], exdir = pkg_lib)
@@ -643,6 +648,7 @@ rdesk_fetch_portable_r <- function(r_version,
   tmp_extract <- file.path(tempdir(), paste0("R-", actual_v, "-extract"))
   if (dir.exists(tmp_extract)) unlink(tmp_extract, recursive = TRUE)
   dir.create(tmp_extract, recursive = TRUE)
+  on.exit(unlink(tmp_extract, recursive = TRUE, force = TRUE), add = TRUE)
 
   if (method == "extract_only") {
     sevenzip <- rdesk_find_7zip()
@@ -738,77 +744,58 @@ rdesk_find_r_dir <- function(extracted_root) {
   dirname(dirname(all_rscripts[1]))
 }
 
-rdesk_install_packages_to <- function(pkgs, lib_dir, r_version) {
-  minor <- paste(strsplit(r_version, "\\.")[[1]][1:2], collapse = ".")
-
-  # Determine package type and repository URL based on operating system
-  if (.Platform$OS.type == "windows") {
-    pkg_type <- "win.binary"
-    target_repos <- sprintf("https://cloud.r-project.org/bin/windows/contrib/%s", minor)
-  } else if (Sys.info()["sysname"] == "Darwin") {
-    pkg_type <- "binary"
-    target_repos <- NULL
-  } else {
-    pkg_type <- "source"
-    target_repos <- NULL
-  }
-
-  if (is.null(target_repos)) {
-    avail <- tryCatch(utils::available.packages(repos = "https://cloud.r-project.org", type = pkg_type, filters = list()), error = function(e) NULL)
-  } else {
-    avail <- tryCatch(utils::available.packages(contriburl = target_repos, type = pkg_type, filters = list()), error = function(e) NULL)
-  }
-
-  all_deps <- rdesk_resolve_deps(pkgs, avail)
-  all_deps <- setdiff(all_deps, "RDesk")
-
-  if (length(all_deps) > 0) {
-    message("[RDesk]   Downloading ", length(all_deps), " packages...")
-    if (is.null(target_repos)) {
-      utils::install.packages(all_deps, lib = lib_dir, repos = "https://cloud.r-project.org", type = pkg_type, quiet = FALSE, dependencies = FALSE)
-    } else {
-      utils::install.packages(all_deps, lib = lib_dir, contriburl = target_repos, type = pkg_type, quiet = FALSE, dependencies = FALSE)
-    }
-  }
-
-  # Final verification of bundled critical packages
-  critical <- intersect(all_deps, c("callr", "mirai", "nanonext", "processx"))
-  found <- list.dirs(lib_dir, full.names = FALSE, recursive = FALSE)
-  missing <- setdiff(critical, found)
-  if (length(missing) > 0) {
-    stop("[build_app] CRITICAL FAILURE: The following core dependencies failed to bundle:\n",
-         paste("  -", missing, collapse = "\n"),
-         "\nThis is likely due to a CRAN mirror issue or package availability for R ", r_version)
-  }
-}
-
-rdesk_resolve_deps <- function(pkgs, avail) {
+# Copy a dependency closure from the active R libraries without changing the
+# user's library or contacting a repository. This is the default build path.
+rdesk_copy_installed_packages_to <- function(pkgs, lib_dir) {
   base_pkgs <- c("base", "compiler", "datasets", "graphics", "grDevices", "grid",
                  "methods", "parallel", "splines", "stats", "stats4", "tcltk",
                  "tools", "utils", "MASS", "lattice", "boot", "class", "cluster",
                  "codetools", "foreign", "KernSmooth", "mgcv", "nlme", "nnet",
                  "rpart", "spatial", "survival")
-  resolved  <- character(0)
-  queue     <- pkgs
-  while (length(queue) > 0) {
-    pkg <- queue[1]; queue <- queue[-1]
-    if (pkg %in% resolved || pkg %in% base_pkgs || pkg == "RDesk") next
-    resolved <- c(resolved, pkg)
-    if (!is.null(avail) && pkg %in% rownames(avail)) {
-      # Check both Depends and Imports for binary transparency
-      dep_fields <- avail[pkg, c("Depends", "Imports")]
-      dep_fields <- dep_fields[!is.na(dep_fields) & nchar(dep_fields) > 0]
-      deps_str <- paste(dep_fields, collapse = ", ")
+  queue <- setdiff(unique(pkgs), c(base_pkgs, "RDesk"))
+  seen <- character(0)
+  missing <- character(0)
 
-      if (nchar(deps_str) > 0) {
-        dep_names <- trimws(gsub("\\s*\\(.*?\\)", "", strsplit(deps_str, ",")[[1]]))
-        # Filter out R itself from Depends
-        dep_names <- dep_names[dep_names != "R"]
-        queue <- c(queue, setdiff(dep_names[nchar(dep_names) > 0], c(resolved, base_pkgs)))
-      }
+  while (length(queue) > 0) {
+    pkg <- queue[[1]]
+    queue <- queue[-1]
+    if (pkg %in% seen || pkg %in% base_pkgs || identical(pkg, "RDesk")) next
+    seen <- c(seen, pkg)
+
+    pkg_path <- find.package(pkg, quiet = TRUE)
+    if (!length(pkg_path)) {
+      missing <- c(missing, pkg)
+      next
+    }
+    pkg_path <- pkg_path[[1]]
+    desc <- tryCatch(utils::packageDescription(pkg, lib.loc = dirname(pkg_path)),
+                     error = function(e) NULL)
+    if (!is.null(desc)) {
+      fields <- vapply(c("Depends", "Imports", "LinkingTo"), function(name) {
+        value <- desc[[name]]
+        if (is.null(value) || is.na(value)) "" else as.character(value)
+      }, character(1))
+      fields <- fields[nzchar(fields)]
+      deps <- trimws(unlist(strsplit(paste(fields, collapse = ","), ",")))
+      deps <- sub("\\s*\\(.*\\)$", "", deps)
+      deps <- deps[nzchar(deps)]
+      queue <- c(queue, setdiff(deps, c(base_pkgs, "R", "RDesk")))
+    }
+
+    dest <- file.path(lib_dir, pkg)
+    if (!dir.exists(dest)) {
+      dir.create(dest, recursive = TRUE, showWarnings = FALSE)
+      rdesk_copy_dir(pkg_path, dest)
     }
   }
-  resolved
+
+  if (length(missing)) {
+    stop("[build_app] Required packages are not installed: ",
+         paste(unique(missing), collapse = ", "),
+         "\nInstall them before calling build_app().")
+  }
+  message("[RDesk]   Copied ", length(seen), " installed package(s) into bundle.")
+  invisible(seen)
 }
 
 rdesk_build_stub <- function(stub_cpp, out_exe, app_name) {
@@ -851,7 +838,14 @@ rdesk_build_installer <- function(stage_root, out_dir, app_name, version, publis
 }
 
 rdesk_find_gpp <- function() {
-  candidates <- c(Sys.which("g++"), "C:/rtools45/mingw64/bin/g++.exe", "C:/rtools44/mingw64/bin/g++.exe")
+  rtools45 <- Sys.getenv("RTOOLS45_HOME", "C:/rtools45")
+  rtools44 <- Sys.getenv("RTOOLS44_HOME", "C:/rtools44")
+  candidates <- c(
+    Sys.which("g++"),
+    file.path(rtools45, "x86_64-w64-mingw32.static.posix", "bin", "g++.exe"),
+    file.path(rtools44, "mingw64", "bin", "g++.exe"),
+    file.path(rtools45, "mingw64", "bin", "g++.exe")
+  )
   found <- candidates[nchar(candidates) > 0 & file.exists(candidates)]
   if (length(found) == 0) stop("[build_app] g++ not found.")
   found[1]
@@ -913,6 +907,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   stage_parent <- file.path(tempdir(), "rdesk_staging")
   if (dir.exists(stage_parent)) unlink(stage_parent, recursive = TRUE)
   dir.create(stage_parent, recursive = TRUE)
+  on.exit(unlink(stage_parent, recursive = TRUE, force = TRUE), add = TRUE)
 
   bundle_path <- file.path(stage_parent, bundle_name)
   contents    <- file.path(bundle_path, "Contents")
@@ -941,6 +936,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   }
 
   tmp_c <- file.path(tempdir(), paste0("stub_", digest::digest(app_name, algo="crc32"), ".c"))
+  on.exit(unlink(tmp_c, force = TRUE), add = TRUE)
   lines <- readLines(stub_c_src)
   lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE)
   writeLines(lines, tmp_c)
@@ -1006,7 +1002,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
     }
   }
   all_pkgs <- unique(c(core_pkgs, extra_pkgs))
-  rdesk_install_packages_to(all_pkgs, pkg_dst, target_r_version)
+  rdesk_copy_installed_packages_to(all_pkgs, pkg_dst)
 
   # Copy RDesk package directory directly to pkg_dst
   installed_rdesk <- system.file(package = "RDesk")
@@ -1378,6 +1374,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   stage_parent <- file.path(tempdir(), "rdesk_staging_linux")
   if (dir.exists(stage_parent)) unlink(stage_parent, recursive = TRUE)
   dir.create(stage_parent, recursive = TRUE)
+  on.exit(unlink(stage_parent, recursive = TRUE, force = TRUE), add = TRUE)
 
   stage_root <- file.path(stage_parent, dist_name)
   dir.create(stage_root, recursive = TRUE)
@@ -1407,6 +1404,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   }
 
   tmp_c <- file.path(tempdir(), paste0("stub_", digest::digest(app_name, algo="crc32"), ".c"))
+  on.exit(unlink(tmp_c, force = TRUE), add = TRUE)
   lines <- readLines(stub_c_src)
   lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE)
   writeLines(lines, tmp_c)
@@ -1586,7 +1584,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
     }
   }
   all_pkgs <- unique(c(core_pkgs, extra_pkgs))
-  rdesk_install_packages_to(all_pkgs, pkg_dst, target_r_version)
+  rdesk_copy_installed_packages_to(all_pkgs, pkg_dst)
 
   # Copy RDesk package directory directly to pkg_dst
   installed_rdesk <- system.file(package = "RDesk")
@@ -1633,8 +1631,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   if (dir.exists(out_bundle_path)) unlink(out_bundle_path, recursive = TRUE)
   rdesk_copy_dir(stage_root, out_bundle_path)
 
-  # Clean up staging area
-  setwd(old_wd)
+  # Clean up staging area; on.exit restores the working directory on errors.
   unlink(stage_parent, recursive = TRUE)
 
   message("[RDesk] Linux bundle output directory: ", out_dir)

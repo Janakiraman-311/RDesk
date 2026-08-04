@@ -1,9 +1,17 @@
-# RDesk 1.0.6.9000 (dev)
+# RDesk 1.0.7 (2026-08-04)
 
 ## New features
 
 * **Cross-platform foundation**: Ported the core build system and launcher architecture to macOS and Linux.
 * **Web Dialogs Fallback**: Added HTML5/JS web-based file dialog fallbacks (`dialog_open`, `dialog_save`, `dialog_folder`, `message_box`, and `dialog_color`) for Linux and macOS. When running on non-Windows platforms, these methods now open beautiful, responsive, and animated glassmorphism web dialog overlays in the WebView instead of invoking Win32 APIs (preventing indefinite hangs). File open dialog automatically reads selected files as base64 and securely decodes/writes them to temporary paths on the R backend.
+
+## Bug fixes
+
+* Bundled demo applications now resolve their app directory from the native
+  launcher's `R_BUNDLE_ROOT`, avoiding startup failures caused by differing
+  `R -f` and `source()` call stacks across platforms.
+* Fixed top-level demo logging cleanup to run through `tryCatch(..., finally=)`
+  rather than calling `on.exit()` outside a function.
 
 # RDesk 1.0.6
 
@@ -13,15 +21,6 @@
 * **Async Progress API**: Added `async_progress()` wrapper enabling background tasks to securely communicate progress updates back to the WebView2 loading screen.
 * **Multi-User Windows Storage Isolation**: Implemented `rdesk_storage()` key-value managers (`app$prefs`, `app$recent`, `app$shared`) automatically mapping settings to `%APPDATA%`, `%LOCALAPPDATA%`, and `%PROGRAMDATA%` with permissions checks and temp fallbacks.
 * **Hardened Single Instance Lock**: launcher now detects duplicate launches, restores minimized windows, and brings the active window to the foreground before exiting the duplicate instance.
-* `mori` is now listed in `Suggests`. Apps that load large datasets and
-  dispatch repeated `async()` workers can optionally use `mori::share()` to
-  place data in OS-level shared memory (Win32 file mapping on Windows), sending
-  ~300 bytes to each worker instead of a full serialised copy. The `async()`
-  wrapper requires no code changes - mori's ALTREP objects serialise as their
-  shared memory handle transparently. See the new Cookbook recipe
-  *"Share large datasets across async workers with mori"* for a complete
-  before/after example and benchmark context (~42% wall-clock improvement in
-  the benchmark on 8-worker parallel operations against large data).
 
 ## Bug fixes
 

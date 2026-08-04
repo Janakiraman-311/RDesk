@@ -6,7 +6,7 @@
 ^.*\.Rproj$
 ^\.agents$
 ^MAINTENANCE\.md$
-^\.r-lib/
+^\.r-lib($|/)
 ^tests/smoke_test_run\.R$
 ^renv/
 ^renv\.lock$
@@ -22,6 +22,7 @@
 ^src/webview2_sdk/_rels($|/)
 ^src/webview2_sdk/.*\.zip$
 ^launcher_src$
+^scripts$
 ^build_launcher\.bat$
 ^CMakeLists\.txt$
 ^MIGRATION_GUIDE\.md$

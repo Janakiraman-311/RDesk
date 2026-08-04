@@ -35,6 +35,26 @@ jobs:
         with:
           r-version: '4.5.1'
           use-public-rspm: true
+          windows-path-include-rtools: true
+          windows-path-include-mingw: true
+
+      - name: Configure Windows Rtools
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $rtools = $env:RTOOLS45_HOME
+          if (-not $rtools) { $rtools = 'C:\rtools45' }
+          $mingw = Join-Path $rtools 'x86_64-w64-mingw32.static.posix\bin'
+          $usr = Join-Path $rtools 'usr\bin'
+          $compiler = Join-Path $mingw 'g++.exe'
+          if (-not (Test-Path $compiler)) {
+            throw "Rtools C++ compiler not found: $compiler"
+          }
+          $mingwUnix = $mingw -replace '\\', '/'
+          $mingw | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $usr | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "BINPREF=$mingwUnix/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          & $compiler --version | Select-Object -First 1
 
 
 

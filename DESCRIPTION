@@ -1,6 +1,6 @@
 Package: RDesk
 Title: Native Desktop App Framework for 'R'
-Version: 1.0.6
+Version: 1.0.7
 Authors@R: c(
     person("Janakiraman", "G",
            email = "janakiraman.bt@gmail.com",
@@ -9,10 +9,29 @@ Authors@R: c(
     person("Serge", "Zaitsev",
            role  = "cph",
            comment = "Author of webview library (src/webview/webview.h)"),
+    person(given  = "Steffen André",
+           family = "Langnes",
+           role   = "cph",
+           comment = "Contributor to webview library (src/webview/webview.h)"),
+    person(given  = "Björn",
+           family = "Hoehrmann",
+           role   = "cph",
+           comment = "Copyright holder credited in nlohmann/json"),
+    person(given  = "Florian",
+           family = "Loitsch",
+           role   = "cph",
+           comment = "Copyright holder credited in nlohmann/json"),
     person(given   = "Niels",
            family  = "Lohmann",
            role    = "cph",
            comment = "Author of nlohmann/json (inst/include/nlohmann/json.hpp)"),
+    person(given  = "Evan",
+           family = "Nemerson",
+           role   = "cph",
+           comment = "Copyright holder credited in nlohmann/json"),
+    person(given  = "The Abseil Authors",
+           role   = "cph",
+           comment = "Copyright holder credited in nlohmann/json"),
     person(given   = "Microsoft Corporation",
            role    = "cph",
            comment = "WebView2 SDK (src/webview2_sdk/)")
@@ -61,6 +80,7 @@ Suggests:
     dplyr,
     broom,
     devtools,
+    pkgbuild,
     rstudioapi,
     renv
 VignetteBuilder: knitr

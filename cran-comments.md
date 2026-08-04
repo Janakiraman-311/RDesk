@@ -1,70 +1,53 @@
-## Resubmission (1.0.6)
+## RDesk 1.0.7
 
-This is a feature and bug-fix update following the 1.0.5 patch release on CRAN.
+This is a new submission following an earlier 1.0.6 submission. Since that
+submission, RDesk has been extended to support development and application
+bundling on Windows, macOS, and Linux.
 
 ### Change summary
 
-**New features (Windows-only - package has OS_type: windows)**
+* Added the cross-platform build and launcher foundation for macOS and Linux.
+* Added HTML/JavaScript dialog fallbacks for non-Windows platforms.
+* Hardened asynchronous jobs, storage, single-instance handling, and bundled
+  application startup.
+* Added reproducible-build support through optional `renv` integration.
+* Updated package documentation and examples for the cross-platform API.
 
-* **Live Hot Reload** (`rdesk_watch()`): monitors `R/` and `www/` directories
-  during development and reloads changed files without restarting the app.
-* **Async Progress API** (`async_progress()`): lets background worker tasks
-  report real-time progress percentages back to the WebView2 loading overlay.
-* **Multi-User Storage Isolation** (`rdesk_storage()`, `RDeskStorage`):
-  key-value storage managers automatically mapped to `%APPDATA%`,
-  `%LOCALAPPDATA%`, and `%PROGRAMDATA%` via `app$prefs`, `app$recent`, and
-  `app$shared`. Includes write-permission checks and temp-directory fallbacks.
-* **Hardened Single-Instance Lock**: launcher now detects duplicate launches,
-  restores minimized windows, and brings the existing window to the foreground.
-* Added `mori` to `Suggests` for optional zero-copy shared memory across
-  async workers (see new Cookbook vignette recipe).
+### System requirements
 
-**New helper exports**
+* Windows requires the Microsoft WebView2 Runtime.
+* macOS requires Apple Clang/Xcode Command Line Tools.
+* Linux source builds require GTK+ 3 and WebKitGTK development libraries.
 
-* `rdesk_async()`, `async()` -- background task management wrappers.
-* `rdesk_cancel_job()`, `rdesk_jobs_pending()`, `rdesk_jobs_list()`.
-* `rdesk_df_to_list()`, `rdesk_plot_to_base64()`, `rdesk_error_plot()` --
-  data and plot utilities for app server code.
+The package does not download or install these system components during
+`R CMD check`. Native launcher builds are exercised separately by the
+project's platform-specific CI workflows.
 
-**Bug fixes**
+### Checks
 
-* `build_app()` now strips developer artifacts (`.Rprofile`, `renv/`,
-  `renv.lock`, `.git/`, `.gitignore`, `tests/`) from the bundled app directory.
-  Previously a stray `.Rprofile` could source `renv/activate.R` on startup,
-  hijacking `.libPaths()` and crashing the distributed app with Error Code 1.
-* Fixed mirai error class name (`miraiError` not `mirai_error`) in the async
-  job polling loop; errors in background workers now correctly route to the
-  `on_error` callback instead of silently crashing the JSON serializer.
-* Fixed mirai daemon workers inheriting `.libPaths()` from the main process,
-  allowing bundled packages in `packages/library/` to load inside workers.
-* Fixed `mirai::mirai()` argument collision: internal variables renamed from
-  `.task`/`.args` to avoid shadowing mirai's formal parameters.
+Final `R CMD check --as-cran` results will be recorded here after the release
+candidate has been checked with current R release, R-patched/R-devel,
+Winbuilder, and macbuilder. The package test suite is run separately on
+Windows, macOS, and Linux in GitHub Actions.
 
-### R CMD check results
+No native application window is launched by package examples or CRAN tests.
+Application bundle and launcher smoke tests are kept in the separate build
+workflow because they require platform GUI/toolchain components.
 
-0 errors | 0 warnings | 1 note (win-builder) / up to 2 notes (local)
+### Response to previous review comments
 
-**Note 1** - `-mwindows` compilation flag:
-Confirmed acceptable by Uwe Ligges (2026-03-24). Required to suppress the
-Windows console window for the native GUI launcher binary.
-
-**Note 2** - `unable to verify current time` (local only):
-Appears only when the local machine cannot reach an NTP server. This note
-did NOT appear on win-builder. CRAN servers have unrestricted internet access.
-
-## Acronyms and Technical Terms
-
-* IPC: Inter-Process Communication (standard R stdin/stdout pipes).
-* Win32: Windows API (used for the native launcher and WebView2).
-* 'R6': Reference class system for R.
-* 'WebView2': Microsoft's Chromium-based web control for desktop apps.
-* '%APPDATA%', '%LOCALAPPDATA%', '%PROGRAMDATA%': Standard Windows
-  user-data environment variables.
-
-## Console Output Justification
-
-RDesk uses `cat()` in `R/App.R` to send JSON messages to the native launcher's
-standard input. These calls are essential for the package's core functionality
-(the Zero-Port IPC bridge) and cannot be replaced with `message()` because the
-launcher specifically listens only to the stdout stream.
-
+* Examples and vignette execution avoid launching native windows. Long-running
+  or interactive operations are guarded with `if (interactive())`; the
+  executable vignettes use temporary, side-effect-free status checks.
+* Build staging and temporary artifacts are created below `tempdir()`, and
+  working-directory and option changes are restored with `on.exit()`.
+* Package discovery uses `find.package()` and package metadata rather than
+  `installed.packages()` in package code.
+* `build_app()` does not install packages or contact a package repository. It
+  copies the already-installed dependency closure; CI installs dependencies
+  before invoking the build.
+* Source-tree bundling uses optional `pkgbuild` rather than requiring the
+  heavier `devtools` package at runtime.
+* Vendored webview and JSON code has been listed in `Authors@R` and
+  `inst/COPYRIGHTS`, including the copyright holders credited by the upstream
+  headers.

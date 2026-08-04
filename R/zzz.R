@@ -8,20 +8,26 @@ NULL
 
 .onLoad <- function(libname, pkgname) {
   # Pin IPC contract version so downstream code has a stable default.
-  options(rdesk.ipc_version = "1.0")
+  if (is.null(getOption("rdesk.ipc_version"))) {
+    options(rdesk.ipc_version = "1.0")
+  }
 
   # CI guard: GitHub Actions runners are headless daemon sessions.
   # WKWebView cannot open a real window there, so we set ci_mode = TRUE
   # and force the callr backend (mirai persistent daemons can hang in CI).
   if (Sys.getenv("GITHUB_ACTIONS") == "true") {
-    options(rdesk.ci_mode    = TRUE)
-    options(rdesk.async_backend = "callr")
+    if (is.null(getOption("rdesk.ci_mode"))) options(rdesk.ci_mode = TRUE)
+    if (is.null(getOption("rdesk.async_backend"))) {
+      options(rdesk.async_backend = "callr")
+    }
   } else {
     # In a normal user session prefer mirai (persistent daemon pool) when
     # available because it reuses workers across tasks. Fall back to callr
     # (on-demand subprocess) when mirai is not installed.
     backend <- if (requireNamespace("mirai", quietly = TRUE)) "mirai" else "callr"
-    options(rdesk.async_backend = backend)
+    if (is.null(getOption("rdesk.async_backend"))) {
+      options(rdesk.async_backend = backend)
+    }
   }
 
   # Clear any stale job/app state that might persist between R sessions

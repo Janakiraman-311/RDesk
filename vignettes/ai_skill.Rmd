@@ -62,35 +62,11 @@ MyApp/
 
 ### Standard `app.R` Entry Point:
 ```r
-resolve_app_dir <- function() {
-  for (i in rev(seq_len(sys.nframe()))) {
-    frame <- sys.frame(i)
-    if (exists("ofile", envir = frame, inherits = FALSE)) {
-      ofile <- get("ofile", envir = frame)
-      if (is.character(ofile) && nzchar(ofile) && file.exists(ofile)) {
-        return(dirname(normalizePath(ofile, winslash = "/", mustWork = TRUE)))
-      }
-    }
-  }
-  args <- commandArgs(trailingOnly = FALSE)
-  file_arg <- grep("^--file=", args, value = TRUE)
-  if (length(file_arg) > 0) {
-    script_path <- normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)
-    if (nzchar(script_path) && file.exists(script_path)) return(dirname(script_path))
-  }
-  if (!nzchar(Sys.getenv("R_BUNDLE_APP"))) {
-    rstudio_path <- tryCatch(rstudioapi::getActiveDocumentContext()$path, error = function(e) "")
-    if (nzchar(rstudio_path) && file.exists(rstudio_path)) {
-      base_name <- basename(rstudio_path)
-      if (base_name %in% c("app.R", "server.R")) {
-        return(dirname(normalizePath(rstudio_path, winslash = "/", mustWork = TRUE)))
-      }
-    }
-  }
-  normalizePath(getwd(), winslash = "/", mustWork = TRUE)
-}
-
-app_dir <- resolve_app_dir()
+app_dir <- tryCatch(
+  if (nzchar(Sys.getenv("R_BUNDLE_APP"))) getwd()
+  else dirname(rstudioapi::getActiveDocumentContext()$path),
+  error = function(e) getwd()
+)
 
 library(RDesk)
 

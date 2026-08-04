@@ -59,7 +59,8 @@ rdesk_create_app <- function(name,
   use_async   <- isTRUE(use_async[1])
   theme       <- as.character(theme)[1]
 
-  # Create app directory
+  # Expand user paths before combining them with the app name.
+  path <- path.expand(path)
   app_dir <- normalizePath(file.path(path, name), mustWork = FALSE)
   if (dir.exists(app_dir)) {
     stop("[RDesk] Directory already exists: ", app_dir,

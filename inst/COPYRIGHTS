@@ -1,10 +1,11 @@
 nlohmann/json (inst/include/nlohmann/json.hpp)
-Copyright (c) 2013-2022 Niels Lohmann
-License: MIT
+Copyright holders credited in the vendored header include Björn Hoehrmann,
+Florian Loitsch, Niels Lohmann, Evan Nemerson, and The Abseil Authors.
+License: MIT (see the header's SPDX notices)
 https://github.com/nlohmann/json
 
 webview (src/webview/webview.h)
-Copyright (c) 2017 Serge Zaitsev
+Copyright (c) 2017 Serge Zaitsev; contributor Steffen André Langnes (2022)
 License: MIT
 https://github.com/webview/webview
 

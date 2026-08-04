@@ -7,6 +7,14 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r package-status}
+RDesk::rdesk_jobs_pending()
+```
+
 In a native desktop application, maintaining a highly responsive user interface is a primary design goal. If a user clicks a button to load a large dataset, compile a plot, or run a statistical model, and the user interface freezes while R computes, the user experience degrades. 
 
 To address this, RDesk implements a non-blocking asynchronous processing engine. Under the hood, RDesk utilizes the **mirai** package to offload intensive computations to persistent background worker processes, ensuring the frontend UI remains interactive at all times.
