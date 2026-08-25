@@ -3,6 +3,9 @@ url: https://janakiraman-311.github.io/RDesk/
 title: RDesk
 logo: man/figures/logo.png
 
+development:
+  mode: auto
+
 template:
   bootstrap: 5
   bslib:
@@ -31,9 +34,9 @@ template:
     link-hover-color: "#F5C518"
   includes:
     in_header: |
-      <meta name="description" content="RDesk - Package R analyses into self-contained Windows desktop applications with zero network port requirements.">
+      <meta name="description" content="RDesk - Package R analyses into self-contained desktop applications for Windows, macOS, and Linux with zero network port requirements.">
       <meta property="og:title" content="RDesk - Native Desktop Apps for R">
-      <meta property="og:description" content="Turn your R analysis into a native Windows desktop app. Zero network ports. One-click installer. No R needed by users.">
+      <meta property="og:description" content="Turn your R analysis into a native desktop app for Windows, macOS, and Linux. Zero network ports. Cross-platform. No R needed by users.">
       <meta name="twitter:card" content="summary">
       <!-- Mermaid JS -->
       <script type="module">
@@ -93,11 +96,13 @@ template:
 home:
   title: "RDesk - Native Desktop Apps for R"
   description: >
-    Package R analyses as standalone Windows .exe desktop applications. Operates offline without network ports or server processes.
+    Package R analyses as standalone desktop applications for Windows, macOS, and Linux. Operates offline without network ports or server processes.
     One command creates the app scaffold. One command builds the installer.
   links:
     - text: "📦 CRAN"
       href: https://cran.r-project.org/package=RDesk
+    - text: "🔬 Lifecycle: Experimental"
+      href: https://lifecycle.r-lib.org/articles/stages.html#experimental
 
 # News configuration for RSS
 news:

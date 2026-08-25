@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://CRAN.R-project.org/package=RDesk"><img src="https://www.r-pkg.org/badges/version/RDesk" alt="CRAN status"/></a>
+  <a href="https://lifecycle.r-lib.org/articles/stages.html#experimental"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"/></a>
   <a href="https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml"><img src="https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml/badge.svg" alt="R-CMD-check"/></a>
   <a href="https://janakiraman-311.github.io/RDesk/"><img src="https://github.com/Janakiraman-311/RDesk/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"/></a>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"/>
