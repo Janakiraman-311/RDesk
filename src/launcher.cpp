@@ -11,6 +11,16 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
+
+#if defined(__clang__)
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  #pragma clang diagnostic ignored "-Wunknown-warning-option"
+#elif defined(__GNUC__)
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -49,6 +59,12 @@ using json = nlohmann::json;
   #include <sys/wait.h>
   #include <sys/types.h>
   #include <sys/stat.h>
+#endif
+
+#if defined(__clang__)
+  #pragma clang diagnostic pop
+#elif defined(__GNUC__)
+  #pragma GCC diagnostic pop
 #endif
 
 // ── Global state ─────────────────────────────────────────────────────────────
