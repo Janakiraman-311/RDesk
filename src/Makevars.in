@@ -1,4 +1,5 @@
 CXX_STD = CXX17
+PKG_CXXFLAGS = -Wno-deprecated-declarations -Wno-unknown-warning-option
 OBJECTS = dummy.o
 LAUNCHER_BIN = ../inst/bin/rdesk-launcher
 STUB_BIN = @STUB_BIN@

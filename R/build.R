@@ -771,7 +771,7 @@ rdesk_copy_installed_packages_to <- function(pkgs, lib_dir) {
     desc <- tryCatch(utils::packageDescription(pkg, lib.loc = dirname(pkg_path)),
                      error = function(e) NULL)
     if (!is.null(desc)) {
-      fields <- vapply(c("Depends", "Imports", "LinkingTo"), function(name) {
+      fields <- vapply(c("Depends", "Imports"), function(name) {
         value <- desc[[name]]
         if (is.null(value) || is.na(value)) "" else as.character(value)
       }, character(1))

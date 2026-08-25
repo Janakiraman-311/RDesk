@@ -4,7 +4,7 @@
 UNAME_S=`uname -s`
 
 if [ "$UNAME_S" = "Darwin" ]; then
-  LAUNCHER_CXXFLAGS="-DWEBVIEW_COCOA=1 -I../inst/include -x objective-c++"
+  LAUNCHER_CXXFLAGS="-DWEBVIEW_COCOA=1 -I../inst/include -x objective-c++ -Wno-deprecated-declarations -Wno-unknown-warning-option"
   LAUNCHER_LIBS="-framework WebKit -framework Cocoa"
   STUB_BIN="../inst/bin/rdesk-stub-macos"
   STUB_TARGET="../inst/bin/rdesk-stub-macos"
