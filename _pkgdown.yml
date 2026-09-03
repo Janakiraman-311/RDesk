@@ -120,7 +120,7 @@ navbar:
       href: articles/getting-started.html
     quarto:
       text: "Quarto Docs"
-      href: quarto/index.html
+      href: https://janakiraman-311.github.io/RDesk/
     articles:
       text: "Guides"
       menu:

@@ -28,7 +28,7 @@ website:
         href: api-reference.qmd
     right:
       - text: "pkgdown Reference"
-        href: "../reference/index.html"
+        href: https://janakiraman-311.github.io/RDesk/pkgdown/reference/index.html
       - icon: github
         href: https://github.com/Janakiraman-311/RDesk
         aria-label: GitHub
