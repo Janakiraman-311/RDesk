@@ -36,11 +36,8 @@ Authors@R: c(
            role    = "cph",
            comment = "WebView2 SDK (src/webview2_sdk/)")
    )
-Author: Janakiraman G [aut, cre, cph], Serge Zaitsev [cph], Niels Lohmann [cph],
-    Microsoft Corporation [cph]
-Maintainer: Janakiraman G <janakiraman.bt@gmail.com>
 Description: Build native desktop applications for Windows (with future
-    support planned for macOS and Linux) using 'R' and embedded webviews.
+    support planned for macOS and Linux) using 'R' and embedded 'webviews'.
     Provides a robust 'R6'-based event loop, asynchronous background task
     management via 'mirai' and 'callr', and a native message bridge for
     seamless 'R'-to-user-interface communication without listening ports or

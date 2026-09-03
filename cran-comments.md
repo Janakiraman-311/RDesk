@@ -4,6 +4,7 @@ This is a maintenance and feature update for RDesk following the 1.0.6 release, 
 
 ### Test environments
 * local Windows 11 x64 (build 26200), R 4.5.1 (ucrt)
+* win-builder (R Under development 2026-08-31 r90457 ucrt)
 * GitHub Actions `windows-latest`, R 4.5.1
 
 ### R CMD check results
