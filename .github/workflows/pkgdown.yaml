@@ -1,4 +1,4 @@
-name: pkgdown
+﻿name: pkgdown
 
 on:
   push:
@@ -12,11 +12,11 @@ concurrency:
 
 jobs:
   pkgdown:
+    # Build pkgdown on Windows because the site examples and vignettes exercise
+    # the native launcher tooling that is most stable on the Windows CI runner.
     runs-on: windows-latest
     permissions:
       contents: write
-    # Build pkgdown on Windows because the site examples and vignettes exercise
-    # the native launcher tooling that is most stable on the Windows CI runner.
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       RENV_CONFIG_AUTOLOADER_ENABLED: "false"
@@ -58,6 +58,21 @@ jobs:
       - name: Build site
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Render Quarto Docs
+        uses: quarto-dev/quarto-actions/render@v2
+        with:
+          path: website
+
+      - name: Copy Quarto Docs into site
+        run: |
+          if (Test-Path "website/_site") {
+            Copy-Item -Path "website/_site" -Destination "docs/quarto" -Recurse -Force
+          }
+        shell: pwsh
 
       - name: Deploy to GitHub Pages
         if: github.event_name == 'push'
