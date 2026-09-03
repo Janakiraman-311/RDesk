@@ -10,7 +10,7 @@
   <a href="https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml"><img src="https://github.com/Janakiraman-311/RDesk/actions/workflows/R-CMD-check.yml/badge.svg" alt="R-CMD-check"/></a>
   <a href="https://janakiraman-311.github.io/RDesk/"><img src="https://github.com/Janakiraman-311/RDesk/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"/></a>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"/>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational" alt="Windows macOS Linux"/>
+  <img src="https://img.shields.io/badge/platform-Windows-blue" alt="Windows"/>
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 
 ---
 
-RDesk packages your R analysis into a standalone desktop application for Windows, macOS, and Linux. Instead of running an HTTP server and opening a browser tab, RDesk uses a native launcher plus an embedded webview so the app runs offline with local IPC only.
+RDesk packages your R analysis into a standalone desktop application for Windows (with future support planned for macOS and Linux). Instead of running an HTTP server and opening a browser tab, RDesk uses a native launcher plus an embedded webview so the app runs offline with local IPC only.
 
 ## Quick Start
 
@@ -43,12 +43,10 @@ RDesk::build_app(
   build_installer = TRUE
 )
 
-# Windows -> dist/MyApp-1.0.0-setup.exe
-# macOS   -> dist/MyApp.app and dist/MyApp-1.0.0.dmg
-# Linux   -> dist/MyApp-1.0.0/ and dist/MyApp-1.0.0.tar.gz
+# Windows -> dist/MyApp-1.0.0-setup.exe (or dist/MyApp-1.0.0-windows.zip)
 ```
 
-Windows can produce an installer, macOS can produce an `.app` bundle and optional `.dmg`, and Linux produces a portable bundle plus `.tar.gz`. No separate R installation or browser server is required on the target machine when using the bundled runtime.
+Windows produces a standalone installer or portable zip distribution (with macOS and Linux packaging in active development). No separate R installation or browser server is required on the target machine when using the bundled runtime.
 
 > **Development version**
 > ```r

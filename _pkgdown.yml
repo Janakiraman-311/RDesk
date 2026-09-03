@@ -34,9 +34,9 @@ template:
     link-hover-color: "#F5C518"
   includes:
     in_header: |
-      <meta name="description" content="RDesk - Package R analyses into self-contained desktop applications for Windows, macOS, and Linux with zero network port requirements.">
+      <meta name="description" content="RDesk - Package R analyses into self-contained desktop applications for Windows with zero network port requirements.">
       <meta property="og:title" content="RDesk - Native Desktop Apps for R">
-      <meta property="og:description" content="Turn your R analysis into a native desktop app for Windows, macOS, and Linux. Zero network ports. Cross-platform. No R needed by users.">
+      <meta property="og:description" content="Turn your R analysis into a native desktop app for Windows (cross-platform support planned). Zero network ports. No R needed by users.">
       <meta name="twitter:card" content="summary">
       <!-- Mermaid JS -->
       <script type="module">
@@ -96,7 +96,7 @@ template:
 home:
   title: "RDesk - Native Desktop Apps for R"
   description: >
-    Package R analyses as standalone desktop applications for Windows, macOS, and Linux. Operates offline without network ports or server processes.
+    Package R analyses as standalone desktop applications for Windows (with future cross-platform support planned). Operates offline without network ports or server processes.
     One command creates the app scaffold. One command builds the installer.
   links:
     - text: "📦 CRAN"

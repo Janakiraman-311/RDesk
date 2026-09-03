@@ -1,17 +1,22 @@
-# RDesk 1.0.7 (2026-08-04)
+# RDesk 1.0.7
 
-## New features
+## New features & hardening
 
-* **Cross-platform foundation**: Ported the core build system and launcher architecture to macOS and Linux.
-* **Web Dialogs Fallback**: Added HTML5/JS web-based file dialog fallbacks (`dialog_open`, `dialog_save`, `dialog_folder`, `message_box`, and `dialog_color`) for Linux and macOS. When running on non-Windows platforms, these methods now open beautiful, responsive, and animated glassmorphism web dialog overlays in the WebView instead of invoking Win32 APIs (preventing indefinite hangs). File open dialog automatically reads selected files as base64 and securely decodes/writes them to temporary paths on the R backend.
+* **App Bundling & Runtime Stability**: Hardened `build_app()` with unified input validation, R runtime version tolerance, and automatic exclusion of build-time header packages (`LinkingTo`) to avoid missing dependency errors for packages like `dplyr` and `cpp11`.
+* **Process Management & Window Bridging**: Added `rdesk_open_window()` with robust `processx` pipes, `READY` handshakes, and native process lifetime controls.
+* **Auto-Updater Engine**: Enhanced `rdesk_auto_update()` with installer invocation, safe temporary staging, and version comparisons.
+* **Storage Isolation**: Hardened persistent storage paths (`%LOCALAPPDATA%`, `%APPDATA%`) with fallback tempdir validation for restricted permission environments.
+* **IDE & Working Directory Resolution**: Fixed app directory path resolution in Positron and RStudio when sourcing across active editor tabs.
+* **Cross-Platform Foundation (Preview)**: Core architecture groundwork prepared for future macOS and Linux desktop targets.
 
 ## Bug fixes
 
 * Bundled demo applications now resolve their app directory from the native
   launcher's `R_BUNDLE_ROOT`, avoiding startup failures caused by differing
-  `R -f` and `source()` call stacks across platforms.
+  `R -f` and `source()` call stacks across execution contexts.
 * Fixed top-level demo logging cleanup to run through `tryCatch(..., finally=)`
   rather than calling `on.exit()` outside a function.
+* Fixed unique message ID collision under fast sequential IPC test calls.
 
 # RDesk 1.0.6
 

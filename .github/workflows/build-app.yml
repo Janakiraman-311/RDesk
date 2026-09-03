@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
 
     env:
@@ -22,14 +22,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install System Dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          # libgtk-3-dev / libwebkit2gtk-4.1-dev — required to compile rdesk-launcher.
-          # gcc — required to compile the Linux stub binary inside rdesk_build_linux_app().
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev gcc xvfb xauth
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -57,11 +49,6 @@ jobs:
           & $compiler --version | Select-Object -First 1
 
 
-
-      - name: Make scripts executable
-        if: matrix.os != 'windows-latest'
-        run: |
-          chmod +x configure cleanup
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
@@ -94,131 +81,16 @@ jobs:
           }
           do.call(RDesk::build_app, args)
 
-      - name: Validate macOS App Bundle Structure
-        if: matrix.os == 'macos-latest'
+      - name: Verify Windows App Output
+        shell: pwsh
         run: |
-          BUNDLE="dist/CarsAnalyser.app"
-
-          # Verify bundle structure components
-          echo "=== Verifying Bundle Structure ==="
-          test -f "$BUNDLE/Contents/Info.plist"     || (echo "FAIL: Info.plist missing" && exit 1)
-          test -f "$BUNDLE/Contents/PkgInfo"        || (echo "FAIL: PkgInfo missing" && exit 1)
-          test -f "$BUNDLE/Contents/MacOS/CarsAnalyser" || (echo "FAIL: Stub missing" && exit 1)
-          test -f "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher missing" && exit 1)
-          test -f "$BUNDLE/Contents/Resources/app/app.R" || (echo "FAIL: app.R missing" && exit 1)
-          test -d "$BUNDLE/Contents/Resources/R-runtime/R/bin" || (echo "FAIL: R runtime missing" && exit 1)
-          echo "Structure: PASS"
-
-          # Verify executable permissions
-          echo "=== Verifying Executable Permissions ==="
-          test -x "$BUNDLE/Contents/MacOS/CarsAnalyser" || (echo "FAIL: Stub not executable" && exit 1)
-          test -x "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher not executable" && exit 1)
-          echo "Permissions: PASS"
-
-          # Verify plist values
-          echo "=== Verifying Plist Configuration ==="
-          /usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$BUNDLE/Contents/Info.plist" | grep -q "CarsAnalyser" || (echo "FAIL: CFBundleExecutable misconfigured" && exit 1)
-          echo "Plist: PASS"
-
-          # Debug otool output for launcher and stub
-          echo "=== Launcher Dependency List ==="
-          otool -L "$BUNDLE/Contents/Resources/bin/rdesk-launcher"
-          echo "=== Stub Dependency List ==="
-          otool -L "$BUNDLE/Contents/MacOS/CarsAnalyser"
-
-
-
-
-      - name: Validate Linux App Bundle Structure
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          BUNDLE="dist/CarsAnalyser-1.0.0"
-
-          echo "=== Verifying Linux Bundle Structure ==="
-          # Stub binary (entry point compiled from stub_linux.c)
-          test -f "$BUNDLE/CarsAnalyser"       || (echo "FAIL: stub binary missing" && exit 1)
-          # WebView launcher binary
-          test -f "$BUNDLE/rdesk-launcher"     || (echo "FAIL: rdesk-launcher missing" && exit 1)
-          # App sources
-          test -f "$BUNDLE/app/app.R"          || (echo "FAIL: app/app.R missing" && exit 1)
-          # Bundled R runtime
-          test -d "$BUNDLE/R-runtime/R/bin"    || (echo "FAIL: R-runtime/R/bin missing" && exit 1)
-          echo "Structure: PASS"
-
-          echo "=== Verifying Executable Permissions ==="
-          test -x "$BUNDLE/CarsAnalyser"       || (echo "FAIL: stub not executable" && exit 1)
-          test -x "$BUNDLE/rdesk-launcher"     || (echo "FAIL: rdesk-launcher not executable" && exit 1)
-          echo "Permissions: PASS"
-
-      - name: Smoke Test macOS App Bundle
-        if: matrix.os == 'macos-latest'
-        run: |
-          set -euo pipefail
-          echo "=== Running macOS App Smoke Test ==="
-          ./dist/CarsAnalyser.app/Contents/MacOS/CarsAnalyser &
-          PID=$!
-          trap 'kill $PID 2>/dev/null || true' EXIT
-
-          for i in {1..10}; do
-            if ! kill -0 $PID 2>/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-
-          if kill -0 $PID 2>/dev/null; then
-            echo "App is running successfully (active event loop)"
-            kill $PID || true
-            exit 0
-          else
-            if wait $PID; then
-              STATUS=0
-            else
-              STATUS=$?
-            fi
-            if [ $STATUS -eq 0 ]; then
-              echo "App exited successfully (CI mode)"
-              exit 0
-            else
-              echo "App crashed with exit code $STATUS"
-              exit 1
-            fi
-          fi
-
-      - name: Smoke Test Linux App Bundle
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          set -euo pipefail
-          echo "=== Running Linux App Smoke Test ==="
-          xvfb-run --auto-servernum ./dist/CarsAnalyser-1.0.0/CarsAnalyser &
-          PID=$!
-          trap 'kill $PID 2>/dev/null || true' EXIT
-
-          for i in {1..10}; do
-            if ! kill -0 $PID 2>/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-
-          if kill -0 $PID 2>/dev/null; then
-            echo "App is running successfully (active event loop)"
-            kill $PID || true
-            exit 0
-          else
-            if wait $PID; then
-              STATUS=0
-            else
-              STATUS=$?
-            fi
-            if [ $STATUS -eq 0 ]; then
-              echo "App exited successfully (CI mode)"
-              exit 0
-            else
-              echo "App crashed with exit code $STATUS"
-              exit 1
-            fi
-          fi
+          $distFiles = Get-ChildItem -Path dist
+          Write-Host "Build output files:"
+          $distFiles | ForEach-Object { Write-Host " - $($_.Name) ($($_.Length) bytes)" }
+          if (-not (Test-Path "dist/CarsAnalyser-1.0.0-windows.zip")) {
+            throw "Expected dist/CarsAnalyser-1.0.0-windows.zip not found!"
+          }
+          Write-Host "Windows package successfully generated and verified!"
 
       - name: Upload Artifact
         if: always()

@@ -4,6 +4,12 @@ on:
   push:
     branches: [ main, dev, "**" ]
   pull_request:
+name: R-CMD-check
+
+on:
+  push:
+    branches: [ main, dev, "**" ]
+  pull_request:
     branches: [ main ]
 
 jobs:
@@ -11,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       RENV_PATHS_LIBRARY: renv/library
@@ -27,25 +33,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install System Dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.5.1'
           use-public-rspm: true
           windows-path-include-rtools: true
           windows-path-include-mingw: true
-
-
-
-      - name: Make scripts executable
-        if: matrix.os != 'windows-latest'
-        run: |
-          chmod +x configure cleanup
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -126,82 +119,6 @@ jobs:
             cat(paste(res$warnings, collapse = "\n"))
           }
         shell: Rscript {0}
-
-      - name: Verify macOS Universal Binaries
-        if: matrix.os == 'macos-latest'
-        run: |
-          R CMD INSTALL .
-          # Query the installed package binary directory
-          INST_BIN=$(Rscript -e "cat(system.file('bin', package = 'RDesk'))")
-          echo "Installed binary directory: $INST_BIN"
-          
-          # Test 1 — Binary integrity
-          echo "=== Testing Binary Integrity ==="
-          lipo -info "$INST_BIN/rdesk-launcher"
-          lipo -info "$INST_BIN/rdesk-stub-macos"
-          file "$INST_BIN/rdesk-launcher"
-          file "$INST_BIN/rdesk-stub-macos"
-          codesign --verify --verbose "$INST_BIN/rdesk-launcher"
-          codesign --verify --verbose "$INST_BIN/rdesk-stub-macos"
-          
-          # Test 2 — Dynamic library linkage (verify no absolute builder paths leak)
-          echo "=== Testing Linkage Integrity ==="
-          otool -L "$INST_BIN/rdesk-launcher"
-          # Only check indented library link lines to avoid false positives on the binary path itself
-          if otool -L "$INST_BIN/rdesk-launcher" | grep '^[[:space:]]' | grep -q "/Users/"; then
-            echo "ERROR: Absolute builder path found in binary!"
-            exit 1
-          fi
-
-      - name: Test RDesk IPC protocol headlessly
-        if: matrix.os == 'macos-latest'
-        run: |
-          cat << 'EOF' > /tmp/test_ipc.R
-          # Load RDesk in CI mode — no window, no launcher
-          options(rdesk.ci_mode = TRUE)
-          library(RDesk)
-
-          # Test message construction
-          msg <- rdesk_message("get_data", list(filter = "cyl == 6"))
-          stopifnot(msg$type      == "get_data")
-          stopifnot(msg$version   == "1.0")
-          stopifnot(!is.null(msg$id))
-          stopifnot(!is.null(msg$timestamp))
-          cat("IPC message construction: PASS\n")
-
-          # Test message parsing
-          raw <- jsonlite::toJSON(msg, auto_unbox = TRUE)
-          parsed <- rdesk_parse_message(raw)
-          stopifnot(parsed$type == "get_data")
-          cat("IPC message parsing: PASS\n")
-
-          # Test data conversion helpers
-          result <- rdesk_df_to_list(head(mtcars, 3))
-          stopifnot(length(result$rows) == 3)
-          stopifnot("mpg" %in% result$cols)
-          cat("Data conversion: PASS\n")
-
-          # Test plot helper (no display needed — writes to file)
-          p <- ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) +
-               ggplot2::geom_point()
-          b64 <- rdesk_plot_to_base64(p)
-          stopifnot(nchar(b64) > 1000)
-          cat("Plot to base64: PASS\n")
-
-          # Test storage system
-          withr::with_tempdir({
-            prefs <- rdesk_storage("TestApp", "local")
-            prefs$set("test_key", "test_value")
-            stopifnot(prefs$get("test_key") == "test_value")
-            prefs$remove("test_key")
-            stopifnot(is.null(prefs$get("test_key")))
-            cat("Storage system: PASS\n")
-          })
-
-          cat("All IPC tests: PASS\n")
-          EOF
-
-          Rscript /tmp/test_ipc.R
 
       - name: Upload check results
         if: failure()

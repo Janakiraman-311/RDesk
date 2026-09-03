@@ -2,6 +2,14 @@
 #' @importFrom stats runif
 NULL
 
+.rdesk_msg_id_counter <- local({
+  n <- 0L
+  function() {
+    n <<- n + 1L
+    n
+  }
+})
+
 #' Construct a standard RDesk IPC message envelope
 #'
 #' @description
@@ -38,13 +46,6 @@ NULL
 #' stopifnot(msg$version == "1.0")
 #' stopifnot(!is.null(msg$id))
 #' @export
-.rdesk_msg_id_counter <- local({
-  n <- 0L
-  function() {
-    n <<- n + 1L
-    n
-  }
-})
 
 rdesk_message <- function(type, payload = list(), version = getOption("rdesk.ipc_version", "1.0")) {
   msg <- list(
