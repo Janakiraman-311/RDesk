@@ -112,15 +112,12 @@ news:
 navbar:
   bg: dark
   structure:
-    left:  [intro, reference, articles, quarto, news]
+    left:  [intro, reference, articles, news]
     right: [cran, github]
   components:
     intro:
       text: "Get started"
       href: articles/getting-started.html
-    quarto:
-      text: "Quarto Docs"
-      href: https://janakiraman-311.github.io/RDesk/
     articles:
       text: "Guides"
       menu:

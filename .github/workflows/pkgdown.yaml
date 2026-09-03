@@ -59,28 +59,13 @@ jobs:
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
         shell: Rscript {0}
 
-      - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-
-      - name: Render Quarto Docs
-        uses: quarto-dev/quarto-actions/render@v2
-        with:
-          path: website
-
-      - name: Copy Pkgdown Docs into Quarto
-        run: |
-          if (Test-Path "docs") {
-            Copy-Item -Path "docs" -Destination "website/_site/pkgdown" -Recurse -Force
-          }
-        shell: pwsh
-
       - name: Deploy to GitHub Pages
         if: github.event_name == 'push'
         # Using peaceiris instead of JamesIves to avoid rsync path resolution issues on Windows
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: website/_site
+          publish_dir: ./docs
           force_orphan: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
