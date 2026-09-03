@@ -62,7 +62,18 @@ resolve_app_dir <- function() {
 
 app_dir <- resolve_app_dir()
 
-suppressPackageStartupMessages(library(RDesk))
+# Load RDesk - dev mode or installed
+pkg_root <- dirname(dirname(dirname(app_dir)))
+is_dev   <- file.exists(file.path(pkg_root, "DESCRIPTION")) &&
+            file.exists(file.path(pkg_root, "R", "App.R"))
+
+if (!nzchar(Sys.getenv("R_BUNDLE_APP")) && is_dev) {
+  message("[RDesk] Dev mode detected. Loading local source from: ", pkg_root)
+  devtools::load_all(pkg_root, quiet = TRUE)
+} else {
+  suppressPackageStartupMessages(library(RDesk))
+}
+
 options(rdesk.async_backend = "callr") # Force callr backend for robust, firewall-immune process pipe IPC
 
 r_files <- sort(list.files(file.path(app_dir, "R"),

@@ -2,6 +2,15 @@
 # Generated: {{DATE}}
 
 resolve_app_dir <- function() {
+  # Bundled stubs provide the authoritative app root.
+  bundle_root <- Sys.getenv("R_BUNDLE_ROOT")
+  if (nzchar(bundle_root)) {
+    bundled_app <- file.path(bundle_root, "app")
+    if (file.exists(file.path(bundled_app, "app.R"))) {
+      return(normalizePath(bundled_app, winslash = "/", mustWork = TRUE))
+    }
+  }
+
   # Prefer the actual app.R path when this file is sourced by another script.
   for (i in rev(seq_len(sys.nframe()))) {
     frame <- sys.frame(i)
