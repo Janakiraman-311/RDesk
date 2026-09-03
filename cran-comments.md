@@ -1,6 +1,6 @@
 ## RDesk 1.0.7 Submission
 
-This is a maintenance and feature update for RDesk following the 1.0.6 release, focusing on stability, reliability, and packaging improvements for Windows desktop applications.
+This is a maintenance and feature update for RDesk following the 1.0.5 CRAN release, focusing on stability, reliability, and packaging improvements for Windows desktop applications.
 
 ### Test environments
 * local Windows 11 x64 (build 26200), R 4.5.1 (ucrt)
