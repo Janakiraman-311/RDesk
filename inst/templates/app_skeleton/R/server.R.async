@@ -20,7 +20,8 @@ init_handlers <- function(app) {
     df <- init_data()
     if (!is.null(df)) {
       res <- RDesk::rdesk_df_to_list(df)
-      res$kpis <- get_app_kpis(df)
+      res$chart <- if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) make_chart(df) else NULL
+      res$kpis  <- get_app_kpis(df)
       app$send("data_ready", res)
     }
   })

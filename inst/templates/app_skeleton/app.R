@@ -58,15 +58,26 @@ resolve_app_dir <- function() {
 app_dir <- resolve_app_dir()
 
 # Load RDesk - dev mode or installed
-pkg_root <- dirname(dirname(dirname(app_dir)))
-is_dev   <- file.exists(file.path(pkg_root, "DESCRIPTION")) &&
-            file.exists(file.path(pkg_root, "R", "App.R"))
-
-if (!nzchar(Sys.getenv("R_BUNDLE_APP")) && is_dev) {
-  devtools::load_all(pkg_root, quiet = TRUE)
-} else {
-  library(RDesk)
+find_dev_root <- function(d) {
+  cur <- d
+  for (i in 1:5) {
+    cur <- dirname(cur)
+    if (file.exists(file.path(cur, "DESCRIPTION")) &&
+        file.exists(file.path(cur, "R", "App.R"))) {
+      return(cur)
+    }
+  }
+  NULL
 }
+
+dev_root <- if (!nzchar(Sys.getenv("R_BUNDLE_APP"))) find_dev_root(app_dir) else NULL
+if (!is.null(dev_root)) {
+  devtools::load_all(dev_root, quiet = TRUE)
+} else {
+  suppressPackageStartupMessages(library(RDesk))
+}
+
+suppressPackageStartupMessages(library(ggplot2))
 
 # Source all R/ modules
 r_dir <- file.path(app_dir, "R")
