@@ -41,7 +41,7 @@ UI
 WKWebView
 WebKitGTK
 WebView
-Webpack
+Xcode
 args
 async
 behaviour
@@ -64,7 +64,6 @@ gapped
 getOption
 ggplot
 github
-glassmorphism
 hardcoded
 hostname
 hostnames
@@ -86,6 +85,7 @@ mori
 mori's
 mtcars
 mtimes
+natively
 nlohmann
 okcancel
 performant
@@ -104,11 +104,13 @@ stdin
 subfolder
 subprocess
 synchronisation
+tempdir
+toolchain
 unscoped
 vendored
 vk
 webview
+webviews
 www
 yesno
 yesnocancel
-️

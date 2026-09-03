@@ -1,53 +1,43 @@
-## RDesk 1.0.7
+## RDesk 1.0.7 Submission
 
-This is a new submission following an earlier 1.0.6 submission. Since that
-submission, RDesk has been extended to support development and application
-bundling on Windows, macOS, and Linux.
+This is a maintenance and feature update for RDesk following the 1.0.6 release, focusing on stability, reliability, and packaging improvements for Windows desktop applications.
+
+### Test environments
+* local Windows 11 x64 (build 26200), R 4.5.1 (ucrt)
+* GitHub Actions `windows-latest`, R 4.5.1
+
+### R CMD check results
+There were 0 errors | 0 warnings | 2 notes.
+
+* checking pragmas in C/C++ headers and code ... NOTE
+  Files which contain pragma(s) suppressing diagnostics:
+    'src/launcher.cpp'
+  
+  Explanation: The pragmas in 'src/launcher.cpp' are intentional to safely wrap third-party C++ headers ('nlohmann/json.hpp' and 'webview.h') and prevent spurious compiler deprecation warnings across varying C++ standard library implementations.
+
+* checking compilation flags used ... NOTE
+  Compilation used the following non-portable flag(s):
+    '-mwindows'
+
+  Explanation: The '-mwindows' flag is intentional and required for Windows GUI executables to ensure the native desktop window opens cleanly without creating an unwanted console window alongside the user interface.
+
+### Method References
+There are no published references describing the methods in this package. The package implements original software architecture for packaging and running desktop applications using native R processes, IPC pipes, and the Microsoft WebView2 control.
 
 ### Change summary
-
-* Added the cross-platform build and launcher foundation for macOS and Linux.
-* Added HTML/JavaScript dialog fallbacks for non-Windows platforms.
-* Hardened asynchronous jobs, storage, single-instance handling, and bundled
-  application startup.
-* Added reproducible-build support through optional `renv` integration.
-* Updated package documentation and examples for the cross-platform API.
+* **App Bundling & Runtime Stability**: Hardened `build_app()` with unified input validation, R runtime version tolerance, and automatic exclusion of build-time header packages (`LinkingTo`) to avoid missing dependency errors.
+* **Process Management & Window Bridging**: Added `rdesk_open_window()` with robust `processx` pipes, `READY` handshakes, and native process lifetime controls.
+* **Auto-Updater Engine**: Enhanced `rdesk_auto_update()` with installer invocation, safe temporary staging, and version comparisons.
+* **Storage Isolation**: Hardened persistent storage paths (`%LOCALAPPDATA%`, `%APPDATA%`) with fallback tempdir validation for restricted permission environments.
+* **IDE & Working Directory Resolution**: Fixed app directory path resolution in Positron and RStudio when sourcing across active editor tabs.
+* **Template Scaffolding**: Improved dynamic development loader and initial chart state for scaffolded applications.
 
 ### System requirements
-
-* Windows requires the Microsoft WebView2 Runtime.
-* macOS requires Apple Clang/Xcode Command Line Tools.
-* Linux source builds require GTK+ 3 and WebKitGTK development libraries.
-
-The package does not download or install these system components during
-`R CMD check`. Native launcher builds are exercised separately by the
-project's platform-specific CI workflows.
-
-### Checks
-
-Final `R CMD check --as-cran` results will be recorded here after the release
-candidate has been checked with current R release, R-patched/R-devel,
-Winbuilder, and macbuilder. The package test suite is run separately on
-Windows, macOS, and Linux in GitHub Actions.
-
-No native application window is launched by package examples or CRAN tests.
-Application bundle and launcher smoke tests are kept in the separate build
-workflow because they require platform GUI/toolchain components.
+Windows requires the Microsoft WebView2 Runtime (pre-installed on Windows 10/11). The package does not download or install system components during `R CMD check`. Native launcher builds are exercised separately by project CI workflows.
 
 ### Response to previous review comments
-
-* Examples and vignette execution avoid launching native windows. Long-running
-  or interactive operations are guarded with `if (interactive())`; the
-  executable vignettes use temporary, side-effect-free status checks.
-* Build staging and temporary artifacts are created below `tempdir()`, and
-  working-directory and option changes are restored with `on.exit()`.
-* Package discovery uses `find.package()` and package metadata rather than
-  `installed.packages()` in package code.
-* `build_app()` does not install packages or contact a package repository. It
-  copies the already-installed dependency closure; CI installs dependencies
-  before invoking the build.
-* Source-tree bundling uses optional `pkgbuild` rather than requiring the
-  heavier `devtools` package at runtime.
-* Vendored webview and JSON code has been listed in `Authors@R` and
-  `inst/COPYRIGHTS`, including the copyright holders credited by the upstream
-  headers.
+* Examples and vignette execution avoid launching native windows during checks. Long-running or interactive operations are guarded with `if (interactive())`.
+* Build staging and temporary artifacts are created below `tempdir()`, and working-directory and option changes are restored with `on.exit()`.
+* Package discovery uses `find.package()` and package metadata rather than `installed.packages()`.
+* `build_app()` does not install packages or contact a package repository at check time.
+* Vendored webview and JSON code is fully credited in `Authors@R` with `cph` roles and in `inst/COPYRIGHTS`.

@@ -1,10 +1,10 @@
 Package: RDesk
-Title: Native Desktop App Framework for 'R'
+Title: Native Desktop Application Framework
 Version: 1.0.7
 Authors@R: c(
     person("Janakiraman", "G",
            email = "janakiraman.bt@gmail.com",
-           role  = c("aut", "cre"),
+           role  = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0001-6050-2318")),
     person("Serge", "Zaitsev",
            role  = "cph",
@@ -36,7 +36,7 @@ Authors@R: c(
            role    = "cph",
            comment = "WebView2 SDK (src/webview2_sdk/)")
    )
-Author: Janakiraman G [aut, cre], Serge Zaitsev [cph], Niels Lohmann [cph],
+Author: Janakiraman G [aut, cre, cph], Serge Zaitsev [cph], Niels Lohmann [cph],
     Microsoft Corporation [cph]
 Maintainer: Janakiraman G <janakiraman.bt@gmail.com>
 Description: Build native desktop applications for Windows (with future
@@ -51,7 +51,6 @@ OS_type: windows
 License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-US
-LazyData: true
 URL: https://github.com/Janakiraman-311/RDesk, https://janakiraman-311.github.io/RDesk/
 BugReports: https://github.com/Janakiraman-311/RDesk/issues
 SystemRequirements: Windows 10 or later, Microsoft 'WebView2' Runtime
