@@ -63,14 +63,28 @@ jobs:
         run: |
           # Create a fresh app using the real scaffolding engine
           RDesk::rdesk_create_app("CarsDashboard", path = "C:/Temp")
-          # Build the newly created app
-          RDesk::build_app(app_dir = "C:/Temp/CarsDashboard", app_name = "CarsDashboard", version = "${{ github.ref_name }}")
+          # Build the newly created app with output into dist/
+          RDesk::build_app(
+            app_dir  = "C:/Temp/CarsDashboard",
+            app_name = "CarsDashboard",
+            version  = "${{ github.ref_name }}",
+            out_dir  = "dist"
+          )
+
+      - name: Verify Dist Files
+        shell: pwsh
+        run: |
+          if (Test-Path dist) {
+            Get-ChildItem -Path dist | Format-Table Name, Length
+          } else {
+            throw "dist directory not found!"
+          }
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.zip
-          draft: true
+          draft: false
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
