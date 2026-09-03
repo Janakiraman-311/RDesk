@@ -1,0 +1,98 @@
+﻿---
+title: "Migrating from Shiny to RDesk"
+format: html
+---
+
+If you are accustomed to building applications with Shiny, this guide will help you translate your mental model to RDesk's native desktop paradigm.
+
+## Key Differences at a Glance
+
+::: {#tbl-comparison}
+
+| Concept | Shiny | RDesk |
+| :--- | :--- | :--- |
+| **Networking** | Requires HTTP server & WebSockets on local port | Zero network ports (Pure OS pipe IPC) |
+| **UI Architecture** | R DSL (`fluidPage`, `tags$div`, `bslib`) | Modern HTML5/CSS3/JS (`www/`) |
+| **Execution Paradigm** | Reactive dependency graph (`reactiveVal`, `observeEvent`) | Direct event-driven messaging (`app$on_message`) |
+| **Distribution** | Requires R runtime installed or server host | Bundles standalone `.exe` with embedded R |
+| **File Access** | Browser sandboxed file uploads/downloads | Native Windows file dialogs & direct filesystem access |
+
+Comparison of Shiny and RDesk core features.
+:::
+
+## Mental Model Translation
+
+### 1. The Reactive Graph vs. Event Handlers
+
+In Shiny, changes ripple through a reactive graph:
+
+```r
+# Shiny
+server <- function(input, output, session) {
+  filtered_data <- reactive({
+    data[data$cyl == input$cyl, ]
+  })
+  
+  output$plot <- renderPlot({
+    plot(filtered_data())
+  })
+}
+```
+
+In RDesk, communication is explicit and message-driven:
+
+```r
+# RDesk
+init_handlers <- function(app) {
+  app$on_message("filter_cyl", function(payload) {
+    df <- data[data$cyl == payload$cyl, ]
+    p  <- ggplot(df, aes(x = wt, y = mpg)) + geom_point()
+    
+    list(
+      chart = rdesk_plot_to_base64(p),
+      count = nrow(df)
+    )
+  })
+}
+```
+
+::: {.callout-tip}
+## Why Explicit Messaging?
+Explicit message routing gives you complete control over when computations run, prevents runaway reactive cascade cycles, and makes debugging straightforward.
+:::
+
+### 2. UI Layouts
+
+In Shiny, you construct HTML using R functions:
+
+```r
+# Shiny UI
+fluidPage(
+  titlePanel("Sales Dashboard"),
+  sidebarLayout(
+    sidebarPanel(selectInput("dept", "Department", choices = c("All", "HR", "Sales"))),
+    mainPanel(plotOutput("distPlot"))
+  )
+)
+```
+
+In RDesk, you have full access to native HTML5 and CSS in `www/index.html`:
+
+```html
+<!-- RDesk www/index.html -->
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <label for="dept">Department</label>
+    <select id="dept" onchange="rdesk.send('filter_dept', { dept: this.value })">
+      <option value="All">All</option>
+      <option value="HR">HR</option>
+      <option value="Sales">Sales</option>
+    </select>
+  </aside>
+  <main class="content">
+    <img id="main-chart" src="" alt="Main Visualization" />
+  </main>
+</div>
+```
+
+You can use any frontend library or CSS framework (Bootstrap, Tailwind, Lucide Icons, Chart.js, D3) without needing R wrapper packages.

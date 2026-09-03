@@ -1,10 +1,10 @@
+name: pkgdown
+
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, 'release/**']
   pull_request:
-    branches: [main, dev]
-
-name: pkgdown
+    branches: [main, dev, 'release/**']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,11 +12,11 @@ concurrency:
 
 jobs:
   pkgdown:
-    # Build pkgdown on Windows because the site examples and vignettes exercise
-    # the native launcher tooling that is most stable on the Windows CI runner.
     runs-on: windows-latest
     permissions:
       contents: write
+    # Build pkgdown on Windows because the site examples and vignettes exercise
+    # the native launcher tooling that is most stable on the Windows CI runner.
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       RENV_CONFIG_AUTOLOADER_ENABLED: "false"

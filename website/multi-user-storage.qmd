@@ -1,0 +1,61 @@
+﻿---
+title: "Multi-User & Persistent Storage"
+format: html
+---
+
+Desktop applications often require persisting user preferences, window states, recent file history, or application configuration between sessions. In a multi-user Windows environment, these settings must be isolated per user to maintain privacy and security.
+
+RDesk provides a thread-safe, JSON-backed key-value storage engine designed specifically for native desktop applications.
+
+## Storage Scopes
+
+RDesk supports two distinct storage scopes:
+
+| Scope | Windows Location | Purpose |
+| :--- | :--- | :--- |
+| **User Scope** (`"user"`) | `%LOCALAPPDATA%/<AppName>` | Per-user settings, theme preferences, cached sessions, recent files. |
+| **System Scope** (`"system"`) | `%APPDATA%/<AppName>` or `%PROGRAMDATA%` | Machine-wide configurations, shared data templates, corporate defaults. |
+
+## Quick Usage: `rdesk_storage()`
+
+Access the storage store via `rdesk_storage()`:
+
+```r
+library(RDesk)
+
+# Get or create storage for an application
+store <- rdesk_storage(app_name = "CarsAnalyser", scope = "user")
+
+# Store preferences
+store$set("theme", "dark")
+store$set("recent_files", c("C:/Data/2026_q1.csv", "C:/Data/2026_q2.csv"))
+store$set("window_dimensions", list(width = 1200, height = 800))
+
+# Retrieve preferences (with default fallbacks)
+current_theme <- store$get("theme", default = "light")
+recent        <- store$get("recent_files", default = character(0))
+```
+
+## Atomic Persistence
+
+All write operations are atomic:
+
+1. Data is encoded and written to a temporary swap file.
+2. The file is flushed and renamed atomically onto the primary store JSON file.
+3. If an application crashes or power is lost mid-write, the existing storage file remains intact and uncorrupted.
+
+```r
+# Delete a key
+store$delete("recent_files")
+
+# Clear entire user storage
+store$clear()
+
+# Retrieve all stored keys
+all_keys <- store$keys()
+```
+
+::: {.callout-tip}
+## Automatic Integration with Frontend
+You can easily sync settings from JavaScript: send a `"save_setting"` event from JS, and in R save it with `store$set()`. On app launch, read `store$get()` and pass the initial preferences in `app$on_ready()`.
+:::

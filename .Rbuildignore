@@ -42,5 +42,6 @@
 ^inst/bin($|/)
 ^linux_build_test\.sh$
 ^log\.txt$
-
-
+^website($|/)
+^\.quarto($|/)
+^_site($|/)
