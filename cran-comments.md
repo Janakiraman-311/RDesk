@@ -7,19 +7,13 @@ This is a maintenance and feature update for RDesk following the 1.0.6 release, 
 * GitHub Actions `windows-latest`, R 4.5.1
 
 ### R CMD check results
-There were 0 errors | 0 warnings | 2 notes.
-
-* checking pragmas in C/C++ headers and code ... NOTE
-  Files which contain pragma(s) suppressing diagnostics:
-    'src/launcher.cpp'
-  
-  Explanation: The pragmas in 'src/launcher.cpp' are intentional to safely wrap third-party C++ headers ('nlohmann/json.hpp' and 'webview.h') and prevent spurious compiler deprecation warnings across varying C++ standard library implementations.
+There were 0 errors | 0 warnings | 1 note.
 
 * checking compilation flags used ... NOTE
   Compilation used the following non-portable flag(s):
     '-mwindows'
 
-  Explanation: The '-mwindows' flag is intentional and required for Windows GUI executables to ensure the native desktop window opens cleanly without creating an unwanted console window alongside the user interface.
+  Explanation: The '-mwindows' flag is intentional and required for Windows GUI executables to ensure the native desktop window opens cleanly without creating an unwanted console window alongside the user interface. This was confirmed as acceptable by CRAN reviewer Uwe Ligges during the v1.0.2 review.
 
 ### Method References
 There are no published references describing the methods in this package. The package implements original software architecture for packaging and running desktop applications using native R processes, IPC pipes, and the Microsoft WebView2 control.

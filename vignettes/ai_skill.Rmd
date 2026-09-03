@@ -7,6 +7,14 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r rdesk-version}
+packageVersion("RDesk")
+```
+
 # RDesk AI Skill Reference File (v1.0.5)
 
 This reference file serves as the definitive engineering and behavioral blueprint for AI coding agents developing, debugging, or maintaining RDesk applications. It maps out the package's multi-directory structure, core contracts, API behaviors, design constraints, and common implementation pitfalls.
