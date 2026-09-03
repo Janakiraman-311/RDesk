@@ -4,13 +4,7 @@ on:
   push:
     branches: [ main, dev, "**" ]
   pull_request:
-name: R-CMD-check
-
-on:
-  push:
     branches: [ main, dev, "**" ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   R-CMD-check:
