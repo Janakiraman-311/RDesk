@@ -35,11 +35,16 @@ RStudio
 Rtools
 SDK
 Serialisation
+Serverless
 SetVirtualHostNameToFolderMapping
+Shinylive
 UDP
 UI
 WKWebView
+WebAssembly
 WebKitGTK
+WebR
+WebSocket
 WebView
 Xcode
 args
@@ -54,6 +59,7 @@ deserializer
 dev
 dialogs
 distributable
+electricShine
 exe
 fallbacks
 filespace
@@ -99,6 +105,7 @@ serialise
 serialised
 serialises
 serializable
+shinyapps
 standardised
 stdin
 subfolder

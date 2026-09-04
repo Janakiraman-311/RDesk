@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <strong>Package R analyses into self-contained native desktop applications with zero network port requirements.</strong>
+  <strong>Package R analyses into self-contained desktop applications with native webviews.</strong>
 </p>
 
 ---
@@ -53,16 +53,21 @@ Windows produces a standalone installer or portable zip distribution (with macOS
 > devtools::install_github("Janakiraman-311/RDesk")
 > ```
 
-## Why RDesk?
+## How RDesk Compares
 
-| Feature | Shiny | RInno (archived) | Electron + R | **RDesk** |
-|:---|:---:|:---:|:---:|:---:|
-| Network ports required | Yes | Yes | Yes | **No** |
-| Works fully offline | No | Partial | Partial | **Yes** |
-| Native file dialogs and menus | No | No | Via JS | **Yes** |
-| Distribution format | Server URL | Installer | Installer | **Bundle or installer** |
-| Bundle size | Server-side | 350 MB+ | 350-500 MB | **~200 MB** |
-| Skills required | R | R + Electron | R + Node.js | **R only** |
+There are different architectures for deploying and distributing R applications depending on your needs:
+
+| Deployment Model | Typical Use Case | Frontend Layer | Backend Communication | Distribution & Footprint |
+|:---|:---|:---|:---|:---|
+| **Hosted Shiny** (Posit Connect, shinyapps.io) | Multi-user web applications & dashboards | Shiny reactive UI (pure R DSL) | Centralized R server over WebSocket | Web URL (no local install required) |
+| **Electron + Shiny** (e.g. electricShine, DesktopDeployR) | Desktop wrapper around existing Shiny apps | Shiny reactive UI in embedded Chromium | Local R server on loopback port | Installer / bundle (~400–600 MB) |
+| **WebR / Shinylive** | Serverless in-browser execution | Shiny reactive UI in browser | R compiled to WebAssembly (client-side) | Static web hosting (no native OS access) |
+| **RDesk** | Standalone local desktop tools | Standard web frontend (HTML/CSS/JS) | Local R process via native IPC pipes | Standalone bundle or installer (~100–200 MB) |
+
+### When to choose RDesk vs. Shiny
+
+- **Choose Shiny** if you want to write your UI entirely in R using reactive expressions, or if your application will primarily be deployed on a shared server or web portal.
+- **Choose RDesk** if you want to ship a self-contained desktop app with a smaller footprint (leveraging the operating system's native webview rather than bundling Chromium), or need direct desktop integration (native menus, file pickers) without running a local web server. Note that RDesk uses an event-driven model (messages passed between HTML/JS and R handlers) rather than a reactive graph.
 
 ## Core Features
 

@@ -15,7 +15,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 packageVersion("RDesk")
 ```
 
-# RDesk AI Skill Reference File (v1.0.5)
+# RDesk AI Skill Reference File (v1.0.7)
 
 This reference file serves as the definitive engineering and behavioral blueprint for AI coding agents developing, debugging, or maintaining RDesk applications. It maps out the package's multi-directory structure, core contracts, API behaviors, design constraints, and common implementation pitfalls.
 
@@ -141,7 +141,7 @@ init_handlers <- function(app) {
         "Exit"    = app$quit
       ),
       Help = list(
-        "About"   = function() app$toast("RDesk v1.0.5", type = "info")
+        "About"   = function() app$toast("RDesk v1.0.7", type = "info")
       )
     ))
     
