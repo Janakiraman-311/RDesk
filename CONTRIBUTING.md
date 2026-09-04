@@ -1,0 +1,98 @@
+# Contributing to RDesk
+
+Thank you for your interest in RDesk!
+
+## Branch Strategy
+
+- **`main`**: Stable, CRAN-tagged releases ONLY. Direct pushes to this
+  branch are prohibited.
+- **`dev`**: Active development branch. All internal work, features, and
+  fixes happen here first.
+
+## How to Contribute
+
+1.  Fork the repository
+
+2.  Create a feature branch from `dev`:
+
+    ``` bash
+    git checkout dev
+    git checkout -b feat/my-new-feature
+    ```
+
+3.  Make your changes with clear, atomic commits.
+
+4.  Open a Pull Request **targeting `dev`**, not `main`. PRs to `main`
+    will only be merged from `dev` during a release cycle.
+
+## Development setup
+
+1.  Clone the repository
+2.  Install system dependencies / compiler tools:
+    - **Windows**: Install Rtools44 or Rtools45 from
+      <https://cran.r-project.org/bin/windows/Rtools/>
+
+    - **macOS**: Install Xcode Command Line Tools
+      (`xcode-select --install`).
+
+    - **Linux (Debian/Ubuntu)**: Install compilers and WebKit/GTK
+      development libraries:
+
+      ``` bash
+      sudo apt-get install build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+      ```
+
+    - **Linux (Fedora/RHEL)**:
+
+      ``` bash
+      sudo dnf install gcc-c++ pkgconfig gtk3-devel webkit2gtk3-devel
+      ```
+3.  Install R dependencies: `devtools::install_deps()`
+4.  Run checks: `devtools::check()`
+
+## Important: OneDrive / synced folder warning
+
+Do not develop RDesk from a folder synced by OneDrive or similar. The
+g++ compiler reads stale cached source files from synced folders,
+producing ghost bugs where code changes have no effect. Always work from
+a local non-synced directory such as C:/Projects/RDesk. The build system
+copies source to a temp directory to mitigate this, but working locally
+is still strongly recommended.
+
+## Building the launcher
+
+The C++ launcher is compiled automatically by build_app(). To compile
+manually for development:
+
+``` r
+
+source("R/build.R")
+rdesk_build_stub(
+  stub_cpp = "inst/stub/stub.cpp",
+  out_exe  = "inst/bin/rdesk-launcher.exe",
+  app_name = "RDesk"
+)
+```
+
+## Running the demo app
+
+``` r
+
+devtools::load_all()
+source("inst/apps/mtcars_dashboard/app.R")
+```
+
+## IPC contract
+
+All messages between R and JavaScript use the standard envelope:
+`{id, type, version, payload, timestamp}`. See
+`vignettes/ipc-contract.Rmd` for the full specification. Never break
+this contract without bumping the version in zzz.R.
+
+## Pull requests
+
+- One feature or fix per PR
+- All R code must pass `devtools::check()` with zero warnings
+- C++ changes must compile cleanly with Rtools44 g++
+- Update NEWS.md with your change
+- Update relevant vignettes if the public API changes

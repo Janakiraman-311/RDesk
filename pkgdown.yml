@@ -1,0 +1,17 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  ai_skill: ai_skill.html
+  architecture: architecture.html
+  async-guide: async-guide.html
+  cookbook: cookbook.html
+  getting-started: getting-started.html
+  ipc-contract: ipc-contract.html
+  mirai-integration: mirai-integration.html
+  rdesk-article: rdesk-article.html
+  shiny-migration: shiny-migration.html
+last_built: 2026-09-04T05:47Z
+urls:
+  reference: https://janakiraman-311.github.io/RDesk/reference
+  article: https://janakiraman-311.github.io/RDesk/articles
