@@ -54,24 +54,48 @@ rdesk_log_dir <- function(app_name = Sys.getenv("R_APP_NAME", "RDeskApp")) {
 #' Log a message to the app's log file
 #'
 #' @param message Message to log
-#' @param level Log level ("INFO", "WARN", "ERROR")
+#' @param level Log level ("DEBUG", "INFO", "WARN", "ERROR")
 #' @param app_name Optional app name to determine log file
 #' @keywords internal
 rdesk_log <- function(message, level = "INFO", app_name = Sys.getenv("R_APP_NAME", "RDeskApp")) {
+  levels <- c(DEBUG = 1L, INFO = 2L, WARN = 3L, ERROR = 4L)
+  min_level <- toupper(as.character(getOption("rdesk.log_level", "INFO")))
+  lvl <- toupper(as.character(level))
+  lvl_rank <- if (lvl %in% names(levels)) levels[[lvl]] else 2L
+  min_rank <- if (min_level %in% names(levels)) levels[[min_level]] else 2L
+  if (lvl_rank < min_rank) {
+    return(invisible(NULL))
+  }
+
   log_dir <- rdesk_log_dir(app_name)
-  if (!dir.exists(log_dir)) dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
-  
+  if (!dir.exists(log_dir)) {
+    dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+
   log_file <- file.path(log_dir, "app.log")
+  max_bytes <- getOption("rdesk.max_log_bytes", 5 * 1024 * 1024)
+  if (file.exists(log_file)) {
+    fsize <- file.info(log_file)$size
+    if (!is.na(fsize) && fsize > max_bytes) {
+      backup <- paste0(log_file, ".1")
+      if (file.exists(backup)) {
+        unlink(backup)
+      }
+      file.rename(log_file, backup)
+    }
+  }
+
   timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%OS3")
-  line <- sprintf("[%s] [%s] %s\n", timestamp, level, message)
+  line <- sprintf("[%s] [%s] %s\n", timestamp, lvl, message)
   
   cat(line, file = log_file, append = TRUE)
 
   # Console mirroring for developers
   if (isTRUE(getOption("rdesk.verbose_log", TRUE)) && !rdesk_is_bundle()) {
-    console_line <- sprintf("[RDesk %s] %s", level, message)
+    console_line <- sprintf("[RDesk %s] %s", lvl, message)
     message(console_line)
   }
+  invisible(NULL)
 }
 
 #' Resolve the www directory for an app

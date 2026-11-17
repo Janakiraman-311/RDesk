@@ -49,4 +49,4 @@ RDesk::build_app(app_dir = "inst/apps/mtcars_dashboard", out_dir = tempdir())
 ## Binary Distribution Policy
 - **Never commit `.exe` files**: The `rdesk-launcher.exe` is source-built during installation.
 - **WebView2**: Linked statically to avoid runtime DLL dependencies on the target machine.
-- **Size Audit**: Keep the final zip bundle under 70MB where possible.
+- **Size Audit**: Baseline minimal zip bundle is ~107 MB (pruned R runtime + core dependencies); keep target apps under 125 MB where possible.

@@ -69,6 +69,11 @@ static std::mutex         g_log_mutex;
   static const UINT         WM_TRAYICON = WM_USER + 1;
 #endif
 
+static bool is_debug_enabled() {
+    const char* dbg = std::getenv("RDESK_DEBUG");
+    return dbg != nullptr && dbg[0] != '\0';
+}
+
 static void log_message(const std::string& msg) {
     std::lock_guard<std::mutex> lk(g_log_mutex);
     if (g_log_file.is_open()) {
@@ -84,7 +89,11 @@ static void write_stdout(const std::string& line) {
     
     if (g_log_file.is_open()) {
         std::lock_guard<std::mutex> llk(g_log_mutex);
-        g_log_file << "[TX] " << line << "\n";
+        if (is_debug_enabled()) {
+            g_log_file << "[TX] " << line << "\n";
+        } else {
+            g_log_file << "[TX] (" << line.size() << " bytes)\n";
+        }
         g_log_file.flush();
     }
 }
@@ -349,7 +358,7 @@ static std::string narrow(const std::wstring& ws) {
     return std::string(buf.data());
 }
 
-class MessageHandler : public ICoreWebView2WebMessageReceivedEventHandler {
+class MessageHandler final : public ICoreWebView2WebMessageReceivedEventHandler {
     std::function<HRESULT(ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs*)> f;
     std::atomic<long> count{1};
 public:
@@ -373,6 +382,89 @@ public:
         return f(sender, args);
     }
 };
+
+class NavigationStartingHandler final : public ICoreWebView2NavigationStartingEventHandler {
+    std::function<HRESULT(ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*)> f;
+    std::atomic<long> count{1};
+public:
+    NavigationStartingHandler(std::function<HRESULT(ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*)> f) : f(f) {}
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2NavigationStartingEventHandler) {
+            *ppv = static_cast<ICoreWebView2NavigationStartingEventHandler*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return ++count; }
+    ULONG STDMETHODCALLTYPE Release() override {
+        auto c = --count;
+        if (c == 0) delete this;
+        return c;
+    }
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* sender, ICoreWebView2NavigationStartingEventArgs* args) override {
+        return f(sender, args);
+    }
+};
+
+class NewWindowRequestedHandler final : public ICoreWebView2NewWindowRequestedEventHandler {
+    std::function<HRESULT(ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs*)> f;
+    std::atomic<long> count{1};
+public:
+    NewWindowRequestedHandler(std::function<HRESULT(ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs*)> f) : f(f) {}
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2NewWindowRequestedEventHandler) {
+            *ppv = static_cast<ICoreWebView2NewWindowRequestedEventHandler*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return ++count; }
+    ULONG STDMETHODCALLTYPE Release() override {
+        auto c = --count;
+        if (c == 0) delete this;
+        return c;
+    }
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* sender, ICoreWebView2NewWindowRequestedEventArgs* args) override {
+        return f(sender, args);
+    }
+};
+
+static std::wstring get_module_dir_w() {
+    std::vector<wchar_t> buf(MAX_PATH);
+    while (true) {
+        DWORD len = GetModuleFileNameW(nullptr, buf.data(), static_cast<DWORD>(buf.size()));
+        if (len == 0) return L"";
+        if (len < buf.size() - 1) {
+            std::wstring p(buf.data(), len);
+            size_t pos = p.find_last_of(L"\\/");
+            return (pos == std::wstring::npos) ? L"" : p.substr(0, pos);
+        }
+        buf.resize(buf.size() * 2);
+    }
+}
+
+static bool starts_with_ci(const std::wstring& s, const std::wstring& prefix) {
+    if (s.size() < prefix.size()) return false;
+    return _wcsnicmp(s.c_str(), prefix.c_str(), prefix.size()) == 0;
+}
+
+static bool is_allowed_app_uri(const std::wstring& uri) {
+    return starts_with_ci(uri, L"https://app.rdesk/") ||
+           starts_with_ci(uri, L"http://app.rdesk/") ||
+           starts_with_ci(uri, L"rdesk://") ||
+           starts_with_ci(uri, L"about:blank") ||
+           starts_with_ci(uri, L"data:");
+}
+
+static bool is_allowed_message_source(const std::wstring& uri) {
+    return starts_with_ci(uri, L"https://app.rdesk/") ||
+           starts_with_ci(uri, L"http://app.rdesk/") ||
+           starts_with_ci(uri, L"rdesk://");
+}
 
 static HMENU g_hmenu_bar = nullptr;
 static std::map<UINT, std::string> g_menu_actions; // ID → action id string
@@ -1443,7 +1535,11 @@ static void process_command(const std::string& line) {
 static void stdin_reader() {
     std::string line;
     while (std::getline(std::cin, line)) {
-        log_message("[RX] " + line);
+        if (is_debug_enabled()) {
+            log_message("[RX] " + line);
+        } else {
+            log_message("[RX] (" + std::to_string(line.size()) + " bytes)");
+        }
         if (line.empty()) continue;
         process_command(line);
         if (g_quit.load()) break;
@@ -1513,8 +1609,14 @@ int main(int argc, char* argv[]) {
 
     std::string url    = args[0];
     std::string title  = args.size() > 1 ? args[1] : "RDesk App";
-    int         width  = args.size() > 2 ? std::stoi(args[2]) : 1200;
-    int         height = args.size() > 3 ? std::stoi(args[3]) : 800;
+    int width = 1200;
+    if (args.size() > 2) {
+        try { width = std::stoi(args[2]); } catch (...) { width = 1200; }
+    }
+    int height = 800;
+    if (args.size() > 3) {
+        try { height = std::stoi(args[3]); } catch (...) { height = 800; }
+    }
     std::string www    = args.size() > 4 ? args[4] : "";
     
     unsigned long parent_pid = 0;
@@ -1535,7 +1637,7 @@ int main(int argc, char* argv[]) {
 
 #ifdef _WIN32
     // Single Instance Check (Windows only)
-    size_t title_hash = std::hash<std::string>{}(title);
+    size_t title_hash = std::hash<std::string>{}(title + "|" + www);
     std::wstring mutex_name = L"Local\\RDesk_Instance_" + std::to_wstring(title_hash);
     HANDLE hMutex = CreateMutexW(NULL, TRUE, mutex_name.c_str());
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
@@ -1546,9 +1648,34 @@ int main(int argc, char* argv[]) {
             }
             SetForegroundWindow(hwndExisting);
         }
+        write_stdout("ALREADY_RUNNING");
         if (hMutex) CloseHandle(hMutex);
         return 0;
     }
+
+    // Verify WebView2 Runtime availability via webview.h's MinGW-safe loader
+    LPWSTR wv2_ver = nullptr;
+    webview::detail::mswebview2::loader wv2_loader;
+    if (FAILED(wv2_loader.get_available_browser_version_string(nullptr, &wv2_ver)) || wv2_ver == nullptr) {
+        if (wv2_ver) CoTaskMemFree(wv2_ver);
+        write_stdout("WEBVIEW2_MISSING");
+        log_message("[RDesk] ERROR: Microsoft Edge WebView2 Runtime not found.");
+        if (std::getenv("RDESK_CI") == nullptr) {
+            int ans = MessageBoxW(
+                nullptr,
+                L"Microsoft Edge WebView2 Runtime is required to run this application.\n\n"
+                L"Would you like to open the Microsoft download page?",
+                L"RDesk - WebView2 Runtime Missing",
+                MB_YESNO | MB_ICONERROR
+            );
+            if (ans == IDYES) {
+                ShellExecuteW(nullptr, L"open", L"https://go.microsoft.com/fwlink/p/?LinkId=2124703", nullptr, nullptr, SW_SHOWNORMAL);
+            }
+        }
+        if (hMutex) CloseHandle(hMutex);
+        return 1;
+    }
+    CoTaskMemFree(wv2_ver);
 #endif
 
 #ifdef __APPLE__
@@ -1556,7 +1683,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     try {
-        webview::webview w(true, nullptr);
+        webview::webview w(is_debug_enabled(), nullptr);
         {
             std::lock_guard<std::mutex> lk(g_webview_mutex);
             g_webview = &w;
@@ -1572,19 +1699,25 @@ int main(int argc, char* argv[]) {
             std::thread(parent_watchdog, (DWORD)parent_pid).detach();
         }
 
-        // WebView2 virtual hostname + message receiver setup
+        // WebView2 virtual hostname + navigation/origin filtering setup
         auto controller = static_cast<ICoreWebView2Controller*>(w.browser_controller().value());
         if (controller) {
             controller->get_CoreWebView2(&g_core_webview);
             if (g_core_webview) {
+                if (!is_debug_enabled()) {
+                    ICoreWebView2Settings* settings = nullptr;
+                    if (SUCCEEDED(g_core_webview->get_Settings(&settings)) && settings) {
+                        settings->put_AreDevToolsEnabled(FALSE);
+                        settings->put_AreDefaultContextMenusEnabled(FALSE);
+                        settings->Release();
+                    }
+                }
+
                 ICoreWebView2_3* webview3 = nullptr;
                 if (SUCCEEDED(g_core_webview->QueryInterface(IID_ICoreWebView2_3, reinterpret_cast<void**>(&webview3)))) {
                     std::wstring wwwPath = widen(www);
                     if (wwwPath.empty()) {
-                        wchar_t exePath[MAX_PATH];
-                        GetModuleFileNameW(NULL, exePath, MAX_PATH);
-                        PathRemoveFileSpecW(exePath);
-                        wwwPath = std::wstring(exePath) + L"\\www";
+                        wwwPath = get_module_dir_w() + L"\\www";
                     }
                     
                     webview3->SetVirtualHostNameToFolderMapping(
@@ -1592,9 +1725,57 @@ int main(int argc, char* argv[]) {
                     webview3->Release();
                 }
 
+                EventRegistrationToken nav_token;
+                auto nav_handler = new NavigationStartingHandler(
+                    [](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
+                        LPWSTR uri = nullptr;
+                        if (SUCCEEDED(args->get_Uri(&uri)) && uri) {
+                            std::wstring wuri(uri);
+                            CoTaskMemFree(uri);
+                            if (!is_allowed_app_uri(wuri)) {
+                                args->put_Cancel(TRUE);
+                                if (starts_with_ci(wuri, L"https://") || starts_with_ci(wuri, L"http://")) {
+                                    ShellExecuteW(nullptr, L"open", wuri.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+                                }
+                            }
+                        }
+                        return S_OK;
+                    });
+                g_core_webview->add_NavigationStarting(nav_handler, &nav_token);
+                nav_handler->Release();
+
+                EventRegistrationToken nw_token;
+                auto nw_handler = new NewWindowRequestedHandler(
+                    [](ICoreWebView2* sender, ICoreWebView2NewWindowRequestedEventArgs* args) -> HRESULT {
+                        args->put_Handled(TRUE);
+                        LPWSTR uri = nullptr;
+                        if (SUCCEEDED(args->get_Uri(&uri)) && uri) {
+                            std::wstring wuri(uri);
+                            CoTaskMemFree(uri);
+                            if (is_allowed_app_uri(wuri)) {
+                                sender->Navigate(wuri.c_str());
+                            } else if (starts_with_ci(wuri, L"https://") || starts_with_ci(wuri, L"http://")) {
+                                ShellExecuteW(nullptr, L"open", wuri.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+                            }
+                        }
+                        return S_OK;
+                    });
+                g_core_webview->add_NewWindowRequested(nw_handler, &nw_token);
+                nw_handler->Release();
+
                 EventRegistrationToken token;
                 auto handler = new MessageHandler(
-                        [](ICoreWebView2* sender, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
+                        [](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
+                            LPWSTR source = nullptr;
+                            bool allowed = false;
+                            if (SUCCEEDED(args->get_Source(&source)) && source) {
+                                allowed = is_allowed_message_source(std::wstring(source));
+                                CoTaskMemFree(source);
+                            }
+                            if (!allowed) {
+                                log_message("[RDesk] Dropped web message from untrusted origin.");
+                                return S_OK;
+                            }
                             LPWSTR message = nullptr;
                             if (SUCCEEDED(args->TryGetWebMessageAsString(&message))) {
                                 int len = WideCharToMultiByte(CP_UTF8, 0, message, -1, nullptr, 0, nullptr, nullptr);

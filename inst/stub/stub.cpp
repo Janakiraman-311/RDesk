@@ -35,11 +35,20 @@ static std::wstring sanitize_log_component(const std::wstring& value) {
     return result;
 }
 
+static std::filesystem::path get_self_path() {
+    std::vector<wchar_t> buf(MAX_PATH);
+    while (true) {
+        DWORD len = GetModuleFileNameW(nullptr, buf.data(), static_cast<DWORD>(buf.size()));
+        if (len == 0) return {};
+        if (len < buf.size() - 1) return std::filesystem::path(buf.data(), buf.data() + len);
+        buf.resize(buf.size() * 2);
+    }
+}
+
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // Find our own directory
-    wchar_t self_path[MAX_PATH];
-    GetModuleFileNameW(nullptr, self_path, MAX_PATH);
-    std::filesystem::path base = std::filesystem::path(self_path).parent_path();
+    std::filesystem::path self_path = get_self_path();
+    std::filesystem::path base = self_path.parent_path();
 
     // Paths relative to the zip root
     auto rscript = find_rscript(base);
@@ -87,7 +96,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         log_dir_str = std::wstring(local_appdata) + L"\\RDesk\\" + safe_log_name;
     } else {
         const wchar_t* temp_dir = _wgetenv(L"TEMP");
-        log_dir_str = std::wstring(temp_dir ? temp_dir : L"C:\\Temp") + L"\\RDesk\\" + safe_log_name;
+        if (temp_dir) {
+            log_dir_str = std::wstring(temp_dir) + L"\\RDesk\\" + safe_log_name;
+        } else {
+            wchar_t tmp_buf[MAX_PATH + 2] = {};
+            DWORD n = GetTempPathW(MAX_PATH + 1, tmp_buf);
+            std::wstring fallback = (n > 0) ? std::wstring(tmp_buf, n) : L".";
+            log_dir_str = fallback + L"\\RDesk\\" + safe_log_name;
+        }
     }
 
     std::filesystem::path log_dir = log_dir_str;
@@ -121,6 +137,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         si.dwFlags |= STARTF_USESTDHANDLES;
     }
 
+    // Tie child lifetime to the stub using a Win32 Job Object so Task Manager / installer kills don't orphan Rscript.exe
+    HANDLE hJob = CreateJobObjectW(nullptr, nullptr);
+    if (hJob) {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = {};
+        jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli));
+    }
+
     if (!CreateProcessW(nullptr,
             const_cast<wchar_t*>(cmd.c_str()),
             nullptr, nullptr, TRUE, // TRUE to inherit handles
@@ -128,10 +152,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             nullptr,
             (base / "app").wstring().c_str(),
             &si, &pi)) {
+        if (hJob) CloseHandle(hJob);
         if (hLogFile != INVALID_HANDLE_VALUE) CloseHandle(hLogFile);
         MessageBoxW(nullptr, (L"Failed to start Rscript.exe\nCommand: " + cmd).c_str(),
                     L"RDesk - Launch Error", MB_ICONERROR);
         return 1;
+    }
+
+    if (hJob) {
+        AssignProcessToJobObject(hJob, pi.hProcess);
     }
 
     // Wait for R to finish
@@ -142,6 +171,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
+    if (hJob) CloseHandle(hJob);
     if (hLogFile != INVALID_HANDLE_VALUE) CloseHandle(hLogFile);
 
     if (exitCode != 0) {

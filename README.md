@@ -62,7 +62,7 @@ There are different architectures for deploying and distributing R applications 
 | **Hosted Shiny** (Posit Connect, shinyapps.io) | Multi-user web applications & dashboards | Shiny reactive UI (pure R DSL) | Centralized R server over WebSocket | Web URL (no local install required) |
 | **Electron + Shiny** (e.g. electricShine, DesktopDeployR) | Desktop wrapper around existing Shiny apps | Shiny reactive UI in embedded Chromium | Local R server on loopback port | Installer / bundle (~400–600 MB) |
 | **WebR / Shinylive** | Serverless in-browser execution | Shiny reactive UI in browser | R compiled to WebAssembly (client-side) | Static web hosting (no native OS access) |
-| **RDesk** | Standalone local desktop tools | Standard web frontend (HTML/CSS/JS) | Local R process via native IPC pipes | Standalone bundle or installer (~100–200 MB) |
+| **RDesk** | Standalone local desktop tools | Standard web frontend (HTML/CSS/JS) | Local R process via native IPC pipes | Standalone bundle (~107-125 MB ZIP / ~310 MB on disk) |
 
 ### When to choose RDesk vs. Shiny
 

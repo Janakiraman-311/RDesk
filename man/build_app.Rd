@@ -15,6 +15,7 @@ build_app(
   runtime_dir = NULL,
   overwrite = FALSE,
   build_installer = FALSE,
+  install_scope = c("user", "system"),
   publisher = "RDesk User",
   website = "https://github.com/Janakiraman-311/RDesk",
   license_file = NULL,
@@ -59,6 +60,11 @@ mismatch with renv).
 \item{build_installer}{If TRUE, also build a platform installer when
 supported: a Windows \code{.exe} via InnoSetup or a macOS \code{.dmg}. Linux
 currently produces only the bundle and \code{.tar.gz} archive.}
+
+\item{install_scope}{Installation scope for the Windows Inno Setup installer:
+\code{"user"} (default; per-user install under \verb{\%LOCALAPPDATA\%} with
+\code{PrivilegesRequired=lowest} and no UAC prompt) or \code{"system"} (machine-wide
+install under \verb{Program Files} with \code{PrivilegesRequired=admin}).}
 
 \item{publisher}{Documentation for the application publisher (used in installer).}
 

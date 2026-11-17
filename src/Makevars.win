@@ -12,15 +12,14 @@ OBJECTS = dummy.o
 all: $(SHLIB) rdesk-launcher.exe
 	@if [ -n "$(R_PACKAGE_DIR)" ]; then \
 		mkdir -p "$(R_PACKAGE_DIR)/bin"; \
-		cp ../inst/bin/rdesk-launcher.exe "$(R_PACKAGE_DIR)/bin/"; \
+		cp rdesk-launcher.exe "$(R_PACKAGE_DIR)/bin/"; \
 	fi
 
 rdesk-launcher.exe: launcher.cpp
-	mkdir -p ../inst/bin
-	$(CXX) $(PKG_CPPFLAGS) launcher.cpp $(PKG_LIBS) -o ../inst/bin/rdesk-launcher.exe -mwindows
+	$(CXX) $(ALL_CPPFLAGS) $(ALL_CXXFLAGS) launcher.cpp $(PKG_LIBS) -o rdesk-launcher.exe -mwindows
 
 # $(SHLIB) is built automatically from OBJECTS or by using the default R rules.
 # Since we have dummy.cpp, R will build dummy.o and then $(SHLIB) from it.
 
 clean:
-	rm -f *.o *.dll *.exe ../inst/bin/rdesk-launcher.exe
+	rm -f *.o *.dll *.exe rdesk-launcher.exe ../inst/bin/rdesk-launcher.exe

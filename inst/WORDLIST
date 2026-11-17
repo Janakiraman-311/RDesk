@@ -2,7 +2,9 @@ ABI
 ALTREP
 APPDATA
 Async
+Authenticode
 CDN
+CLI
 CMD
 CarsAnalyser
 Centric
@@ -15,6 +17,7 @@ Dialogs
 Frontend
 HTTPS
 IPC
+Inno
 InnoSetup
 JS
 KPI
@@ -32,12 +35,15 @@ RDeskStorage
 RInno
 RInside
 RStudio
+Rapp
 Rtools
 SDK
+SHA
 Serialisation
 Serverless
 SetVirtualHostNameToFolderMapping
 Shinylive
+UAC
 UDP
 UI
 WKWebView
@@ -108,6 +114,8 @@ serializable
 shinyapps
 standardised
 stdin
+subcommand
+subcommands
 subfolder
 subprocess
 synchronisation

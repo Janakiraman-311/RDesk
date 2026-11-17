@@ -7,9 +7,11 @@
 rdesk_auto_update(
   version_url,
   download_url,
-  current_version,
+  current_version = "1.0.0",
   silent = FALSE,
-  app = NULL
+  app = NULL,
+  sha256 = NULL,
+  verify_signature = FALSE
 )
 }
 \arguments{
@@ -22,6 +24,10 @@ rdesk_auto_update(
 \item{silent}{If TRUE, downloads and installs without prompting. Default FALSE.}
 
 \item{app}{Optional App instance for showing toast notifications.}
+
+\item{sha256}{Optional expected SHA-256 hex digest of the downloaded update file.}
+
+\item{verify_signature}{Logical; if TRUE on Windows, verify the installer has a valid Authenticode signature before running. Default FALSE.}
 }
 \value{
 Invisible TRUE if update was applied, FALSE otherwise.
@@ -31,4 +37,12 @@ Invisible TRUE if update was applied, FALSE otherwise.
 applications. It checks a remote version string, compares it with the current
 version, and if a newer version is found, it downloads and executes the installer
 silently before quitting the current application.
+}
+\examples{
+# In a normal interactive/check session (non-bundled), returns FALSE immediately
+rdesk_auto_update(
+  version_url     = "https://example.com/version.txt",
+  download_url    = "https://example.com/MyApp-setup.exe",
+  current_version = "1.0.0"
+)
 }

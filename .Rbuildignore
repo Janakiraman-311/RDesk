@@ -42,3 +42,4 @@
 ^inst/bin($|/)
 ^linux_build_test\.sh$
 ^log\.txt$
+^WINDOWS_REVIEW\.md$

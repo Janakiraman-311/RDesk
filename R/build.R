@@ -29,6 +29,10 @@
 #' @param build_installer If TRUE, also build a platform installer when
 #'   supported: a Windows `.exe` via InnoSetup or a macOS `.dmg`. Linux
 #'   currently produces only the bundle and `.tar.gz` archive.
+#' @param install_scope Installation scope for the Windows Inno Setup installer:
+#'   `"user"` (default; per-user install under `%LOCALAPPDATA%` with
+#'   `PrivilegesRequired=lowest` and no UAC prompt) or `"system"` (machine-wide
+#'   install under `Program Files` with `PrivilegesRequired=admin`).
 #' @param publisher Documentation for the application publisher (used in installer).
 #' @param website URL for the application website (used in installer).
 #' @param license_file Path to a license file (.txt or .rtf) to include in the installer.
@@ -59,6 +63,7 @@ build_app <- function(app_dir = ".",
                       runtime_dir = NULL,
                       overwrite = FALSE,
                       build_installer = FALSE,
+                      install_scope = c("user", "system"),
                       publisher = "RDesk User",
                       website   = "https://github.com/Janakiraman-311/RDesk",
                       license_file = NULL,
@@ -70,6 +75,7 @@ build_app <- function(app_dir = ".",
   old_opts <- options(timeout = max(1200, getOption("timeout")))
   on.exit(options(old_opts), add = TRUE)
   portable_r_method <- match.arg(portable_r_method)
+  install_scope     <- match.arg(install_scope)
   app_dir <- normalizePath(app_dir, mustWork = TRUE)
   # Normalise runtime_dir:
   #   NULL      -> auto-detect (copy developer's R)
@@ -86,9 +92,9 @@ build_app <- function(app_dir = ".",
     message("[RDesk]   V Structure OK")
 
     # Check RTools
-    rtools_path <- Sys.getenv("RTOOLS45_HOME", Sys.getenv("RTOOLS44_HOME", ""))
+    rtools_path <- tryCatch(rdesk_find_gpp(), error = function(e) "")
     if (nzchar(rtools_path)) {
-      message("[RDesk]   V RTools found: ", rtools_path)
+      message("[RDesk]   V RTools compiler found: ", rtools_path)
     } else {
       message("[RDesk]   ! RTools not found (Optional if using pre-built binaries)")
     }
@@ -98,6 +104,7 @@ build_app <- function(app_dir = ".",
   }
 
   # Auto-detect metadata and dependencies from DESCRIPTION if possible
+  app_id <- NULL
   desc_path <- file.path(app_dir, "DESCRIPTION")
   if (file.exists(desc_path)) {
     desc <- read.dcf(desc_path)
@@ -107,6 +114,11 @@ build_app <- function(app_dir = ".",
     }
     if (is.null(version) && "Version" %in% colnames(desc)) {
       version <- as.character(desc[1, "Version"])
+    }
+    if ("Config/RDesk/AppId" %in% colnames(desc)) {
+      app_id <- trimws(as.character(desc[1, "Config/RDesk/AppId"]))
+    } else if ("AppId" %in% colnames(desc)) {
+      app_id <- trimws(as.character(desc[1, "AppId"]))
     }
     # Auto-detect package dependencies from DESCRIPTION
     detected_pkgs <- character(0)
@@ -126,6 +138,10 @@ build_app <- function(app_dir = ".",
   # Fallbacks
   if (is.null(app_name)) app_name <- "MyRDeskApp"
   if (is.null(version))  version  <- "1.0.0"
+
+  if (!is.character(app_name) || length(app_name) != 1 || !grepl("^[A-Za-z0-9 ._-]+$", app_name)) {
+    stop("[Validation Failed] app_name may only contain letters, numbers, spaces, dots, underscores, and hyphens: ", app_name)
+  }
 
   # ---- Pre-flight Validation -------------------------------------------------
   rdesk_validate_build_inputs(
@@ -284,7 +300,8 @@ build_app <- function(app_dir = ".",
     rdesk_copy_dir(installed_rdesk, file.path(pkg_lib, "RDesk"))
   }
 
-  # ---- Step 4b: Snapshot package versions into bundle ---------------------
+  # ---- Step 4b: Prune and snapshot package versions into bundle -----------
+  if (prune_runtime) rdesk_prune_package_lib(pkg_lib)
   message("[RDesk] Step 4b/6 - snapshotting package versions...")
   rdesk_snapshot_bundle(pkg_lib, stage_root)
 
@@ -297,7 +314,7 @@ build_app <- function(app_dir = ".",
   }
 
   stub_exe <- file.path(stage_root, paste0(app_name, ".exe"))
-  rdesk_build_stub(stub_src, stub_exe, app_name)
+  rdesk_build_stub(stub_src, stub_exe, app_name, icon_file = icon_file)
 
   # ---- Step 6: Zip everything ----------------------------------------------
   message("[RDesk] Step 6/6 - creating zip archive...")
@@ -327,8 +344,10 @@ build_app <- function(app_dir = ".",
       version    = version,
       publisher  = publisher,
       website    = website,
-      license_file = license_file,
-      icon_file    = icon_file
+      license_file  = license_file,
+      icon_file     = icon_file,
+      app_id        = app_id,
+      install_scope = install_scope
     )
   }
 
@@ -668,12 +687,26 @@ rdesk_fetch_portable_r <- function(r_version,
   return(actual_v)
 }
 
+rdesk_prune_package_lib <- function(lib_dir) {
+  if (!dir.exists(lib_dir)) return(invisible(NULL))
+  pkg_dirs <- list.dirs(lib_dir, full.names = TRUE, recursive = FALSE)
+  drop_subdirs <- c("help", "html", "doc", "tests", "demo")
+  for (pdir in pkg_dirs) {
+    for (sub in drop_subdirs) {
+      target <- file.path(pdir, sub)
+      if (dir.exists(target)) unlink(target, recursive = TRUE)
+    }
+  }
+  invisible(NULL)
+}
+
 rdesk_prune_runtime <- function(runtime_dir) {
-  prune <- c("doc", "tests", "Tcl", "share/locale", "library/tcltk", "library/KernSmooth", "library/spatial")
+  prune <- c("doc", "tests", "Tcl", "bin/i386", "library/tcltk", "library/KernSmooth", "library/spatial")
   for (p in prune) {
     target <- file.path(runtime_dir, p)
     if (dir.exists(target)) unlink(target, recursive = TRUE)
   }
+  rdesk_prune_package_lib(file.path(runtime_dir, "library"))
 }
 
 rdesk_detect_runtime_version <- function(r_home) {
@@ -798,51 +831,171 @@ rdesk_copy_installed_packages_to <- function(pkgs, lib_dir) {
   invisible(seen)
 }
 
-rdesk_build_stub <- function(stub_cpp, out_exe, app_name) {
+rdesk_escape_cpp_wstring <- function(x) {
+  x <- gsub("\\", "\\\\", as.character(x), fixed = TRUE)
+  gsub("\"", "\\\"", x, fixed = TRUE)
+}
+
+rdesk_escape_iss_define <- function(x) {
+  gsub("\"", "\"\"", as.character(x), fixed = TRUE)
+}
+
+rdesk_build_stub <- function(stub_cpp, out_exe, app_name, icon_file = NULL) {
   gpp <- rdesk_find_gpp()
-  tmp_cpp <- file.path(tempdir(), paste0("stub_", digest::digest(app_name, algo="crc32"), ".cpp"))
-  lines <- readLines(stub_cpp); lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE); writeLines(lines, tmp_cpp)
+  tmp_cpp <- file.path(
+    tempdir(),
+    paste0("stub_", digest::digest(app_name, algo = "crc32"), ".cpp")
+  )
+  lines <- readLines(stub_cpp)
+  lines <- gsub("{{APP_NAME}}", rdesk_escape_cpp_wstring(app_name), lines, fixed = TRUE)
+  writeLines(lines, tmp_cpp)
   inc_path <- system.file("include", package = "RDesk")
   if (inc_path == "") inc_path <- file.path(getwd(), "inst/include")
   src_inc <- dirname(normalizePath(stub_cpp, mustWork = TRUE))
   sdk_inc <- file.path(src_inc, "webview2_sdk", "build", "native", "include")
-  system2(gpp, args = c("-std=c++17", "-O2", "-mwindows", "-I", shQuote(inc_path), "-I", shQuote(src_inc), "-I", shQuote(sdk_inc), shQuote(tmp_cpp), "-o", shQuote(out_exe), "-lole32", "-lcomctl32", "-loleaut32", "-luuid", "-lshlwapi", "-lversion", "-lstdc++fs"))
+
+  extra_objs <- character(0)
+  if (!is.null(icon_file) && nzchar(icon_file) && file.exists(icon_file)) {
+    windres <- file.path(dirname(gpp), "windres.exe")
+    if (!file.exists(windres)) windres <- Sys.which("windres")
+    if (nzchar(windres) && file.exists(windres)) {
+      tmp_rc  <- file.path(tempdir(), "stub_icon.rc")
+      tmp_res <- file.path(tempdir(), "stub_icon.res")
+      ico_norm <- gsub("\\", "/", normalizePath(icon_file, mustWork = TRUE), fixed = TRUE)
+      writeLines(sprintf('IDI_ICON1 ICON "%s"', ico_norm), tmp_rc)
+      rc_res <- system2(windres, args = c("-i", shQuote(tmp_rc), "-o", shQuote(tmp_res), "-O", "coff"))
+      if (identical(as.integer(rc_res), 0L) && file.exists(tmp_res)) {
+        extra_objs <- shQuote(tmp_res)
+      }
+    }
+  }
+
+  args <- c("-std=c++17", "-O2", "-mwindows", "-I", shQuote(inc_path), "-I", shQuote(src_inc),
+            "-I", shQuote(sdk_inc), shQuote(tmp_cpp), extra_objs, "-o", shQuote(out_exe),
+            "-lole32", "-lcomctl32", "-loleaut32", "-luuid", "-lshlwapi", "-lversion", "-lstdc++fs")
+  rc <- system2(gpp, args = args)
+  if (!identical(as.integer(rc), 0L) || !file.exists(out_exe)) {
+    stop("[build_app] Failed to compile launcher stub (g++ exit code ", rc, ").")
+  }
+  invisible(out_exe)
 }
 
 rdesk_find_iscc <- function() {
-  candidates <- c(Sys.which("ISCC"), file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "Inno Setup 6", "ISCC.exe"), "C:/Program Files (x86)/Inno Setup 6/ISCC.exe")
+  candidates <- c(
+    Sys.which("ISCC"),
+    file.path(Sys.getenv("LOCALAPPDATA"), "Programs", "Inno Setup 6", "ISCC.exe"),
+    file.path(Sys.getenv("ProgramFiles"), "Inno Setup 6", "ISCC.exe"),
+    file.path(Sys.getenv("ProgramFiles(x86)"), "Inno Setup 6", "ISCC.exe"),
+    file.path(Sys.getenv("ProgramFiles(x86)"), "Inno Setup 5", "ISCC.exe"),
+    "C:/Program Files (x86)/Inno Setup 6/ISCC.exe"
+  )
+  if (.Platform$OS.type == "windows") {
+    for (hive in c("HLM", "HCU")) {
+      for (subkey in c("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Inno Setup 6_is1",
+                       "SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Inno Setup 6_is1")) {
+        reg <- tryCatch(utils::readRegistry(subkey, hive = hive, view = "default"), error = function(e) NULL)
+        if (!is.null(reg) && !is.null(reg$InstallLocation)) {
+          candidates <- c(candidates, file.path(reg$InstallLocation, "ISCC.exe"))
+        }
+      }
+    }
+  }
   found <- candidates[nchar(candidates) > 0 & file.exists(candidates)]
   if (length(found) == 0) return(NULL)
   found[1]
 }
 
-rdesk_build_installer <- function(stage_root, out_dir, app_name, version, publisher, website, license_file, icon_file) {
+rdesk_render_iss_template <- function(stage_root,
+                                      out_dir,
+                                      app_name,
+                                      version,
+                                      publisher,
+                                      website,
+                                      license_file = NULL,
+                                      icon_file = NULL,
+                                      app_id = NULL,
+                                      install_scope = c("user", "system")) {
+  install_scope <- match.arg(install_scope)
   template_path <- system.file("installer", "template.iss", package = "RDesk")
   if (template_path == "") template_path <- file.path(getwd(), "inst/installer/template.iss")
   iss_content <- readLines(template_path)
-  iss_content <- gsub("{{AppName}}", app_name, iss_content, fixed = TRUE)
-  iss_content <- gsub("{{AppVersion}}", version, iss_content, fixed = TRUE)
-  iss_content <- gsub("{{AppPublisher}}", publisher, iss_content, fixed = TRUE)
-  iss_content <- gsub("{{AppURL}}", website, iss_content, fixed = TRUE)
-  iss_content <- gsub("{{AppExeName}}", paste0(app_name, ".exe"), iss_content, fixed = TRUE)
-  iss_content <- gsub("{{SourceDir}}", normalizePath(stage_root), iss_content, fixed = TRUE)
-  iss_content <- gsub("{{OutputDir}}", normalizePath(out_dir), iss_content, fixed = TRUE)
-  iss_content <- gsub("{{SetupBaseName}}", paste0(app_name, "-", version, "-setup"), iss_content, fixed = TRUE)
-  iss_content <- gsub("{{AppID}}", sprintf("RDesk-App-%s", digest::digest(app_name, algo = "crc32")), iss_content, fixed = TRUE)
-  license_path <- if (!is.null(license_file)) normalizePath(license_file) else ""
-  iss_content <- gsub("{{LicenseFile}}", license_path, iss_content, fixed = TRUE)
-  icon_path <- if (!is.null(icon_file)) normalizePath(icon_file) else ""
-  iss_content <- gsub("{{AppIconFile}}", icon_path, iss_content, fixed = TRUE)
-  iss_temp <- file.path(tempdir(), "installer.iss"); writeLines(iss_content, iss_temp)
-  system2(rdesk_find_iscc(), args = c("/Q", shQuote(iss_temp)))
+
+  priv_req <- if (identical(install_scope, "system")) "admin" else "lowest"
+  def_dir  <- if (identical(install_scope, "system")) "{autopf}\\{#AppName}" else "{localappdata}\\{#AppName}"
+
+  iss_content <- gsub("{{PrivilegesRequired}}", priv_req, iss_content, fixed = TRUE)
+  iss_content <- gsub("{{DefaultDirName}}", def_dir, iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppName}}", rdesk_escape_iss_define(app_name), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppVersion}}", rdesk_escape_iss_define(version), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppPublisher}}", rdesk_escape_iss_define(publisher), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppURL}}", rdesk_escape_iss_define(website), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{AppExeName}}", rdesk_escape_iss_define(paste0(app_name, ".exe")), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{SourceDir}}", rdesk_escape_iss_define(normalizePath(stage_root, mustWork = FALSE)), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{OutputDir}}", rdesk_escape_iss_define(normalizePath(out_dir, mustWork = FALSE)), iss_content, fixed = TRUE)
+  iss_content <- gsub("{{SetupBaseName}}", rdesk_escape_iss_define(paste0(app_name, "-", version, "-setup")), iss_content, fixed = TRUE)
+  resolved_id <- if (!is.null(app_id) && nzchar(app_id)) {
+    sub("^\\{", "{{", app_id)
+  } else {
+    sprintf("RDesk-App-%s", digest::digest(app_name, algo = "crc32"))
+  }
+  iss_content <- gsub("{{AppID}}", rdesk_escape_iss_define(resolved_id), iss_content, fixed = TRUE)
+  license_path <- if (!is.null(license_file)) normalizePath(license_file, mustWork = FALSE) else ""
+  iss_content <- gsub("{{LicenseFile}}", rdesk_escape_iss_define(license_path), iss_content, fixed = TRUE)
+  icon_path <- if (!is.null(icon_file)) normalizePath(icon_file, mustWork = FALSE) else ""
+  iss_content <- gsub("{{AppIconFile}}", rdesk_escape_iss_define(icon_path), iss_content, fixed = TRUE)
+  iss_content
+}
+
+rdesk_build_installer <- function(stage_root,
+                                  out_dir,
+                                  app_name,
+                                  version,
+                                  publisher,
+                                  website,
+                                  license_file = NULL,
+                                  icon_file = NULL,
+                                  app_id = NULL,
+                                  install_scope = c("user", "system")) {
+  install_scope <- match.arg(install_scope)
+  iss_content <- rdesk_render_iss_template(
+    stage_root    = stage_root,
+    out_dir       = out_dir,
+    app_name      = app_name,
+    version       = version,
+    publisher     = publisher,
+    website       = website,
+    license_file  = license_file,
+    icon_file     = icon_file,
+    app_id        = app_id,
+    install_scope = install_scope
+  )
+  iss_temp <- file.path(tempdir(), "installer.iss")
+  writeLines(iss_content, iss_temp)
+  iscc <- rdesk_find_iscc()
+  if (is.null(iscc)) stop("[build_app] Inno Setup compiler (ISCC.exe) not found.")
+  rc <- system2(iscc, args = c("/Q", shQuote(iss_temp)))
+  setup_exe <- file.path(out_dir, paste0(app_name, "-", version, "-setup.exe"))
+  if (!identical(as.integer(rc), 0L) || !file.exists(setup_exe)) {
+    stop("[build_app] Inno Setup failed to build the installer (exit code ", rc, ").")
+  }
+  invisible(setup_exe)
 }
 
 rdesk_find_gpp <- function() {
   rtools45 <- Sys.getenv("RTOOLS45_HOME", "C:/rtools45")
   rtools44 <- Sys.getenv("RTOOLS44_HOME", "C:/rtools44")
+  rtools43 <- Sys.getenv("RTOOLS43_HOME", "C:/rtools43")
+  pkgbuild_gpp <- character(0)
+  if (requireNamespace("pkgbuild", quietly = TRUE)) {
+    rt_paths <- tryCatch(pkgbuild::rtools_path(), error = function(e) character(0))
+    if (length(rt_paths) > 0) pkgbuild_gpp <- file.path(rt_paths, "g++.exe")
+  }
   candidates <- c(
     Sys.which("g++"),
+    pkgbuild_gpp,
     file.path(rtools45, "x86_64-w64-mingw32.static.posix", "bin", "g++.exe"),
+    file.path(rtools44, "x86_64-w64-mingw32.static.posix", "bin", "g++.exe"),
+    file.path(rtools43, "x86_64-w64-mingw32.static.posix", "bin", "g++.exe"),
     file.path(rtools44, "mingw64", "bin", "g++.exe"),
     file.path(rtools45, "mingw64", "bin", "g++.exe")
   )

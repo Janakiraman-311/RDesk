@@ -133,10 +133,19 @@ App <- R6::R6Class("App",
     },
 
     #' @description Check for application updates from a remote URL
-    #' @param version_url URL to a JSON metadata file (e.g. \verb{\{"version": "1.1.0", "url": "http://..."\}})
+    #' @param version_url URL to a JSON metadata file (e.g. \verb{\{"version": "1.1.0", "url": "https://..."\}})
     #' @param current_version Optional version string to compare against. Defaults to app description version.
     #' @return A list with update status and metadata
     check_update = function(version_url, current_version = NULL) {
+      if (!is.character(version_url) || length(version_url) != 1 ||
+          !grepl("^https://", version_url, ignore.case = TRUE)) {
+        warning("[RDesk] Update check requires an https:// URL.")
+        return(list(update_available = FALSE, error = "version_url must use https://"))
+      }
+
+      op <- options(timeout = getOption("rdesk.update_timeout", 15))
+      on.exit(options(op), add = TRUE)
+
       if (is.null(current_version)) {
         desc_path <- file.path(self$get_dir(), "DESCRIPTION")
         if (file.exists(desc_path)) {
@@ -247,7 +256,7 @@ App <- R6::R6Class("App",
       msg_envelope <- rdesk_message(type, payload)
       msg_json <- jsonlite::toJSON(msg_envelope, auto_unbox = TRUE)
 
-      rdesk_log(sprintf("Sending message to UI [type=%s]", type), level = "INFO", app_name = private$.title)
+      rdesk_log(sprintf("Sending message to UI [type=%s]", type), level = "DEBUG", app_name = private$.title)
 
       if (!is.null(private$.window_proc) && private$.window_proc$is_alive()) {
         # Use internal command SEND_MSG to bridge to PostWebMessage
@@ -631,6 +640,10 @@ App <- R6::R6Class("App",
         height   = private$.height,
         www_path = private$.www
       )
+      if (is.null(private$.window_proc)) {
+        private$.running <- FALSE
+        return(invisible(self))
+      }
 
       # Flush queued messages
       private$.flush_send_queue()
@@ -862,7 +875,7 @@ App <- R6::R6Class("App",
  
     .handle_launcher_event = function(evt) {
       if (!is.null(evt$event)) {
-        rdesk_log(sprintf("Launcher event received: %s (id=%s)", evt$event, evt$id), level = "INFO", app_name = private$.title)
+        rdesk_log(sprintf("Launcher event received: %s (id=%s)", evt$event, evt$id), level = "DEBUG", app_name = private$.title)
         if (evt$event == "MENU_CLICK") {
           callback <- private$.menu_actions[[evt$id]]
           if (is.function(callback)) {
@@ -897,7 +910,7 @@ App <- R6::R6Class("App",
         }
       } else if (!is.null(evt$type)) {
         # It's a JS -> R message forwarded by launcher
-        rdesk_log(sprintf("Received message from UI [type=%s]", evt$type), level = "INFO", app_name = private$.title)
+        rdesk_log(sprintf("Received message from UI [type=%s]", evt$type), level = "DEBUG", app_name = private$.title)
         private$.router$dispatch(evt$type, evt$payload)
       }
     },
@@ -970,17 +983,39 @@ rdesk_service <- function() {
 #' @param current_version Current app version string e.g. "1.0.0"
 #' @param silent If TRUE, downloads and installs without prompting. Default FALSE.
 #' @param app Optional App instance for showing toast notifications.
+#' @param sha256 Optional expected SHA-256 hex digest of the downloaded update file.
+#' @param verify_signature Logical; if TRUE on Windows, verify the installer has a valid Authenticode signature before running. Default FALSE.
 #' @return Invisible TRUE if update was applied, FALSE otherwise.
+#' @examples
+#' # In a normal interactive/check session (non-bundled), returns FALSE immediately
+#' rdesk_auto_update(
+#'   version_url     = "https://example.com/version.txt",
+#'   download_url    = "https://example.com/MyApp-setup.exe",
+#'   current_version = "1.0.0"
+#' )
 #' @export
 rdesk_auto_update <- function(version_url,
                                download_url,
-                               current_version,
+                               current_version = "1.0.0",
                                silent  = FALSE,
-                               app     = NULL) {
+                               app     = NULL,
+                               sha256  = NULL,
+                               verify_signature = FALSE) {
+  if (!is.character(version_url) || length(version_url) != 1 ||
+      !is.character(download_url) || length(download_url) != 1 ||
+      !grepl("^https://", version_url, ignore.case = TRUE) ||
+      !grepl("^https://", download_url, ignore.case = TRUE)) {
+    warning("[RDesk] Auto-update requires https:// URLs; update skipped.")
+    return(invisible(FALSE))
+  }
+
   if (!rdesk_is_bundle()) {
     # Only acts in bundled mode
     return(invisible(FALSE))
   }
+
+  op <- options(timeout = getOption("rdesk.update_timeout", 30))
+  on.exit(options(op), add = TRUE)
 
   latest <- tryCatch({
     con <- url(version_url)
@@ -1018,11 +1053,51 @@ rdesk_auto_update <- function(version_url,
   }
 
   # Temporary path for the new installer/package
-  dest <- file.path(tempdir(), paste0("update-", latest, ".", ext))
+  # System temp dir: R's session tempdir() is deleted on quit(), racing the installer
+  tmp_root <- if (!nzchar(Sys.getenv("TESTTHAT"))) {
+    Sys.getenv("TEMP", unset = tempdir())
+  } else {
+    tempdir()
+  }
+  dest <- file.path(tmp_root, paste0("rdesk-update-", latest, ".", ext))
 
   tryCatch({
     message("[RDesk] Downloading update version ", latest, "...")
     utils::download.file(download_url, dest, mode = "wb", quiet = TRUE)
+
+    if (!is.null(sha256) && nzchar(sha256)) {
+      actual_sha <- digest::digest(file = dest, algo = "sha256")
+      if (!identical(tolower(trimws(sha256)), tolower(actual_sha))) {
+        unlink(dest)
+        stop(
+          "SHA-256 checksum mismatch for downloaded update (expected ",
+          sha256, ", got ", actual_sha, ")."
+        )
+      }
+    }
+
+    if (isTRUE(verify_signature) && .Platform$OS.type == "windows") {
+      ps_cmd <- sprintf(
+        "(Get-AuthenticodeSignature -LiteralPath '%s').Status",
+        gsub("'", "''", dest, fixed = TRUE)
+      )
+      sig_status <- tryCatch(
+        trimws(system2(
+          "powershell",
+          c("-NoProfile", "-NonInteractive", "-Command", shQuote(ps_cmd)),
+          stdout = TRUE,
+          stderr = FALSE
+        )),
+        error = function(e) "Error"
+      )
+      if (!identical(sig_status, "Valid")) {
+        unlink(dest)
+        stop(
+          "Authenticode signature verification failed (status: ",
+          paste(sig_status, collapse = " "), ")."
+        )
+      }
+    }
 
     if (!is.null(app) && !silent) {
       app$toast("Update downloaded. Restarting...", type = "success")
@@ -1032,8 +1107,19 @@ rdesk_auto_update <- function(version_url,
     # Launch platform-appropriate installation procedure
     if (.Platform$OS.type == "windows") {
       message("[RDesk] Executing silent installer: ", dest)
-      system2(dest, args = c("/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"),
-              wait = FALSE)
+      # Launch through ShellExecute (cmd start) so UAC elevation is honoured
+      # and paths with spaces work; abort (without quitting) on failure.
+      rc <- system2(
+        "cmd",
+        args = c(
+          "/c", "start", "\"\"", shQuote(dest),
+          "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+        ),
+        wait = TRUE
+      )
+      if (!identical(as.integer(rc), 0L)) {
+        stop("could not launch installer (exit code ", rc, ")")
+      }
     } else if (Sys.info()["sysname"] == "Darwin") {
       message("[RDesk] Opening update package: ", dest)
       system2("open", shQuote(dest), wait = FALSE)

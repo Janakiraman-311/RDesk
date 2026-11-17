@@ -13,7 +13,7 @@ rdesk_log(
 \arguments{
 \item{message}{Message to log}
 
-\item{level}{Log level ("INFO", "WARN", "ERROR")}
+\item{level}{Log level ("DEBUG", "INFO", "WARN", "ERROR")}
 
 \item{app_name}{Optional app name to determine log file}
 }

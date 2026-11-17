@@ -24,7 +24,7 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}
 AppUpdatesURL={#AppURL}
-DefaultDirName={autopf}\{#AppName}
+DefaultDirName={{DefaultDirName}}
 DisableDirPage=no
 AlwaysShowDirOnReadyPage=yes
 DisableProgramGroupPage=yes
@@ -41,7 +41,13 @@ SetupIconFile={#AppIconFile}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequired=admin
+; Per-user install by default (no UAC prompt); user may elevate for all users
+PrivilegesRequired={{PrivilegesRequired}}
+PrivilegesRequiredOverridesAllowed=dialog commandline
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+UninstallDisplayIcon={app}\{#AppExeName}
+CloseApplications=force
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -59,3 +65,31 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+function IsWebView2Installed(): Boolean;
+var
+  Ver: String;
+  SubKey: String;
+begin
+  SubKey := 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  Result :=
+    (RegQueryStringValue(HKLM, SubKey, 'pv', Ver) and (Ver <> '')) or
+    (RegQueryStringValue(HKCU, SubKey, 'pv', Ver) and (Ver <> ''));
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  if (not IsWebView2Installed()) and (not WizardSilent()) then
+  begin
+    if MsgBox(
+      'This application requires the Microsoft Edge WebView2 Runtime, which was not detected on this system.' + #13#10 + #13#10 +
+      'Download URL: https://go.microsoft.com/fwlink/p/?LinkId=2124703' + #13#10 + #13#10 +
+      'Do you want to continue with installation anyway?',
+      mbConfirmation, MB_YESNO) = IDNO then
+    begin
+      Result := False;
+    end;
+  end;
+end;

@@ -89,7 +89,7 @@ RDesk was designed to provide R developers with a pure R workflow for building s
 | **Offline Capability** | Server-dependent | Local | **Full Offline** |
 | **Native Integration** | None | Limited (via JS) | **Full (Menus & Dialogs)** |
 | **Packaging Format** | Web Deployment | Installer | **ZIP or Installer** |
-| **Average Bundle Size** | Host-dependent | 350MB+ | **~200MB** |
+| **Average Bundle Size** | Host-dependent | 350MB+ | **~107-125MB (ZIP) / ~310MB (Disk)** |
 | **Required Developer Skills** | R | R + Node.js | **R + HTML/CSS/JS** |
 
 ---

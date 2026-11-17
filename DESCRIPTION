@@ -76,6 +76,7 @@ Suggests:
     broom,
     devtools,
     pkgbuild,
+    Rapp,
     rstudioapi,
     renv
 VignetteBuilder: knitr

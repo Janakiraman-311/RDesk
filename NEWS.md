@@ -6,6 +6,9 @@
 * **Process Management & Window Bridging**: Added `rdesk_open_window()` with robust `processx` pipes, `READY` handshakes, and native process lifetime controls.
 * **Auto-Updater Engine**: Enhanced `rdesk_auto_update()` with installer invocation, safe temporary staging, and version comparisons.
 * **Storage Isolation**: Hardened persistent storage paths (`%LOCALAPPDATA%`, `%APPDATA%`) with fallback tempdir validation for restricted permission environments.
+* **Per-User Windows Installer Scope**: `build_app()` gains `install_scope = c("user", "system")` to support per-user (`%LOCALAPPDATA%`, `PrivilegesRequired=lowest`, no UAC prompt) and machine-wide (`Program Files`, `PrivilegesRequired=admin`) Inno Setup installers (#6).
+* **Command-Line Interface (`Rapp`) & Diagnostics**: Added subcommand CLI in `exec/rdesk.R` (`rdesk new`, `rdesk build`, `rdesk sitrep`), `install_rdesk_cli()`, and `rdesk_sitrep()` for terminal and CI workflows (#7).
+* **Windows Security & Lifecycle Hardening**: Added WebView2 navigation/origin filtering, `https://` enforcement and optional `sha256`/Authenticode verification in `rdesk_auto_update()`, Win32 Job Object child binding in the launcher stub, atomic storage writes, and log rotation.
 * **IDE & Working Directory Resolution**: Fixed app directory path resolution in Positron and RStudio when sourcing across active editor tabs.
 * **Cross-Platform Foundation (Preview)**: Core architecture groundwork prepared for future macOS and Linux desktop targets.
 
