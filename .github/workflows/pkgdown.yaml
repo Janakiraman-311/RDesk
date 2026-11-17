@@ -40,7 +40,7 @@ jobs:
           pkgs <- c(
             "R6", "jsonlite", "digest", "processx", "callr",
             "mirai", "base64enc", "zip", "pkgdown", "knitr",
-            "rmarkdown", "ggplot2", "dplyr", "mori"
+            "rmarkdown", "ggplot2", "dplyr", "mori", "Rapp"
           )
           install.packages(pkgs)
           missing <- pkgs[!sapply(pkgs, requireNamespace, quietly = TRUE)]

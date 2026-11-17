@@ -76,7 +76,7 @@ jobs:
             "R6", "jsonlite", "digest", "processx", "callr",
             "mirai", "base64enc", "zip", "testthat", "withr",
             "knitr", "rmarkdown", "ggplot2", "dplyr", "broom", "devtools",
-            "rstudioapi",
+            "pkgbuild", "Rapp", "rstudioapi",
             "renv", "rcmdcheck"
           )
           installed <- rownames(installed.packages())
