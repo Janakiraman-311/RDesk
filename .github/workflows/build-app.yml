@@ -316,14 +316,14 @@ jobs:
             if [ ! -f "$DESKTOP_PNG" ] || [ "$(stat -f%z "$DESKTOP_PNG")" -lt 5000 ]; then
               echo "FAIL: Desktop screenshot missing or suspiciously small for ${APP_NAME}"
               kill "$PID" 2>/dev/null || true
-              pkill -f "rdesk-launcher" 2>/dev/null || true
+              pkill -x "rdesk-launcher" 2>/dev/null || true
               exit 1
             fi
 
             local SENTINEL_URL="n/a"
             local IPC_STATUS="FAIL"
             if [ "$IPC_OK" -eq 1 ]; then
-              SENTINEL_URL=$(Rscript -e "j <- jsonlite::fromJSON('$SENTINEL'); stopifnot(identical(j\$status, 'ready')); cat(j\$url)")
+              SENTINEL_URL=$(Rscript -e "j <- jsonlite::fromJSON('$SENTINEL'); stopifnot(identical(j\$status, 'BRIDGE_READY'), identical(j\$platform, 'Darwin')); cat(if (!is.null(j\$page_url)) j\$page_url else '')")
               IPC_STATUS="PASS"
             elif kill -0 "$PID" 2>/dev/null; then
               IPC_STATUS="ALIVE (no sentinel)"
@@ -336,7 +336,7 @@ jobs:
 
             # Cleanly terminate app + launcher before next app starts
             kill "$PID" 2>/dev/null || true
-            pkill -f "rdesk-launcher" 2>/dev/null || true
+            pkill -x "rdesk-launcher" 2>/dev/null || true
             sleep 1
 
             if [ "$IPC_OK" -ne 1 ]; then
