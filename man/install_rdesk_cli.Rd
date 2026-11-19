@@ -17,8 +17,8 @@ The return value from \code{Rapp::install_pkg_cli_apps()}, invisibly.
 }
 \description{
 Installs the shell launcher for RDesk's command-line interface (\code{rdesk}, with
-subcommands \verb{rdesk new}, \verb{rdesk build}, and \verb{rdesk sitrep}) onto your system
-PATH using the \code{Rapp} package.
+subcommands \verb{rdesk new}, \verb{rdesk run}, \verb{rdesk demo}, \verb{rdesk build}, and
+\verb{rdesk sitrep}) onto your system PATH using the \code{Rapp} package.
 }
 \examples{
 if (interactive() && requireNamespace("Rapp", quietly = TRUE)) {

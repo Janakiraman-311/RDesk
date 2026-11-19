@@ -1,7 +1,7 @@
 #!/usr/bin/env Rapp
 #| name: rdesk
 #| title: RDesk Command-Line Interface
-#| description: Create, build, and inspect standalone RDesk desktop applications.
+#| description: Create, run, demo, build, and inspect standalone RDesk desktop applications.
 
 switch(
   command <- "",
@@ -20,6 +20,53 @@ switch(
     theme <- "light"
 
     RDesk::rdesk_create_app(name = name, path = path, theme = theme, open = FALSE)
+  },
+
+  #| title: Launch an RDesk desktop application
+  run = {
+    #| description: Path to an RDesk application directory or app.R file (defaults to ".").
+    #| required: false
+    path <- NULL
+
+    #| description: Enable RDESK_DEBUG=1 (DevTools and verbose IPC logging).
+    #| short: D
+    debug <- FALSE
+
+    #| description: Launch in the background and return to the shell immediately.
+    #| short: b
+    detach <- FALSE
+
+    RDesk::rdesk_run(
+      app_dir = if (is.null(path) || !nzchar(path)) "." else path,
+      debug   = debug,
+      detach  = detach
+    )
+  },
+
+  #| title: Launch or list built-in RDesk showcase demos
+  demo = {
+    #| description: Demo name ("cars", "studio", or "starter"). Omit to list demos.
+    #| required: false
+    name <- NULL
+
+    #| description: Theme for the "starter" demo ("light", "dark", or "system").
+    #| short: t
+    theme <- "dark"
+
+    #| description: Enable RDESK_DEBUG=1 (DevTools and verbose IPC logging).
+    #| short: D
+    debug <- FALSE
+
+    #| description: Launch in the background and return to the shell immediately.
+    #| short: b
+    detach <- FALSE
+
+    RDesk::rdesk_demo(
+      name   = name,
+      theme  = theme,
+      debug  = debug,
+      detach = detach
+    )
   },
 
   #| title: Build a standalone RDesk desktop bundle
