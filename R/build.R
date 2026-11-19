@@ -1200,6 +1200,8 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
   }
 
   for (bin in macho_binaries) {
+    if (Sys.readlink(bin) != "") next
+    tryCatch(Sys.chmod(bin, "0755"), error = function(e) NULL)
     bin_dir <- dirname(bin)
     rel_path <- rdesk_relative_path(bin_dir, target_dir)
     rpath <- if (rel_path == ".") "@loader_path" else paste0("@loader_path/", rel_path)
@@ -1212,7 +1214,7 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     }
 
     # If it is a shared library (.dylib), change its install name ID to be relative
-    if (grepl("\\.dylib$", bin) && Sys.readlink(bin) == "") {
+    if (grepl("\\.dylib$", bin)) {
       new_id <- paste0("@rpath/", basename(bin))
       message("[RDesk]   Updating ID for ", basename(bin), " -> ", new_id)
       system2("install_name_tool", c("-id", shQuote(new_id), shQuote(bin)),
@@ -1228,23 +1230,25 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
     if (length(stale) > 0) {
       for (entry in stale) {
         old_path <- trimws(sub("\\s+\\(.*\\)$", "", entry))
-        new_path <- paste0("@rpath/", basename(old_path))
+        dep_base <- basename(old_path)
+        bundled_dep <- file.path(target_dir, dep_base)
+        if (!file.exists(bundled_dep) && file.exists(old_path)) {
+          message("[RDesk]   Bundling external dylib dependency into R/lib: ", dep_base)
+          file.copy(old_path, bundled_dep, overwrite = TRUE)
+          tryCatch(Sys.chmod(bundled_dep, "0755"), error = function(e) NULL)
+          system2("install_name_tool", c("-id", shQuote(paste0("@rpath/", dep_base)), shQuote(bundled_dep)),
+                  stdout = FALSE, stderr = FALSE)
+        }
+        new_path <- paste0("@rpath/", dep_base)
         message("[RDesk]   Changing dep in ", basename(bin), ": ", old_path, " -> ", new_path)
         system2("install_name_tool",
                 c("-change", shQuote(old_path), shQuote(new_path), shQuote(bin)),
                 stdout = FALSE, stderr = FALSE)
       }
-      add_rpath(bin, rpath)
     }
 
-    result       <- system2("otool", c("-L", shQuote(bin)), stdout = TRUE, stderr = FALSE)
-    has_absolute <- any(grepl("^\\s+/", result) &
-                        !grepl("@", result) &
-                        !grepl("^\\s+/System/Library/", result) &
-                        !grepl("^\\s+/usr/lib/", result) &
-                        !grepl("^\\s+/opt/X11/", result))
-    if (has_absolute)
-      add_rpath(bin, rpath)
+    # Always ensure @rpath resolves to Contents/Resources/R-runtime/R/lib
+    add_rpath(bin, rpath)
   }
 
   # ---- Absolute-path audit --------------------------------------------------
@@ -1343,11 +1347,17 @@ rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
   r_bin_dir <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "bin")
   r_bin <- file.path(r_bin_dir, "R")
   if (file.exists(r_bin)) {
-    lines <- readLines(r_bin)
+    lines <- readLines(r_bin, warn = FALSE)
     idx <- grep("^[ \t]*R_HOME_DIR=", lines)
     if (length(idx) > 0) {
       lines[idx] <- 'R_HOME_DIR="$(cd "$(dirname "$0")"/.. && pwd)"'
-      writeLines(lines, r_bin)
+      wrapper_content <- paste(lines, collapse = "\n")
+      warning_pattern <- "if test -n \"\\$\\{R_HOME\\}\" && \\\\\\s*\\n\\s*test \"\\$\\{R_HOME\\}\" != \"\\$\\{R_HOME_DIR\\}\"; then\\s*\\n\\s*echo \"WARNING: ignoring environment value of R_HOME\"\\s*\\n\\s*fi"
+      wrapper_content <- sub(warning_pattern, "", wrapper_content, perl = TRUE)
+      wrapper_content <- gsub("R_SHARE_DIR=[^\n]+", "if test -z \"${R_SHARE_DIR}\"; then\n  R_SHARE_DIR=\"${R_HOME_DIR}/share\"\nfi", wrapper_content, perl = TRUE)
+      wrapper_content <- gsub("R_INCLUDE_DIR=[^\n]+", "if test -z \"${R_INCLUDE_DIR}\"; then\n  R_INCLUDE_DIR=\"${R_HOME_DIR}/include\"\nfi", wrapper_content, perl = TRUE)
+      wrapper_content <- gsub("R_DOC_DIR=[^\n]+", "if test -z \"${R_DOC_DIR}\"; then\n  R_DOC_DIR=\"${R_HOME_DIR}/doc\"\nfi", wrapper_content, perl = TRUE)
+      writeLines(wrapper_content, r_bin)
       Sys.chmod(r_bin, "0755")
       message("[RDesk]   Successfully patched bin/R shell script.")
     } else {

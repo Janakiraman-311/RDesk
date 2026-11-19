@@ -12,11 +12,15 @@ NULL
     options(rdesk.ipc_version = "1.0")
   }
 
-  # CI guard: GitHub Actions runners are headless daemon sessions.
-  # WKWebView cannot open a real window there, so we set ci_mode = TRUE
-  # and force the callr backend (mirai persistent daemons can hang in CI).
+  # CI guard: GitHub Actions runners are headless daemon sessions during R CMD check.
+  # Unless RDESK_SMOKE_TEST=1 or RDESK_SMOKE_SENTINEL is set (for end-to-end GUI
+  # smoke testing in build-app.yml), set ci_mode = TRUE and force callr backend.
   if (Sys.getenv("GITHUB_ACTIONS") == "true") {
-    if (is.null(getOption("rdesk.ci_mode"))) options(rdesk.ci_mode = TRUE)
+    is_smoke <- identical(Sys.getenv("RDESK_SMOKE_TEST"), "1") ||
+      nzchar(Sys.getenv("RDESK_SMOKE_SENTINEL"))
+    if (!is_smoke && is.null(getOption("rdesk.ci_mode"))) {
+      options(rdesk.ci_mode = TRUE)
+    }
     if (is.null(getOption("rdesk.async_backend"))) {
       options(rdesk.async_backend = "callr")
     }

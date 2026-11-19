@@ -63,6 +63,12 @@
         _ready_fns.forEach(function (fn) {
           try { fn(); } catch (e) { console.error("[rdesk] ready fn error", e); }
         });
+        try {
+          rdesk.send("__bridge_ready__", {
+            url: (typeof window !== "undefined" && window.location) ? window.location.href : "",
+            title: (typeof document !== "undefined" && document.title) ? document.title : ""
+          });
+        } catch (e) {}
         console.log("[rdesk] Native IPC bridge connected.");
       } else {
         // WebView2 object might take a moment to inject, or bindings to load

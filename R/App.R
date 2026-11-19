@@ -110,6 +110,30 @@ App <- R6::R6Class("App",
           private$.pending_dialogs[[payload$id]] <- "__CANCEL__"
         }
       })
+
+      private$.router$register("__bridge_ready__", function(payload) {
+        private$.bridge_ready <- TRUE
+        sentinel <- Sys.getenv("RDESK_SMOKE_SENTINEL", "")
+        if (nzchar(sentinel)) {
+          tryCatch({
+            dir.create(dirname(sentinel), recursive = TRUE, showWarnings = FALSE)
+            jsonlite::write_json(
+              list(
+                status     = "BRIDGE_READY",
+                app_title  = private$.title,
+                page_url   = if (!is.null(payload$url)) payload$url else "",
+                page_title = if (!is.null(payload$title)) payload$title else "",
+                platform   = Sys.info()[["sysname"]],
+                pid        = Sys.getpid(),
+                timestamp  = format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3Z", tz = "UTC")
+              ),
+              sentinel,
+              auto_unbox = TRUE,
+              pretty     = TRUE
+            )
+          }, error = function(e) NULL)
+        }
+      })
     },
 
     #' @description Register a callback to fire when the window is ready
@@ -687,6 +711,7 @@ App <- R6::R6Class("App",
     .tray_callback = NULL,      # Function(button)
     .hotkey_callbacks = NULL,
     .bundle_con = NULL,         # Non-blocking stdin connection in hosted bundle mode
+    .bridge_ready = FALSE,
 
     .cleanup = function() {
       if (getOption("rdesk.async_backend", "callr") == "mirai") {

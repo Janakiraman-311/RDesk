@@ -90,3 +90,21 @@ test_that("rdesk_prune_package_lib removes non-runtime subdirectories", {
   expect_false(dir.exists(file.path(pkg_dir, "tests")))
   expect_false(dir.exists(file.path(pkg_dir, "demo")))
 })
+
+test_that("__bridge_ready__ writes RDESK_SMOKE_SENTINEL JSON for CI GUI smoke tests", {
+  sentinel <- withr::local_tempfile(fileext = ".json")
+  withr::local_envvar(RDESK_SMOKE_SENTINEL = sentinel)
+  withr::defer(unlink(file.path(tempdir(), "RDesk"), recursive = TRUE))
+
+  app <- App$new(title = "SmokeTestApp", width = 800, height = 600)
+  app$.__enclos_env__$private$.router$dispatch(
+    "__bridge_ready__",
+    list(url = "rdesk://app/index.html", title = "SmokeTestApp")
+  )
+
+  expect_true(file.exists(sentinel))
+  meta <- jsonlite::fromJSON(sentinel)
+  expect_equal(meta$status, "BRIDGE_READY")
+  expect_equal(meta$app_title, "SmokeTestApp")
+  expect_equal(meta$page_url, "rdesk://app/index.html")
+})

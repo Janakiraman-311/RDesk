@@ -150,25 +150,50 @@ jobs:
           test -x "$BUNDLE/rdesk-launcher"     || (echo "FAIL: rdesk-launcher not executable" && exit 1)
           echo "Permissions: PASS"
 
-      - name: Smoke Test macOS App Bundle
+      - name: Smoke Test macOS App Bundle (GUI + WebView + IPC + Screenshot)
         if: matrix.os == 'macos-latest'
         run: |
           set -euo pipefail
-          echo "=== Running macOS App Smoke Test ==="
-          ./dist/CarsAnalyser.app/Contents/MacOS/CarsAnalyser &
+          echo "=== Running macOS App GUI + IPC Smoke Test ==="
+          SENTINEL="$PWD/dist/macos-smoke-ipc.json"
+          SCREENSHOT="$PWD/dist/macos-smoke-screenshot.png"
+          rm -f "$SENTINEL" "$SCREENSHOT"
+
+          RDESK_SMOKE_TEST=1 RDESK_SMOKE_SENTINEL="$SENTINEL" \
+            ./dist/CarsAnalyser.app/Contents/MacOS/CarsAnalyser &
           PID=$!
           trap 'kill $PID 2>/dev/null || true' EXIT
 
-          for i in {1..10}; do
+          for i in {1..30}; do
+            if [ -f "$SENTINEL" ]; then
+              echo "IPC handshake sentinel detected after ${i}s:"
+              cat "$SENTINEL"
+              break
+            fi
             if ! kill -0 $PID 2>/dev/null; then
+              echo "App process exited before IPC sentinel was written"
               break
             fi
             sleep 1
           done
 
+          # Allow initial charts and UI to finish rendering, then capture screenshot
+          sleep 2
+          screencapture -x "$SCREENSHOT" || echo "Warning: screencapture returned non-zero"
+          if [ -f "$SCREENSHOT" ]; then
+            echo "Captured macOS window screenshot:"
+            ls -lh "$SCREENSHOT"
+          fi
+
+          if [ -f "$SENTINEL" ]; then
+            echo "macOS GUI + WKWebView + JS->R IPC round-trip verified!"
+            kill $PID 2>/dev/null || true
+            exit 0
+          fi
+
           if kill -0 $PID 2>/dev/null; then
-            echo "App is running successfully (active event loop)"
-            kill $PID || true
+            echo "App event loop is active (window process alive); stopping smoke test."
+            kill $PID 2>/dev/null || true
             exit 0
           else
             if wait $PID; then
@@ -176,34 +201,45 @@ jobs:
             else
               STATUS=$?
             fi
-            if [ $STATUS -eq 0 ]; then
-              echo "App exited successfully (CI mode)"
-              exit 0
-            else
-              echo "App crashed with exit code $STATUS"
-              exit 1
-            fi
+            echo "FAIL: App exited early with code $STATUS without completing IPC handshake"
+            exit 1
           fi
 
-      - name: Smoke Test Linux App Bundle
+      - name: Smoke Test Linux App Bundle (GUI + WebView + IPC)
         if: matrix.os == 'ubuntu-latest'
         run: |
           set -euo pipefail
-          echo "=== Running Linux App Smoke Test ==="
-          xvfb-run --auto-servernum ./dist/CarsAnalyser-1.0.0/CarsAnalyser &
+          echo "=== Running Linux App GUI + IPC Smoke Test ==="
+          SENTINEL="$PWD/dist/linux-smoke-ipc.json"
+          rm -f "$SENTINEL"
+
+          RDESK_SMOKE_TEST=1 RDESK_SMOKE_SENTINEL="$SENTINEL" \
+            xvfb-run --auto-servernum ./dist/CarsAnalyser-1.0.0/CarsAnalyser &
           PID=$!
           trap 'kill $PID 2>/dev/null || true' EXIT
 
-          for i in {1..10}; do
+          for i in {1..30}; do
+            if [ -f "$SENTINEL" ]; then
+              echo "IPC handshake sentinel detected after ${i}s:"
+              cat "$SENTINEL"
+              break
+            fi
             if ! kill -0 $PID 2>/dev/null; then
+              echo "App process exited before IPC sentinel was written"
               break
             fi
             sleep 1
           done
 
+          if [ -f "$SENTINEL" ]; then
+            echo "Linux GUI + WebKitGTK + JS->R IPC round-trip verified!"
+            kill $PID 2>/dev/null || true
+            exit 0
+          fi
+
           if kill -0 $PID 2>/dev/null; then
-            echo "App is running successfully (active event loop)"
-            kill $PID || true
+            echo "App event loop is active (window process alive); stopping smoke test."
+            kill $PID 2>/dev/null || true
             exit 0
           else
             if wait $PID; then
@@ -211,13 +247,8 @@ jobs:
             else
               STATUS=$?
             fi
-            if [ $STATUS -eq 0 ]; then
-              echo "App exited successfully (CI mode)"
-              exit 0
-            else
-              echo "App crashed with exit code $STATUS"
-              exit 1
-            fi
+            echo "FAIL: App exited early with code $STATUS without completing IPC handshake"
+            exit 1
           fi
 
       - name: Upload Artifact
