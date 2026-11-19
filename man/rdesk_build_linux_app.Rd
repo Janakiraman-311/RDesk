@@ -10,6 +10,7 @@ rdesk_build_linux_app(
   app_version = "1.0.0",
   out_dir = tempdir(),
   runtime_dir = NULL,
+  include_packages = character(0),
   prune_runtime = TRUE,
   portable_r_method = "extract_only",
   build_installer = FALSE,
