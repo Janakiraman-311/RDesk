@@ -81,3 +81,8 @@ Hard-won lessons from debugging Windows, macOS, Linux, WebView2, `Rapp`, and Git
 ### `rdesk.send("__toast__")` Direction Trap in JS Apps
 - **Cause**: `__toast__` is an **R $\rightarrow$ JS** event handled by `rdesk.js`, not a JS $\rightarrow$ R handler. Calling `rdesk.send("__toast__", ...)` from client JS silently drops unless registered on the R side.
 - **Fix**: Render client-initiated toasts directly in DOM/JS (e.g., `#studio-toast-stack`), and reserve `app$toast()` for R-initiated notifications.
+
+### macOS Bundled App Segfault via Host `R_LIBS_USER` Dual-`libR.dylib` Load
+- **Symptom**: A bundled macOS `.app` crashes with `*** caught segfault *** address 0x3ea50, cause 'invalid permissions'` inside `dyn.load()` when an optional hook (e.g., `ggplot2::.onLoad()` calling `requireNamespace("dplyr", quietly = TRUE)`) runs for a package not bundled in the app.
+- **Cause**: Setting only `R_LIBS` without pinning `R_LIBS_USER` and `R_LIBS_SITE` lets R's `Renviron` (`R_LIBS_USER=${R_LIBS_USER:-~/Library/R/...}`) keep the host user's library in `.libPaths()`. Loading a host `.so` linked to `/Library/Frameworks/R.framework/.../libR.dylib` inside a bundled R process (using `Contents/Resources/R-runtime/R/lib/libR.dylib`) loads two `libR.dylib` instances and segfaults on ARM64.
+- **Fix**: `inst/stub/stub_macos.c`, `src/stub_macos.c`, and `inst/stub/stub_linux.c` explicitly pin `R_LIBS_USER` and `R_LIBS_SITE` to the bundled library paths so `.libPaths()` is 100% hermetically isolated from the host machine.

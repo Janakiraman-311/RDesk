@@ -126,7 +126,7 @@ RDeskStorage <- R6::R6Class("RDeskStorage",
             if (!dir.exists(target)) dir.create(target, recursive = TRUE, showWarnings = FALSE)
             # Try writing a dummy test file
             test_file <- file.path(target, ".write_test")
-            writeLines("test", test_file)
+            suppressWarnings(writeLines("test", test_file))
             unlink(test_file)
             TRUE
           }, error = function(e) FALSE)

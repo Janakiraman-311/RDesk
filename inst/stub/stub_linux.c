@@ -77,6 +77,14 @@ int main(int argc, char *argv[]) {
                  "R_LIBS=%s/packages/library:%s/R-runtime/R/library",
                  bundle_root, bundle_root);
 
+        char r_libs_user_env[PATH_MAX + 64];
+        snprintf(r_libs_user_env, sizeof(r_libs_user_env),
+                 "R_LIBS_USER=%s/packages/library", bundle_root);
+
+        char r_libs_site_env[PATH_MAX + 64];
+        snprintf(r_libs_site_env, sizeof(r_libs_site_env),
+                 "R_LIBS_SITE=%s/R-runtime/R/library", bundle_root);
+
         char r_share_env[PATH_MAX + 32];
         snprintf(r_share_env, sizeof(r_share_env), "R_SHARE_DIR=%s/R-runtime/R/share", bundle_root);
 
@@ -93,6 +101,8 @@ int main(int argc, char *argv[]) {
 
         putenv(r_home_env);
         putenv(r_libs_env);
+        putenv(r_libs_user_env);
+        putenv(r_libs_site_env);
         putenv(r_share_env);
         putenv(r_doc_env);
         putenv(ld_lib_env);

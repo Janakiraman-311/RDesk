@@ -75,6 +75,8 @@ int main(int argc, char* argv[]) {
     // Set isolated environment variables for R
     char r_home_env[PATH_MAX + 32];
     char r_libs_env[PATH_MAX * 2 + 64];
+    char r_libs_user_env[PATH_MAX + 64];
+    char r_libs_site_env[PATH_MAX + 64];
     char r_share_env[PATH_MAX + 32];
     char r_doc_env[PATH_MAX + 32];
     char r_bundle_root_env[PATH_MAX + 32];
@@ -84,6 +86,11 @@ int main(int argc, char* argv[]) {
 
     snprintf(r_home_env, sizeof(r_home_env), "R_HOME=%s/Resources/R-runtime/R", contents_path);
     snprintf(r_libs_env, sizeof(r_libs_env), "R_LIBS=%s/Resources/packages/library:%s/Resources/R-runtime/R/library", contents_path, contents_path);
+    // Explicitly pin R_LIBS_USER and R_LIBS_SITE inside the bundle so R never
+    // falls back to host ~/Library/R/... libraries whose .so files link against
+    // a different host libR.dylib (which causes SIGSEGV on macOS ARM64).
+    snprintf(r_libs_user_env, sizeof(r_libs_user_env), "R_LIBS_USER=%s/Resources/packages/library", contents_path);
+    snprintf(r_libs_site_env, sizeof(r_libs_site_env), "R_LIBS_SITE=%s/Resources/R-runtime/R/library", contents_path);
     snprintf(r_share_env, sizeof(r_share_env), "R_SHARE_DIR=%s/Resources/R-runtime/R/share", contents_path);
     snprintf(r_doc_env, sizeof(r_doc_env), "R_DOC_DIR=%s/Resources/R-runtime/R/doc", contents_path);
     snprintf(r_bundle_root_env, sizeof(r_bundle_root_env), "R_BUNDLE_ROOT=%s/Resources", contents_path);
@@ -91,6 +98,8 @@ int main(int argc, char* argv[]) {
 
     putenv(r_home_env);
     putenv(r_libs_env);
+    putenv(r_libs_user_env);
+    putenv(r_libs_site_env);
     putenv(r_share_env);
     putenv(r_doc_env);
     putenv(r_bundle_root_env);
