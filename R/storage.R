@@ -126,7 +126,7 @@ RDeskStorage <- R6::R6Class("RDeskStorage",
             if (!dir.exists(target)) dir.create(target, recursive = TRUE, showWarnings = FALSE)
             # Try writing a dummy test file
             test_file <- file.path(target, ".write_test")
-            writeLines("test", test_file)
+            suppressWarnings(writeLines("test", test_file))
             unlink(test_file)
             TRUE
           }, error = function(e) FALSE)
@@ -161,12 +161,7 @@ RDeskStorage <- R6::R6Class("RDeskStorage",
     .save = function() {
       raw <- as.list(private$.data)
       tryCatch({
-        tmp <- paste0(private$.file, ".tmp")
-        jsonlite::write_json(raw, tmp, auto_unbox = TRUE, pretty = TRUE)
-        if (!file.rename(tmp, private$.file)) {
-          unlink(private$.file)
-          if (!file.rename(tmp, private$.file)) stop("could not replace storage file")
-        }
+        jsonlite::write_json(raw, private$.file, auto_unbox = TRUE, pretty = TRUE)
       }, error = function(e) {
         warning("[RDesk Storage] Failed to write storage to ", private$.file, ": ", e$message)
       })
