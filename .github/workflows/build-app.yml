@@ -249,6 +249,8 @@ jobs:
             echo "${w:-?}x${h:-?} ($((bytes / 1024)) KB)"
           }
 
+          FAILURES=0
+
           run_macos_e2e_app() {
             local APP_NAME="$1"
             local BUNDLE_PATH="$2"
@@ -312,21 +314,28 @@ jobs:
               echo "No focused CGWindowID returned (using desktop screenshot)"
             fi
 
-            # Validate screenshot is a valid non-empty PNG
-            if [ ! -f "$DESKTOP_PNG" ] || [ "$(stat -f%z "$DESKTOP_PNG")" -lt 5000 ]; then
-              echo "FAIL: Desktop screenshot missing or suspiciously small for ${APP_NAME}"
-              kill "$PID" 2>/dev/null || true
-              pkill -x "rdesk-launcher" 2>/dev/null || true
-              exit 1
-            fi
-
             local SENTINEL_URL="n/a"
             local IPC_STATUS="FAIL"
+            local APP_FAILED=0
+
+            if [ ! -f "$DESKTOP_PNG" ] || [ "$(stat -f%z "$DESKTOP_PNG")" -lt 5000 ]; then
+              echo "FAIL: Desktop screenshot missing or suspiciously small for ${APP_NAME}"
+              APP_FAILED=1
+            fi
+
             if [ "$IPC_OK" -eq 1 ]; then
-              SENTINEL_URL=$(Rscript -e "j <- jsonlite::fromJSON('$SENTINEL'); stopifnot(identical(j\$status, 'BRIDGE_READY'), identical(j\$platform, 'Darwin')); cat(if (!is.null(j\$page_url)) j\$page_url else '')")
-              IPC_STATUS="PASS"
+              if SENTINEL_URL=$(Rscript -e "j <- jsonlite::fromJSON('$SENTINEL'); stopifnot(identical(j\$status, 'BRIDGE_READY'), identical(j\$platform, 'Darwin')); cat(if (!is.null(j\$page_url)) j\$page_url else '')"); then
+                IPC_STATUS="PASS"
+              else
+                IPC_STATUS="BAD SENTINEL"
+                APP_FAILED=1
+              fi
             elif kill -0 "$PID" 2>/dev/null; then
               IPC_STATUS="ALIVE (no sentinel)"
+              APP_FAILED=1
+            else
+              IPC_STATUS="EXITED EARLY"
+              APP_FAILED=1
             fi
 
             local DESK_INFO WIN_INFO
@@ -339,10 +348,16 @@ jobs:
             pkill -x "rdesk-launcher" 2>/dev/null || true
             sleep 1
 
-            if [ "$IPC_OK" -ne 1 ]; then
-              echo "FAIL: ${APP_NAME} did not complete __bridge_ready__ IPC handshake!"
-              cat "$LOG_FILE" || true
-              exit 1
+            echo "--- Launch log (${APP_NAME}) ---"
+            cat "$LOG_FILE" || true
+
+            if [ "$APP_FAILED" -ne 0 ]; then
+              FAILURES=$((FAILURES + 1))
+              echo "" >> "$SUMMARY"
+              echo "### Failure Log: \`${APP_NAME}\`" >> "$SUMMARY"
+              echo '```text' >> "$SUMMARY"
+              tail -n 60 "$LOG_FILE" >> "$SUMMARY" 2>/dev/null || true
+              echo '```' >> "$SUMMARY"
             fi
           }
 
@@ -351,11 +366,20 @@ jobs:
           run_macos_e2e_app "RDeskStarterWorkbench" "$PWD/dist/RDeskStarterWorkbench.app" "starter" "CLI-scaffolded (\`rdesk new\`)"
 
           # Keep backwards-compatible top-level screenshot/sentinel paths for CarsAnalyser
-          cp "$OUT_DIR/cars-desktop.png" "$PWD/dist/macos-smoke-screenshot.png"
-          cp "$OUT_DIR/cars-ipc.json" "$PWD/dist/macos-smoke-ipc.json"
+          if [ -f "$OUT_DIR/cars-desktop.png" ]; then
+            cp "$OUT_DIR/cars-desktop.png" "$PWD/dist/macos-smoke-screenshot.png"
+          fi
+          if [ -f "$OUT_DIR/cars-ipc.json" ]; then
+            cp "$OUT_DIR/cars-ipc.json" "$PWD/dist/macos-smoke-ipc.json"
+          fi
 
           cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
           cat "$SUMMARY"
+
+          if [ "$FAILURES" -ne 0 ]; then
+            echo "FAIL: ${FAILURES} macOS E2E app test(s) failed."
+            exit 1
+          fi
 
       - name: Smoke Test Linux App Bundle (GUI + WebView + IPC)
         if: matrix.os == 'ubuntu-latest'

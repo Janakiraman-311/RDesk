@@ -145,6 +145,7 @@ build_app <- function(app_dir = ".",
       app_version       = version,
       out_dir           = out_dir,
       runtime_dir       = user_runtime_dir,
+      include_packages  = include_packages,
       prune_runtime     = prune_runtime,
       portable_r_method = portable_r_method,
       build_installer   = build_installer,
@@ -158,6 +159,7 @@ build_app <- function(app_dir = ".",
       app_version       = version,
       out_dir           = out_dir,
       runtime_dir       = user_runtime_dir,
+      include_packages  = include_packages,
       prune_runtime     = prune_runtime,
       portable_r_method = portable_r_method,
       build_installer   = build_installer,
@@ -916,6 +918,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
                                   app_version = "1.0.0",
                                   out_dir     = tempdir(),
                                   runtime_dir = NULL,
+                                  include_packages = character(0),
                                   prune_runtime = TRUE,
                                   portable_r_method = "extract_only",
                                   build_installer = FALSE,
@@ -1028,7 +1031,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
       }
     }
   }
-  all_pkgs <- unique(c(core_pkgs, extra_pkgs))
+  all_pkgs <- unique(c(core_pkgs, extra_pkgs, include_packages))
   rdesk_copy_installed_packages_to(all_pkgs, pkg_dst)
 
   # Copy RDesk package directory directly to pkg_dst
@@ -1469,6 +1472,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
                                   app_version = "1.0.0",
                                   out_dir     = tempdir(),
                                   runtime_dir = NULL,
+                                  include_packages = character(0),
                                   prune_runtime = TRUE,
                                   portable_r_method = "extract_only",
                                   build_installer = FALSE,
@@ -1636,7 +1640,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
       }
     }
   }
-  all_pkgs <- unique(c(core_pkgs, extra_pkgs))
+  all_pkgs <- unique(c(core_pkgs, extra_pkgs, include_packages))
   rdesk_copy_installed_packages_to(all_pkgs, pkg_dst)
 
   # Copy RDesk package directory directly to pkg_dst
