@@ -5,6 +5,7 @@ on:
     branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -63,11 +64,11 @@ jobs:
       - name: Make scripts executable
         if: matrix.os != 'windows-latest'
         run: |
-          chmod +x configure cleanup
+          chmod +x configure cleanup exec/rdesk.R
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::devtools, any::rcmdcheck, any::withr, any::ggplot2, any::dplyr, any::broom
+          extra-packages: any::devtools, any::rcmdcheck, any::withr, any::ggplot2, any::dplyr, any::broom, any::Rapp
 
       - name: Verify Rtools/Compiler and Install Package
         shell: Rscript {0}
@@ -96,40 +97,86 @@ jobs:
           }
           do.call(RDesk::build_app, args)
 
-      - name: Validate macOS App Bundle Structure
+      - name: Test macOS Rapp CLI & Scaffold Starter App
         if: matrix.os == 'macos-latest'
         run: |
-          BUNDLE="dist/CarsAnalyser.app"
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          Rscript -e 'RDesk::install_rdesk_cli(destdir = file.path(Sys.getenv("HOME"), ".local", "bin"), overwrite = TRUE)'
+          export PATH="$HOME/.local/bin:$PATH"
+          command -v rdesk
+          rdesk --help
+          rdesk sitrep
+          rdesk demo
+          rm -rf /tmp/rdesk-cli-test
+          mkdir -p /tmp/rdesk-cli-test
+          rdesk new RDeskStarterWorkbench --path /tmp/rdesk-cli-test --theme dark
+          test -f /tmp/rdesk-cli-test/RDeskStarterWorkbench/app.R
+          rdesk build --app-dir /tmp/rdesk-cli-test/RDeskStarterWorkbench --dry-run
 
-          # Verify bundle structure components
-          echo "=== Verifying Bundle Structure ==="
-          test -f "$BUNDLE/Contents/Info.plist"     || (echo "FAIL: Info.plist missing" && exit 1)
-          test -f "$BUNDLE/Contents/PkgInfo"        || (echo "FAIL: PkgInfo missing" && exit 1)
-          test -f "$BUNDLE/Contents/MacOS/CarsAnalyser" || (echo "FAIL: Stub missing" && exit 1)
-          test -f "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher missing" && exit 1)
-          test -f "$BUNDLE/Contents/Resources/app/app.R" || (echo "FAIL: app.R missing" && exit 1)
-          test -d "$BUNDLE/Contents/Resources/R-runtime/R/bin" || (echo "FAIL: R runtime missing" && exit 1)
-          echo "Structure: PASS"
+      - name: Build Additional macOS Showcase Apps (Data Studio + Starter)
+        if: matrix.os == 'macos-latest'
+        shell: Rscript {0}
+        run: |
+          RDesk::build_app(
+            app_dir          = "inst/apps/data_studio",
+            app_name         = "DataIntelligenceStudio",
+            version          = "1.0.0",
+            out_dir          = "dist",
+            include_packages = c("ggplot2"),
+            overwrite        = TRUE
+          )
+          RDesk::build_app(
+            app_dir          = "/tmp/rdesk-cli-test/RDeskStarterWorkbench",
+            app_name         = "RDeskStarterWorkbench",
+            version          = "1.0.0",
+            out_dir          = "dist",
+            include_packages = c("ggplot2"),
+            overwrite        = TRUE
+          )
 
-          # Verify executable permissions
-          echo "=== Verifying Executable Permissions ==="
-          test -x "$BUNDLE/Contents/MacOS/CarsAnalyser" || (echo "FAIL: Stub not executable" && exit 1)
-          test -x "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher not executable" && exit 1)
-          echo "Permissions: PASS"
+      - name: Validate macOS App Bundles, Linkage & Relocatability
+        if: matrix.os == 'macos-latest'
+        run: |
+          set -euo pipefail
+          for APP_NAME in CarsAnalyser DataIntelligenceStudio RDeskStarterWorkbench; do
+            BUNDLE="dist/${APP_NAME}.app"
+            echo "=== Validating ${BUNDLE} ==="
+            test -f "$BUNDLE/Contents/Info.plist"                   || (echo "FAIL: Info.plist missing in $APP_NAME" && exit 1)
+            test -f "$BUNDLE/Contents/PkgInfo"                      || (echo "FAIL: PkgInfo missing in $APP_NAME" && exit 1)
+            test -f "$BUNDLE/Contents/MacOS/${APP_NAME}"            || (echo "FAIL: Stub missing in $APP_NAME" && exit 1)
+            test -f "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher missing in $APP_NAME" && exit 1)
+            test -f "$BUNDLE/Contents/Resources/app/app.R"          || (echo "FAIL: app.R missing in $APP_NAME" && exit 1)
+            test -d "$BUNDLE/Contents/Resources/R-runtime/R/bin"    || (echo "FAIL: R runtime missing in $APP_NAME" && exit 1)
 
-          # Verify plist values
-          echo "=== Verifying Plist Configuration ==="
-          /usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$BUNDLE/Contents/Info.plist" | grep -q "CarsAnalyser" || (echo "FAIL: CFBundleExecutable misconfigured" && exit 1)
-          echo "Plist: PASS"
+            test -x "$BUNDLE/Contents/MacOS/${APP_NAME}"            || (echo "FAIL: Stub not executable in $APP_NAME" && exit 1)
+            test -x "$BUNDLE/Contents/Resources/bin/rdesk-launcher" || (echo "FAIL: Launcher not executable in $APP_NAME" && exit 1)
 
-          # Debug otool output for launcher and stub
-          echo "=== Launcher Dependency List ==="
-          otool -L "$BUNDLE/Contents/Resources/bin/rdesk-launcher"
-          echo "=== Stub Dependency List ==="
-          otool -L "$BUNDLE/Contents/MacOS/CarsAnalyser"
+            /usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$BUNDLE/Contents/Info.plist" | grep -qx "$APP_NAME" \
+              || (echo "FAIL: CFBundleExecutable misconfigured in $APP_NAME" && exit 1)
 
+            codesign --verify --verbose "$BUNDLE/Contents/MacOS/${APP_NAME}"
+            codesign --verify --verbose "$BUNDLE/Contents/Resources/bin/rdesk-launcher"
+            lipo -info "$BUNDLE/Contents/MacOS/${APP_NAME}"
+            lipo -info "$BUNDLE/Contents/Resources/bin/rdesk-launcher"
 
+            echo "--- Linkage audit (${APP_NAME}) ---"
+            otool -L "$BUNDLE/Contents/Resources/bin/rdesk-launcher"
+            otool -L "$BUNDLE/Contents/MacOS/${APP_NAME}"
+            for BIN in "$BUNDLE/Contents/Resources/bin/rdesk-launcher" "$BUNDLE/Contents/MacOS/${APP_NAME}"; do
+              if otool -L "$BIN" | grep '^[[:space:]]' | grep -Eq '(/Users/|/opt/homebrew/)'; then
+                echo "FAIL: Builder-local path leaked into $BIN"
+                exit 1
+              fi
+            done
+            echo "PASS: ${APP_NAME} bundle structure, permissions, plist, codesign & linkage verified."
+          done
 
+          # Stage a relocated copy of CarsAnalyser.app outside the build directory to verify true relocatability
+          rm -rf /tmp/rdesk-relocated-test
+          mkdir -p /tmp/rdesk-relocated-test
+          cp -R dist/CarsAnalyser.app /tmp/rdesk-relocated-test/CarsAnalyser.app
+          echo "Relocated CarsAnalyser.app staged at /tmp/rdesk-relocated-test/CarsAnalyser.app"
 
       - name: Validate Linux App Bundle Structure
         if: matrix.os == 'ubuntu-latest'
@@ -152,60 +199,163 @@ jobs:
           test -x "$BUNDLE/rdesk-launcher"     || (echo "FAIL: rdesk-launcher not executable" && exit 1)
           echo "Permissions: PASS"
 
-      - name: Smoke Test macOS App Bundle (GUI + WebView + IPC + Screenshot)
+      - name: Full macOS GUI + WKWebView + IPC + Screenshot E2E Suite
         if: matrix.os == 'macos-latest'
         run: |
           set -euo pipefail
-          echo "=== Running macOS App GUI + IPC Smoke Test ==="
-          SENTINEL="$PWD/dist/macos-smoke-ipc.json"
-          SCREENSHOT="$PWD/dist/macos-smoke-screenshot.png"
-          rm -f "$SENTINEL" "$SCREENSHOT"
+          OUT_DIR="$PWD/dist/macos-e2e"
+          rm -rf "$OUT_DIR"
+          mkdir -p "$OUT_DIR"
 
-          RDESK_SMOKE_TEST=1 RDESK_SMOKE_SENTINEL="$SENTINEL" \
-            ./dist/CarsAnalyser.app/Contents/MacOS/CarsAnalyser &
-          PID=$!
-          trap 'kill $PID 2>/dev/null || true' EXIT
+          SUMMARY="$OUT_DIR/SUMMARY.md"
+          cat << 'EOF' > "$SUMMARY"
+          # macOS Full Visual & IPC E2E Test Report
 
-          for i in {1..30}; do
-            if [ -f "$SENTINEL" ]; then
-              echo "IPC handshake sentinel detected after ${i}s:"
-              cat "$SENTINEL"
-              break
+          | App | Launch Path | Bundle Size | IPC Handshake | Latency | URL | Desktop Screenshot | Window Screenshot |
+          |---|---|---|---|---|---|---|---|
+          EOF
+
+          find_launcher_window_id() {
+            swift -e '
+              import CoreGraphics
+              import Foundation
+              if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+                for w in list {
+                  let owner = (w[kCGWindowOwnerName as String] as? String) ?? ""
+                  let bounds = (w[kCGWindowBounds as String] as? [String: Any]) ?? [:]
+                  let width = (bounds["Width"] as? Double) ?? 0
+                  let height = (bounds["Height"] as? Double) ?? 0
+                  if owner.lowercased().contains("rdesk") && width >= 200 && height >= 200 {
+                    if let wid = w[kCGWindowNumber as String] as? Int {
+                      print(wid)
+                      exit(0)
+                    }
+                  }
+                }
+              }
+            ' 2>/dev/null || true
+          }
+
+          screenshot_info() {
+            local file="$1"
+            if [ ! -f "$file" ]; then
+              echo "n/a"
+              return
             fi
-            if ! kill -0 $PID 2>/dev/null; then
-              echo "App process exited before IPC sentinel was written"
-              break
+            local bytes w h
+            bytes=$(stat -f%z "$file")
+            w=$(sips -g pixelWidth "$file" 2>/dev/null | awk '/pixelWidth/{print $2}')
+            h=$(sips -g pixelHeight "$file" 2>/dev/null | awk '/pixelHeight/{print $2}')
+            echo "${w:-?}x${h:-?} ($((bytes / 1024)) KB)"
+          }
+
+          run_macos_e2e_app() {
+            local APP_NAME="$1"
+            local BUNDLE_PATH="$2"
+            local SLUG="$3"
+            local LAUNCH_NOTE="$4"
+
+            echo "=================================================================="
+            echo "=== E2E Test: ${APP_NAME} (${BUNDLE_PATH}) ==="
+            echo "=================================================================="
+
+            local SENTINEL="$OUT_DIR/${SLUG}-ipc.json"
+            local DESKTOP_PNG="$OUT_DIR/${SLUG}-desktop.png"
+            local WINDOW_PNG="$OUT_DIR/${SLUG}-window.png"
+            local LOG_FILE="$OUT_DIR/${SLUG}-launch.log"
+            local BUNDLE_SIZE
+            BUNDLE_SIZE=$(du -sh "$BUNDLE_PATH" | awk '{print $1}')
+
+            rm -f "$SENTINEL" "$DESKTOP_PNG" "$WINDOW_PNG" "$LOG_FILE"
+
+            RDESK_SMOKE_TEST=1 RDESK_SMOKE_SENTINEL="$SENTINEL" RDESK_DEBUG=1 \
+              "${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}" >"$LOG_FILE" 2>&1 &
+            local PID=$!
+
+            local ELAPSED=0
+            local IPC_OK=0
+            for i in $(seq 1 45); do
+              if [ -f "$SENTINEL" ]; then
+                ELAPSED=$i
+                IPC_OK=1
+                echo "IPC handshake sentinel detected after ${i}s:"
+                cat "$SENTINEL"
+                break
+              fi
+              if ! kill -0 "$PID" 2>/dev/null; then
+                echo "App process exited early before IPC sentinel was written (after ${i}s)"
+                cat "$LOG_FILE" || true
+                break
+              fi
+              sleep 1
+            done
+
+            # Give WKWebView + R ggplot2 charts time to complete initial render
+            sleep 4
+
+            # Capture full desktop screenshot
+            screencapture -x "$DESKTOP_PNG" || echo "Warning: desktop screencapture returned non-zero"
+            if [ -f "$DESKTOP_PNG" ]; then
+              echo "Captured desktop screenshot: $(screenshot_info "$DESKTOP_PNG")"
             fi
-            sleep 1
-          done
 
-          # Allow initial charts and UI to finish rendering, then capture screenshot
-          sleep 2
-          screencapture -x "$SCREENSHOT" || echo "Warning: screencapture returned non-zero"
-          if [ -f "$SCREENSHOT" ]; then
-            echo "Captured macOS window screenshot:"
-            ls -lh "$SCREENSHOT"
-          fi
-
-          if [ -f "$SENTINEL" ]; then
-            echo "macOS GUI + WKWebView + JS->R IPC round-trip verified!"
-            kill $PID 2>/dev/null || true
-            exit 0
-          fi
-
-          if kill -0 $PID 2>/dev/null; then
-            echo "App event loop is active (window process alive); stopping smoke test."
-            kill $PID 2>/dev/null || true
-            exit 0
-          else
-            if wait $PID; then
-              STATUS=0
+            # Attempt focused window-only screenshot via CoreGraphics CGWindowID
+            local WIN_ID
+            WIN_ID=$(find_launcher_window_id | head -n 1 | tr -d '[:space:]')
+            if [ -n "$WIN_ID" ]; then
+              echo "Detected rdesk-launcher CGWindowID: $WIN_ID"
+              screencapture -x -l "$WIN_ID" -o "$WINDOW_PNG" || echo "Warning: window screencapture returned non-zero"
+              if [ -f "$WINDOW_PNG" ]; then
+                echo "Captured window screenshot: $(screenshot_info "$WINDOW_PNG")"
+              fi
             else
-              STATUS=$?
+              echo "No focused CGWindowID returned (using desktop screenshot)"
             fi
-            echo "FAIL: App exited early with code $STATUS without completing IPC handshake"
-            exit 1
-          fi
+
+            # Validate screenshot is a valid non-empty PNG
+            if [ ! -f "$DESKTOP_PNG" ] || [ "$(stat -f%z "$DESKTOP_PNG")" -lt 5000 ]; then
+              echo "FAIL: Desktop screenshot missing or suspiciously small for ${APP_NAME}"
+              kill "$PID" 2>/dev/null || true
+              pkill -f "rdesk-launcher" 2>/dev/null || true
+              exit 1
+            fi
+
+            local SENTINEL_URL="n/a"
+            local IPC_STATUS="FAIL"
+            if [ "$IPC_OK" -eq 1 ]; then
+              SENTINEL_URL=$(Rscript -e "j <- jsonlite::fromJSON('$SENTINEL'); stopifnot(identical(j\$status, 'ready')); cat(j\$url)")
+              IPC_STATUS="PASS"
+            elif kill -0 "$PID" 2>/dev/null; then
+              IPC_STATUS="ALIVE (no sentinel)"
+            fi
+
+            local DESK_INFO WIN_INFO
+            DESK_INFO=$(screenshot_info "$DESKTOP_PNG")
+            WIN_INFO=$(screenshot_info "$WINDOW_PNG")
+            echo "| \`${APP_NAME}\` | ${LAUNCH_NOTE} | ${BUNDLE_SIZE} | **${IPC_STATUS}** | ${ELAPSED}s | \`${SENTINEL_URL}\` | ${DESK_INFO} | ${WIN_INFO} |" >> "$SUMMARY"
+
+            # Cleanly terminate app + launcher before next app starts
+            kill "$PID" 2>/dev/null || true
+            pkill -f "rdesk-launcher" 2>/dev/null || true
+            sleep 1
+
+            if [ "$IPC_OK" -ne 1 ]; then
+              echo "FAIL: ${APP_NAME} did not complete __bridge_ready__ IPC handshake!"
+              cat "$LOG_FILE" || true
+              exit 1
+            fi
+          }
+
+          run_macos_e2e_app "CarsAnalyser" "/tmp/rdesk-relocated-test/CarsAnalyser.app" "cars" "Relocated (\`/tmp/...\`)"
+          run_macos_e2e_app "DataIntelligenceStudio" "$PWD/dist/DataIntelligenceStudio.app" "studio" "Built (\`dist/\`)"
+          run_macos_e2e_app "RDeskStarterWorkbench" "$PWD/dist/RDeskStarterWorkbench.app" "starter" "CLI-scaffolded (\`rdesk new\`)"
+
+          # Keep backwards-compatible top-level screenshot/sentinel paths for CarsAnalyser
+          cp "$OUT_DIR/cars-desktop.png" "$PWD/dist/macos-smoke-screenshot.png"
+          cp "$OUT_DIR/cars-ipc.json" "$PWD/dist/macos-smoke-ipc.json"
+
+          cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
+          cat "$SUMMARY"
 
       - name: Smoke Test Linux App Bundle (GUI + WebView + IPC)
         if: matrix.os == 'ubuntu-latest'
@@ -252,6 +402,14 @@ jobs:
             echo "FAIL: App exited early with code $STATUS without completing IPC handshake"
             exit 1
           fi
+
+      - name: Upload macOS Visual E2E Report & Screenshots
+        if: always() && matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-visual-e2e-screenshots
+          path: dist/macos-e2e/*
+          retention-days: 30
 
       - name: Upload Artifact
         if: always()

@@ -5,6 +5,7 @@
 ^\.Rproj\.user$
 ^.*\.Rproj$
 ^\.agents$
+^AGENTS\.md$
 ^MAINTENANCE\.md$
 ^\.r-lib($|/)
 ^tests/smoke_test_run\.R$
