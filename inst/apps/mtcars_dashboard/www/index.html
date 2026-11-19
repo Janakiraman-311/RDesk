@@ -3,85 +3,271 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Motor Trend Cars Analyser</title>
+  <title>CarsAnalyser — Automotive Performance &amp; Regression Telemetry</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Sidebar -->
+  <!-- Left Rail Navigation -->
   <aside class="sidebar">
-    <div class="sidebar-logo">
-      <span class="logo-r">R</span>
-      <span class="logo-desk">Desk</span>
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20a8 8 0 1 0-8-8"/>
+          <path d="M12 14l4.5-4.5"/>
+          <circle cx="12" cy="14" r="1.5" fill="currentColor"/>
+          <path d="M4.93 19.07A10 10 0 0 1 2 12C2 6.48 6.48 2 12 2s10 4.48 10 10a10 10 0 0 1-2.93 7.07"/>
+        </svg>
+      </div>
+      <div class="brand-copy">
+        <div class="brand-title">CarsAnalyser</div>
+        <div class="brand-sub">MT-74 TELEMETRY</div>
+      </div>
     </div>
-    <p class="sidebar-sub">Showcase 1.0.0</p>
 
-    <nav class="sidebar-nav">
-      <a href="#" class="nav-item active" id="nav-explorer" onclick="switchSection('explorer')">
-        <span class="nav-icon">📊</span> Explorer
-      </a>
-      <a href="#" class="nav-item" id="nav-models" onclick="switchSection('models')">
-        <span class="nav-icon">📈</span> Models
-      </a>
-      <a href="#" class="nav-item" id="nav-export" onclick="switchSection('export')">
-        <span class="nav-icon">💾</span> Export Data
-      </a>
+    <div class="nav-label">Workbench</div>
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      <button type="button" class="nav-item active" id="nav-explorer" data-section="explorer">
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        <span>Telemetry Explorer</span>
+      </button>
+
+      <button type="button" class="nav-item" id="nav-models" data-section="models">
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 3v18h18"/>
+          <path d="M7 16l4-5 4 2 5-7"/>
+          <circle cx="7" cy="16" r="1.5" fill="currentColor"/>
+          <circle cx="11" cy="11" r="1.5" fill="currentColor"/>
+          <circle cx="15" cy="13" r="1.5" fill="currentColor"/>
+          <circle cx="20" cy="6" r="1.5" fill="currentColor"/>
+        </svg>
+        <span>Regression Lab</span>
+      </button>
+
+      <button type="button" class="nav-item" id="nav-export" data-section="export">
+        <svg class="nav-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <path d="M12 18v-6"/>
+          <path d="M9 15l3 3 3-3"/>
+        </svg>
+        <span>Export &amp; Report</span>
+      </button>
     </nav>
+
+    <div class="sidebar-telemetry">
+      <div class="telemetry-row">
+        <span class="telemetry-key">Active Fleet</span>
+        <span class="telemetry-val mono" id="sb-fleet">32 / 32</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-key">Chart Mode</span>
+        <span class="telemetry-val" id="sb-mode">Scatter</span>
+      </div>
+      <div class="telemetry-row">
+        <span class="telemetry-key">Latest Fit R²</span>
+        <span class="telemetry-val mono" id="sb-r2">—</span>
+      </div>
+    </div>
 
     <div class="sidebar-footer">
       <div class="status-indicator">
         <span class="status-dot"></span>
-        <span class="status-text">R Worker Connected</span>
+        <span class="status-text">RDesk Engine Ready</span>
       </div>
     </div>
   </aside>
 
-  <!-- Main content -->
+  <!-- Main Workspace -->
   <main class="main">
 
-    <!-- Explorer Section -->
+    <!-- ===================================================================
+         SECTION 1: TELEMETRY EXPLORER
+         =================================================================== -->
     <section id="section-explorer" class="app-section active">
       <header class="section-header">
-        <h1>Data Explorer</h1>
+        <div>
+          <h1>Telemetry Explorer</h1>
+          <p class="section-subtitle">1974 Motor Trend Road Tests · Vehicle Dynamics &amp; Efficiency Analysis</p>
+        </div>
         <div class="header-actions">
-          <div class="toggle-group">
-            <button class="toggle-btn active" onclick="togglePlot('scatter', this)">Scatter</button>
-            <button class="toggle-btn" onclick="togglePlot('boxplot', this)">Boxplot</button>
+          <div class="segmented" id="plot-type-group" role="group" aria-label="Plot visualization mode">
+            <button type="button" class="seg-btn active" data-plot="scatter">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="7" cy="15" r="2"/><circle cx="12" cy="10" r="2"/><circle cx="17" cy="7" r="2"/>
+                <line x1="4" y1="19" x2="20" y2="5"/>
+              </svg>
+              Scatter
+            </button>
+            <button type="button" class="seg-btn" data-plot="boxplot">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="4" y="8" width="6" height="8"/><line x1="7" y1="4" x2="7" y2="8"/><line x1="7" y1="16" x2="7" y2="20"/>
+                <rect x="14" y="6" width="6" height="9"/><line x1="17" y1="3" x2="17" y2="6"/><line x1="17" y1="15" x2="17" y2="20"/>
+              </svg>
+              Boxplot
+            </button>
+            <button type="button" class="seg-btn" data-plot="density">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M2 18c3 0 4-10 7-10s4 6 6 6 3-8 7-8"/>
+              </svg>
+              Density
+            </button>
+            <button type="button" class="seg-btn" data-plot="efficiency">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M3 19l5-5 4 2 9-11"/>
+                <polyline points="15 5 21 5 21 11"/>
+              </svg>
+              Efficiency
+            </button>
           </div>
         </div>
       </header>
 
-      <div class="kpi-row">
+      <!-- Filter & Axis Control Strip -->
+      <div class="control-bar">
+        <div class="control-group">
+          <span class="control-label">Cylinders</span>
+          <div class="pill-group" id="cyl-filter-group">
+            <button type="button" class="cyl-pill active" data-cyl="4">
+              <span class="dot dot-4"></span>4 Cyl
+            </button>
+            <button type="button" class="cyl-pill active" data-cyl="6">
+              <span class="dot dot-6"></span>6 Cyl
+            </button>
+            <button type="button" class="cyl-pill active" data-cyl="8">
+              <span class="dot dot-8"></span>8 Cyl
+            </button>
+          </div>
+        </div>
+
+        <div class="control-divider"></div>
+
+        <div class="control-group">
+          <span class="control-label">Transmission</span>
+          <div class="segmented segmented-sm" id="am-filter-group">
+            <button type="button" class="seg-btn active" data-am="all">All</button>
+            <button type="button" class="seg-btn" data-am="0">Auto</button>
+            <button type="button" class="seg-btn" data-am="1">Manual</button>
+          </div>
+        </div>
+
+        <div class="control-divider"></div>
+
+        <div class="control-group control-hp">
+          <div class="hp-header">
+            <span class="control-label">Horsepower</span>
+            <span class="hp-readout mono" id="hp-readout">52 – 335 HP</span>
+          </div>
+          <div class="dual-range">
+            <input type="range" id="hp-min-slider" min="52" max="335" value="52" step="1" aria-label="Minimum horsepower">
+            <input type="range" id="hp-max-slider" min="52" max="335" value="335" step="1" aria-label="Maximum horsepower">
+          </div>
+        </div>
+
+        <div class="control-divider"></div>
+
+        <div class="control-group control-axes">
+          <label class="axis-field" id="x-axis-wrap">
+            <span class="control-label">X Axis</span>
+            <select id="x-var-select" class="select-input">
+              <option value="wt" selected>Weight (wt)</option>
+              <option value="hp">Horsepower (hp)</option>
+              <option value="disp">Displacement (disp)</option>
+              <option value="drat">Axle Ratio (drat)</option>
+              <option value="qsec">1/4 Mile (qsec)</option>
+            </select>
+          </label>
+
+          <label class="axis-field" id="y-axis-wrap">
+            <span class="control-label">Y Axis</span>
+            <select id="y-var-select" class="select-input">
+              <option value="mpg" selected>Fuel Econ (mpg)</option>
+              <option value="qsec">1/4 Mile (qsec)</option>
+              <option value="hp">Horsepower (hp)</option>
+              <option value="wt">Weight (wt)</option>
+            </select>
+          </label>
+
+          <div class="axis-field" id="smooth-wrap">
+            <span class="control-label">Fit Curve</span>
+            <div class="segmented segmented-sm" id="smooth-group">
+              <button type="button" class="seg-btn active" data-smooth="lm">OLS</button>
+              <button type="button" class="seg-btn" data-smooth="loess">LOESS</button>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-ghost btn-reset" id="btn-reset-filters" title="Reset all filters and axes">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+          </svg>
+          Reset
+        </button>
+      </div>
+
+      <!-- 5-Card Engineering KPI Strip -->
+      <div class="kpi-strip kpi-strip-5">
         <div class="kpi-card">
-          <div class="kpi-label">Sample Size</div>
-          <div class="kpi-value" id="kpi-n">-</div>
+          <div class="kpi-label">Filtered Fleet</div>
+          <div class="kpi-value mono" id="kpi-n">—</div>
+          <div class="kpi-meta" id="kpi-n-meta">of 32 vehicles</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Avg MPG</div>
-          <div class="kpi-value" id="kpi-mpg">-</div>
+          <div class="kpi-label">Mean Fuel Economy</div>
+          <div class="kpi-value mono accent" id="kpi-mpg">—</div>
+          <div class="kpi-meta">miles per gallon</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Avg Horsepower</div>
-          <div class="kpi-value" id="kpi-hp">-</div>
+          <div class="kpi-label">Power-to-Weight</div>
+          <div class="kpi-value mono" id="kpi-hp-ton">—</div>
+          <div class="kpi-meta">mean HP / short ton</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Mean 1/4 Mile</div>
+          <div class="kpi-value mono" id="kpi-qsec">—</div>
+          <div class="kpi-meta">seconds (standing)</div>
+        </div>
+        <div class="kpi-card kpi-card-highlight">
+          <div class="kpi-label">Best Efficiency Vehicle</div>
+          <div class="kpi-value kpi-vehicle" id="kpi-best-vehicle">—</div>
+          <div class="kpi-meta mono" id="kpi-best-mpg">—</div>
         </div>
       </div>
 
-      <div class="dashboard-grid">
+      <!-- Primary Chart + Breakdown Grid -->
+      <div class="explorer-grid">
         <div class="card chart-card">
-          <div class="card-header">Vehicle Performance Visualizer</div>
+          <div class="card-header-row">
+            <div class="card-title" id="chart-title">Telemetry Visualization</div>
+            <span class="badge mono" id="chart-badge">n = 32</span>
+          </div>
           <div class="chart-container">
-            <div id="chart-loading" class="loading-overlay">Rendering...</div>
-            <img id="chart-img" class="chart-img" style="display:none">
+            <div id="chart-loading" class="loading-overlay">
+              <span class="mini-spinner"></span>
+              <span>Rendering telemetry plot...</span>
+            </div>
+            <img id="chart-img" class="chart-img" alt="Automotive performance telemetry chart" style="display:none">
           </div>
         </div>
-        
-        <div class="card summary-card">
-          <div class="card-header">Quick Summary (by Cylinder)</div>
-          <div class="table-wrap">
-            <table id="summary-table">
+
+        <div class="card breakdown-card">
+          <div class="card-header-row">
+            <div class="card-title">Cylinder &amp; Transmission Breakdown</div>
+            <span class="badge" id="breakdown-badge">Groups</span>
+          </div>
+          <div class="table-wrap breakdown-scroll">
+            <table class="data-table compact-table" id="summary-table">
               <thead>
                 <tr>
-                  <th>Cyl</th><th>Count</th><th>Avg MPG</th><th>Avg HP</th>
+                  <th>Cyl</th>
+                  <th>Trans</th>
+                  <th class="num">N</th>
+                  <th class="num">MPG</th>
+                  <th class="num">HP/Ton</th>
+                  <th class="num">1/4 Mi</th>
                 </tr>
               </thead>
               <tbody id="summary-body"></tbody>
@@ -89,59 +275,314 @@
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- Models Section -->
-    <section id="section-models" class="app-section">
-      <header class="section-header">
-        <h1>Statistical Models</h1>
-      </header>
-
-      <div class="card model-setup-card">
-        <div class="model-formula">
-          <code>mpg ~ wt + cyl + hp</code>
-        </div>
-        <p class="model-desc">Predict fuel economy using weight, cylinders, and horsepower.</p>
-        <button class="btn-primary" onclick="runAnalysis()">Run Linear Regression</button>
-      </div>
-
-      <div id="model-results" style="display:none">
-        <div class="kpi-row">
-          <div class="kpi-card">
-            <div class="kpi-label">R-Squared</div>
-            <div class="kpi-value" id="model-r2">-</div>
+      <!-- Full Searchable & Sortable Vehicle Telemetry Ledger -->
+      <div class="card ledger-card">
+        <div class="card-header-row ledger-header">
+          <div class="ledger-title-group">
+            <div class="card-title">Vehicle Telemetry Ledger</div>
+            <span class="badge mono" id="ledger-count">0 vehicles</span>
+          </div>
+          <div class="search-box">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="vehicle-search" class="search-input" placeholder="Search model (e.g. Porsche, Mazda, Lotus)...">
           </div>
         </div>
 
-        <div class="card table-card">
-          <div class="card-header">Model Coefficients (broom::tidy)</div>
+        <div class="table-wrap ledger-scroll">
+          <table class="data-table sortable-table" id="fleet-table">
+            <thead>
+              <tr>
+                <th data-sort="model" class="sortable">Vehicle <span class="sort-ind"></span></th>
+                <th data-sort="cyl" class="sortable num">Cyl <span class="sort-ind"></span></th>
+                <th data-sort="transmission" class="sortable">Trans <span class="sort-ind"></span></th>
+                <th data-sort="mpg" class="sortable num sort-desc">MPG <span class="sort-ind"></span></th>
+                <th data-sort="hp" class="sortable num">HP <span class="sort-ind"></span></th>
+                <th data-sort="wt_lbs" class="sortable num">Weight (lbs) <span class="sort-ind"></span></th>
+                <th data-sort="hp_per_ton" class="sortable num">HP/Ton <span class="sort-ind"></span></th>
+                <th data-sort="qsec" class="sortable num">1/4 Mi (s) <span class="sort-ind"></span></th>
+                <th data-sort="disp" class="sortable num">Disp <span class="sort-ind"></span></th>
+                <th data-sort="drat" class="sortable num">Axle <span class="sort-ind"></span></th>
+                <th data-sort="gear" class="sortable num">Gears <span class="sort-ind"></span></th>
+              </tr>
+            </thead>
+            <tbody id="fleet-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         SECTION 2: REGRESSION & DIAGNOSTICS LAB
+         =================================================================== -->
+    <section id="section-models" class="app-section">
+      <header class="section-header">
+        <div>
+          <h1>Regression &amp; Diagnostics Lab</h1>
+          <p class="section-subtitle">Interactive OLS Specification · Asynchronous RDesk Execution &amp; Residual Diagnostics</p>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="btn-secondary" id="btn-copy-summary" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copy Model Summary
+          </button>
+        </div>
+      </header>
+
+      <!-- Specification Builder Card -->
+      <div class="card model-builder">
+        <div class="builder-row">
+          <div class="builder-block">
+            <span class="control-label">Response Variable (Y)</span>
+            <div class="segmented" id="model-response-group">
+              <button type="button" class="seg-btn active" data-response="mpg">mpg <span class="seg-sub">Fuel Economy</span></button>
+              <button type="button" class="seg-btn" data-response="qsec">qsec <span class="seg-sub">1/4 Mile Time</span></button>
+            </div>
+          </div>
+
+          <div class="builder-block">
+            <span class="control-label">Estimation Sample</span>
+            <div class="segmented" id="model-scope-group">
+              <button type="button" class="seg-btn active" data-scope="all">Full Fleet (32)</button>
+              <button type="button" class="seg-btn" data-scope="filtered" id="btn-scope-filtered">Filtered Fleet (32)</button>
+            </div>
+          </div>
+
+          <div class="builder-block">
+            <span class="control-label">Interaction Term</span>
+            <button type="button" class="interaction-toggle" id="toggle-interaction" aria-pressed="false">
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span class="mono">wt:hp</span>
+              <span class="interaction-hint">Weight × Power</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="builder-predictors">
+          <span class="control-label">Predictors (X)</span>
+          <div class="predictor-chips" id="predictor-chips">
+            <button type="button" class="pred-chip active" data-pred="wt"><span class="mono">wt</span> Weight</button>
+            <button type="button" class="pred-chip active" data-pred="hp"><span class="mono">hp</span> Horsepower</button>
+            <button type="button" class="pred-chip active" data-pred="cyl"><span class="mono">cyl</span> Cylinders</button>
+            <button type="button" class="pred-chip" data-pred="disp"><span class="mono">disp</span> Displacement</button>
+            <button type="button" class="pred-chip" data-pred="am"><span class="mono">am</span> Transmission</button>
+            <button type="button" class="pred-chip" data-pred="gear"><span class="mono">gear</span> Gears</button>
+            <button type="button" class="pred-chip" data-pred="drat"><span class="mono">drat</span> Axle Ratio</button>
+          </div>
+        </div>
+
+        <div class="formula-bar">
+          <div class="formula-preview-wrap">
+            <span class="formula-tag">LM SPEC</span>
+            <code class="formula-code" id="formula-preview">mpg ~ wt + hp + cyl</code>
+          </div>
+          <button type="button" class="btn-primary" id="btn-run-model">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Run OLS Regression
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty state before first run -->
+      <div class="card model-empty" id="model-empty">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M3 3v18h18"/><path d="M7 15l4-4 4 2 5-6"/>
+        </svg>
+        <div class="empty-title">Ready to Fit OLS Model</div>
+        <p class="empty-desc">Configure response, predictors, and optional <code>wt:hp</code> interaction above, then run asynchronous estimation with diagnostic plots.</p>
+      </div>
+
+      <!-- Model Results Panel -->
+      <div id="model-results" class="model-results" style="display:none">
+        <div class="kpi-strip kpi-strip-5">
+          <div class="kpi-card">
+            <div class="kpi-label">R-Squared (R²)</div>
+            <div class="kpi-value mono accent" id="m-r2">—</div>
+            <div class="r2-meter"><div class="r2-fill" id="m-r2-bar"></div></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Adjusted R²</div>
+            <div class="kpi-value mono" id="m-adj-r2">—</div>
+            <div class="kpi-meta" id="m-sample-meta">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">F-Statistic</div>
+            <div class="kpi-value mono" id="m-fstat">—</div>
+            <div class="kpi-meta mono" id="m-fpval">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">AIC</div>
+            <div class="kpi-value mono" id="m-aic">—</div>
+            <div class="kpi-meta">Akaike info criterion</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Residual Std. Error</div>
+            <div class="kpi-value mono" id="m-rse">—</div>
+            <div class="kpi-meta mono" id="m-df">—</div>
+          </div>
+        </div>
+
+        <!-- 2 Diagnostic Charts -->
+        <div class="diag-grid">
+          <div class="card chart-card">
+            <div class="card-header-row">
+              <div class="card-title">Actual vs. Predicted Fit</div>
+              <span class="badge">1:1 Reference</span>
+            </div>
+            <div class="chart-container diag-container">
+              <img id="diag-actual-img" class="chart-img" alt="Actual vs predicted diagnostic chart">
+            </div>
+          </div>
+
+          <div class="card chart-card">
+            <div class="card-header-row">
+              <div class="card-title">Residuals vs. Fitted</div>
+              <span class="badge">Homoscedasticity</span>
+            </div>
+            <div class="chart-container diag-container">
+              <img id="diag-resid-img" class="chart-img" alt="Residuals vs fitted diagnostic chart">
+            </div>
+          </div>
+        </div>
+
+        <!-- Tidy Coefficients Table -->
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title">Model Coefficients (broom::tidy · 95% CI)</div>
+            <code class="badge mono" id="m-formula-badge">—</code>
+          </div>
           <div class="table-wrap">
-            <table id="coeffs-table">
+            <table class="data-table" id="coeffs-table">
               <thead>
                 <tr>
-                  <th>Term</th><th>Estimate</th><th>Std Error</th><th>P-Value</th>
+                  <th>Term</th>
+                  <th class="num">Estimate</th>
+                  <th class="num">Std. Error</th>
+                  <th class="num">t-Stat</th>
+                  <th class="num">95% CI</th>
+                  <th class="num">p-Value</th>
+                  <th class="center">Sig</th>
                 </tr>
               </thead>
               <tbody id="coeffs-body"></tbody>
             </table>
           </div>
+          <div class="table-footnote">
+            Significance codes: <span class="mono">***</span> p &lt; 0.001 &nbsp;·&nbsp; <span class="mono">**</span> p &lt; 0.01 &nbsp;·&nbsp; <span class="mono">*</span> p &lt; 0.05 &nbsp;·&nbsp; <span class="mono">.</span> p &lt; 0.1
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Export Section -->
+    <!-- ===================================================================
+         SECTION 3: EXPORT & ENGINEERING REPORT
+         =================================================================== -->
     <section id="section-export" class="app-section">
       <header class="section-header">
-        <h1>Export Data</h1>
+        <div>
+          <h1>Data &amp; Report Export</h1>
+          <p class="section-subtitle">Native Desktop File Dialogs · Reproducible Telemetry Datasets &amp; Markdown Reports</p>
+        </div>
       </header>
 
-      <div class="export-hero">
-        <div class="export-icon">💾</div>
-        <h2>Ready to export?</h2>
-        <p>Save your filtered dataset to a local CSV file for use in other tools.</p>
-        <button class="btn-primary btn-large" onclick="rdesk.send('export_csv', {})">
-          Save as CSV...
-        </button>
+      <div class="export-grid">
+        <div class="card export-card">
+          <div class="export-card-head">
+            <div class="export-icon-wrap">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="3" y1="15" x2="21" y2="15"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
+              </svg>
+            </div>
+            <div>
+              <h2>Filtered Telemetry Dataset</h2>
+              <span class="badge mono">CSV · UTF-8</span>
+            </div>
+          </div>
+
+          <p class="export-desc">
+            Exports the currently filtered fleet including engineered power-to-weight (<code>hp_per_ton</code>), curb weight in pounds (<code>wt_lbs</code>), and transmission labels.
+          </p>
+
+          <div class="export-meta-list">
+            <div class="export-meta-item">
+              <span>Matched Vehicles</span>
+              <span class="mono" id="exp-rows">32 rows</span>
+            </div>
+            <div class="export-meta-item">
+              <span>Active Cylinders</span>
+              <span class="mono" id="exp-cyls">4, 6, 8</span>
+            </div>
+            <div class="export-meta-item">
+              <span>Transmission / HP</span>
+              <span class="mono" id="exp-filters">All · 52–335 HP</span>
+            </div>
+          </div>
+
+          <button type="button" class="btn-primary btn-full" id="btn-export-csv">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Save Filtered Dataset (.csv)
+          </button>
+        </div>
+
+        <div class="card export-card">
+          <div class="export-card-head">
+            <div class="export-icon-wrap export-icon-accent">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+            </div>
+            <div>
+              <h2>Engineering Telemetry Report</h2>
+              <span class="badge mono">Markdown · .md</span>
+            </div>
+          </div>
+
+          <p class="export-desc">
+            Generates a structured Markdown engineering report containing active filter provenance, KPI metrics, Cylinder × Transmission summary, full telemetry ledger, and the latest OLS model table.
+          </p>
+
+          <div class="export-meta-list">
+            <div class="export-meta-item">
+              <span>Fleet Summary &amp; Breakdown</span>
+              <span class="status-tag status-ok">Included</span>
+            </div>
+            <div class="export-meta-item">
+              <span>Regression Model Table</span>
+              <span class="status-tag" id="exp-model-status">Not fitted yet</span>
+            </div>
+            <div class="export-meta-item">
+              <span>Latest Formula</span>
+              <span class="mono" id="exp-model-formula">—</span>
+            </div>
+          </div>
+
+          <button type="button" class="btn-primary btn-full" id="btn-export-report">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <path d="M12 18v-6"/><path d="M9 15l3 3 3-3"/>
+            </svg>
+            Save Engineering Report (.md)
+          </button>
+        </div>
       </div>
     </section>
 

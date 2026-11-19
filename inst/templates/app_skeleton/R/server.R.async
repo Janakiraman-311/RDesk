@@ -1,54 +1,169 @@
-# {{APP_NAME}} - message handlers (Async Mode)
+# {{APP_NAME}} - Message Handlers (Async Mode)
 
 init_handlers <- function(app) {
 
-  # -- Ready -----------------------------------------------------------------
+  # -- Application Ready -----------------------------------------------------
   app$on_ready(function() {
     app$set_menu(list(
       File = list(
-        "Refresh"   = function() app$send("refresh", list()),
+        "Refresh Data"  = function() app$send("refresh", list()),
+        "Export CSV..." = function() app$send("trigger_export", list()),
+        "Copy Summary"  = function() app$send("trigger_copy", list()),
         "---",
-        "Exit"      = app$quit
+        "Exit"          = app$quit
+      ),
+      View = list(
+        "Analytics Workbench" = function() app$send("switch_view", list(view = "analytics")),
+        "Runtime & Env"       = function() app$send("switch_view", list(view = "runtime"))
       ),
       Help = list(
-        "About"     = function() {
-          app$toast("{{APP_TITLE}} v1.0.0 - built with RDesk", type = "info")
+        "About {{APP_TITLE}}" = function() {
+          app$toast("{{APP_TITLE}} v1.0.0 - built with RDesk {{RDESK_VER}}", type = "info")
         }
       )
     ))
-    # Send initial data to UI
+
+    # Send initial dataset, chart, KPIs, and live R runtime metadata
     df <- init_data()
     if (!is.null(df)) {
       res <- RDesk::rdesk_df_to_list(df)
-      res$chart <- if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) make_chart(df) else NULL
-      res$kpis  <- get_app_kpis(df)
+      res$chart       <- if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) make_chart(df) else NULL
+      res$kpis        <- get_app_kpis(df, total_rows = nrow(df))
+      res$count       <- nrow(df)
+      res$total_count <- nrow(df)
+      res$timestamp   <- format(Sys.time(), "%H:%M:%S")
+      res$runtime     <- get_runtime_info()
       app$send("data_ready", res)
     }
   })
 
-  # -- Main data handler -----------------------------------------------------
+  # -- Main Data Refresh (Async) ---------------------------------------------
   app$on_message("get_data", async(function(payload) {
-    df <- init_data()
-    # If viz_type is mixed or charts, include chart
-    chart_b64 <- if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) make_chart(df) else NULL
-    res <- RDesk::rdesk_df_to_list(df)
-    res$chart <- chart_b64
-    res$kpis  <- get_app_kpis(df)
-    res
-  }, app = app, loading_message = "Loading data..."))
-
-  # -- Filter handler --------------------------------------------------------
-  app$on_message("filter", async(function(payload) {
-    df  <- init_data()
-    val <- payload$value
-    if (!is.null(val) && nzchar(val) && val != "all") {
-      df <- df[as.character(df[[payload$column]]) == as.character(val), ]
-    }
-    list(
-      data  = RDesk::rdesk_df_to_list(df),
-      chart = if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) make_chart(df) else NULL,
-      count = nrow(df),
-      kpis  = get_app_kpis(df)
+    full_df <- init_data()
+    df <- filter_app_data(
+      full_df,
+      cyl          = if (!is.null(payload$cyl)) payload$cyl else "all",
+      transmission = if (!is.null(payload$transmission)) payload$transmission else "all",
+      column       = payload$column,
+      value        = payload$value
     )
-  }, app = app, loading_message = "Filtering..."))
+
+    x_var      <- if (!is.null(payload$x_var)) payload$x_var else "wt"
+    y_var      <- if (!is.null(payload$y_var)) payload$y_var else "mpg"
+    chart_type <- if (!is.null(payload$chart_type)) payload$chart_type else "scatter"
+    theme_mode <- if (!is.null(payload$theme_mode)) payload$theme_mode else "{{THEME}}"
+
+    chart_b64 <- if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) {
+      make_chart(df, x_var = x_var, y_var = y_var, chart_type = chart_type, theme_mode = theme_mode)
+    } else {
+      NULL
+    }
+
+    res <- RDesk::rdesk_df_to_list(df)
+    res$chart       <- chart_b64
+    res$kpis        <- get_app_kpis(df, total_rows = nrow(full_df))
+    res$count       <- nrow(df)
+    res$total_count <- nrow(full_df)
+    res$timestamp   <- format(Sys.time(), "%H:%M:%S")
+    res
+  }, app = app, loading_message = "Refreshing dataset..."))
+
+  # -- Interactive Filter & Chart Re-render (Async) --------------------------
+  app$on_message("filter", async(function(payload) {
+    full_df <- init_data()
+    df <- filter_app_data(
+      full_df,
+      cyl          = if (!is.null(payload$cyl)) payload$cyl else "all",
+      transmission = if (!is.null(payload$transmission)) payload$transmission else "all",
+      column       = payload$column,
+      value        = payload$value
+    )
+
+    x_var      <- if (!is.null(payload$x_var)) payload$x_var else "wt"
+    y_var      <- if (!is.null(payload$y_var)) payload$y_var else "mpg"
+    chart_type <- if (!is.null(payload$chart_type)) payload$chart_type else "scatter"
+    theme_mode <- if (!is.null(payload$theme_mode)) payload$theme_mode else "{{THEME}}"
+
+    chart_b64 <- if ("{{VIZ_TYPE}}" %in% c("mixed", "charts")) {
+      make_chart(df, x_var = x_var, y_var = y_var, chart_type = chart_type, theme_mode = theme_mode)
+    } else {
+      NULL
+    }
+
+    list(
+      data        = RDesk::rdesk_df_to_list(df),
+      chart       = chart_b64,
+      count       = nrow(df),
+      total_count = nrow(full_df),
+      kpis        = get_app_kpis(df, total_rows = nrow(full_df)),
+      timestamp   = format(Sys.time(), "%H:%M:%S")
+    )
+  }, app = app, loading_message = "Updating view..."))
+
+  # -- Live R Session & Runtime Info (Main Process) --------------------------
+  app$on_message("get_runtime_info", function(payload) {
+    app$send("runtime_info", get_runtime_info())
+  })
+
+  # -- Export Filtered Data to CSV (Native Save Dialog) ----------------------
+  app$on_message("export_csv", function(payload) {
+    full_df <- init_data()
+    df <- filter_app_data(
+      full_df,
+      cyl          = if (!is.null(payload$cyl)) payload$cyl else "all",
+      transmission = if (!is.null(payload$transmission)) payload$transmission else "all",
+      search       = if (!is.null(payload$search)) payload$search else ""
+    )
+
+    path <- app$dialog_save(
+      title        = "Export Filtered Dataset (CSV)",
+      default_name = "{{APP_NAME}}_export.csv",
+      filters      = list("CSV files" = "*.csv")
+    )
+
+    if (is.null(path) || !nzchar(path) || identical(path, "__CANCEL__")) {
+      app$send("export_csv_result", list(ok = FALSE, cancelled = TRUE))
+      return(invisible(NULL))
+    }
+
+    tryCatch({
+      utils::write.csv(df, file = path, row.names = FALSE)
+      app$toast(sprintf("Exported %d rows to %s", nrow(df), basename(path)), type = "success")
+      app$send("export_csv_result", list(
+        ok        = TRUE,
+        cancelled = FALSE,
+        path      = path,
+        count     = nrow(df),
+        timestamp = format(Sys.time(), "%H:%M:%S")
+      ))
+    }, error = function(e) {
+      app$toast(paste0("Export failed: ", conditionMessage(e)), type = "error")
+      app$send("export_csv_result", list(ok = FALSE, error = conditionMessage(e)))
+    })
+  })
+
+  # -- Copy Analytics Summary to Clipboard -----------------------------------
+  app$on_message("copy_summary", function(payload) {
+    full_df <- init_data()
+    df <- filter_app_data(
+      full_df,
+      cyl          = if (!is.null(payload$cyl)) payload$cyl else "all",
+      transmission = if (!is.null(payload$transmission)) payload$transmission else "all",
+      search       = if (!is.null(payload$search)) payload$search else ""
+    )
+
+    summary_text <- format_summary_text(df, filters = payload)
+    tryCatch({
+      app$clipboard_write(summary_text)
+      app$toast("Summary copied to clipboard", type = "success")
+      app$send("copy_summary_result", list(
+        ok        = TRUE,
+        count     = nrow(df),
+        timestamp = format(Sys.time(), "%H:%M:%S")
+      ))
+    }, error = function(e) {
+      app$toast(paste0("Clipboard error: ", conditionMessage(e)), type = "error")
+      app$send("copy_summary_result", list(ok = FALSE, error = conditionMessage(e)))
+    })
+  })
 }

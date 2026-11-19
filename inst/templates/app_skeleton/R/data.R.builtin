@@ -1,9 +1,168 @@
-# {{APP_NAME}} - data loading
-# Data source: built-in R dataset (mtcars)
+# {{APP_NAME}} - Data Loading, Filtering & Runtime Metadata
+# Data source: built-in R dataset (mtcars) with derived engineering metrics
 
+#' Initialize the starter dataset
+#'
+#' Returns the enriched mtcars data frame with vehicle names and derived
+#' engineering metrics while keeping every original mtcars column intact.
+#'
+#' @return A data.frame
 init_data <- function() {
-  df <- mtcars
+  df <- datasets::mtcars
   df$model <- rownames(df)
   rownames(df) <- NULL
+
+  df$transmission <- ifelse(df$am == 1, "Manual", "Automatic")
+  df$power_to_weight <- round(df$hp / df$wt, 1)
+  df$efficiency_tier <- ifelse(
+    df$mpg >= 25, "High",
+    ifelse(df$mpg >= 18, "Mid", "Low")
+  )
+
+  col_order <- c(
+    "model", "mpg", "cyl", "hp", "wt", "qsec", "disp",
+    "transmission", "power_to_weight", "gear", "drat",
+    "vs", "am", "carb", "efficiency_tier"
+  )
+  df[, col_order, drop = FALSE]
+}
+
+#' Filter the dataset by cylinder, transmission, and optional search text
+#'
+#' @param df Data frame from init_data()
+#' @param cyl Character or numeric cylinder filter ("all", "4", "6", "8")
+#' @param transmission Character transmission filter ("all", "Automatic", "Manual")
+#' @param search Optional case-insensitive search string
+#' @param column Optional legacy single-column filter name
+#' @param value Optional legacy single-column filter value
+#' @return Filtered data.frame
+filter_app_data <- function(df,
+                            cyl = "all",
+                            transmission = "all",
+                            search = "",
+                            column = NULL,
+                            value = NULL) {
+  if (is.null(df) || nrow(df) == 0L) return(df)
+
+  # Backward-compatible single-column payload support
+  if (!is.null(column) && nzchar(as.character(column)) &&
+      !is.null(value) && nzchar(as.character(value)) &&
+      as.character(value) != "all" &&
+      column %in% names(df)) {
+    df <- df[as.character(df[[column]]) == as.character(value), , drop = FALSE]
+  }
+
+  if (!is.null(cyl) && nzchar(as.character(cyl)) &&
+      tolower(as.character(cyl)) != "all" && "cyl" %in% names(df)) {
+    df <- df[as.character(df$cyl) == as.character(cyl), , drop = FALSE]
+  }
+
+  if (!is.null(transmission) && nzchar(as.character(transmission)) &&
+      tolower(as.character(transmission)) != "all" && "transmission" %in% names(df)) {
+    df <- df[tolower(as.character(df$transmission)) == tolower(as.character(transmission)), , drop = FALSE]
+  }
+
+  if (!is.null(search) && nzchar(trimws(as.character(search)))) {
+    q <- tolower(trimws(as.character(search)))
+    searchable <- paste(
+      if ("model" %in% names(df)) df$model else "",
+      if ("transmission" %in% names(df)) df$transmission else "",
+      if ("cyl" %in% names(df)) paste0(df$cyl, " cyl") else "",
+      if ("efficiency_tier" %in% names(df)) df$efficiency_tier else ""
+    )
+    df <- df[grepl(q, tolower(searchable), fixed = TRUE), , drop = FALSE]
+  }
+
+  rownames(df) <- NULL
   df
+}
+
+#' Collect live R session and runtime environment metadata
+#'
+#' @return Named list suitable for JSON serialization to the UI
+get_runtime_info <- function() {
+  sys <- Sys.info()
+  gc_stats <- gc(verbose = FALSE)
+  mem_mb <- round(sum(gc_stats[, 2]), 1)
+
+  attached_pkgs <- sort(sub("^package:", "", grep("^package:", search(), value = TRUE)))
+  loaded_ns <- sort(loadedNamespaces())
+
+  rdesk_ver <- tryCatch(
+    as.character(utils::packageVersion("RDesk")),
+    error = function(e) "{{RDESK_VER}}"
+  )
+  ggplot_ver <- tryCatch(
+    as.character(utils::packageVersion("ggplot2")),
+    error = function(e) "Not installed"
+  )
+
+  list(
+    app_name          = "{{APP_NAME}}",
+    app_title         = "{{APP_TITLE}}",
+    r_version         = R.version.string,
+    r_short           = paste0("R ", R.version$major, ".", R.version$minor),
+    platform          = R.version$platform,
+    os                = paste(sys[["sysname"]], sys[["release"]]),
+    machine           = sys[["machine"]],
+    pid               = as.character(Sys.getpid()),
+    memory_mb         = formatC(mem_mb, format = "f", digits = 1),
+    loaded_namespaces = length(loaded_ns),
+    attached_count    = length(attached_pkgs),
+    attached_packages = as.list(attached_pkgs),
+    lib_paths         = as.list(.libPaths()),
+    working_dir       = normalizePath(getwd(), winslash = "/", mustWork = FALSE),
+    rdesk_version     = rdesk_ver,
+    ggplot2_version   = ggplot_ver,
+    theme             = "{{THEME}}",
+    timestamp         = format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  )
+}
+
+#' Build a concise plain-text analytics summary for clipboard export
+#'
+#' @param df Filtered data frame
+#' @param filters Named list of active filter settings
+#' @return Single character string
+format_summary_text <- function(df, filters = list()) {
+  cyl_lbl <- if (!is.null(filters$cyl) && filters$cyl != "all") paste0(filters$cyl, " cyl") else "All"
+  tr_lbl  <- if (!is.null(filters$transmission) && filters$transmission != "all") filters$transmission else "All"
+  q_lbl   <- if (!is.null(filters$search) && nzchar(trimws(filters$search))) trimws(filters$search) else "None"
+
+  lines <- c(
+    "{{APP_TITLE}} - Analytics Summary",
+    paste0("Generated: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), " | ", R.version.string),
+    sprintf("Filters: Cylinders = %s | Transmission = %s | Search = %s", cyl_lbl, tr_lbl, q_lbl),
+    ""
+  )
+
+  if (is.null(df) || nrow(df) == 0L) {
+    lines <- c(lines, "No vehicles match the active filter criteria.")
+    return(paste(lines, collapse = "\n"))
+  }
+
+  ptw <- if ("power_to_weight" %in% names(df)) df$power_to_weight else df$hp / df$wt
+  top_idx <- order(df$mpg, decreasing = TRUE)
+  top_df  <- utils::head(df[top_idx, , drop = FALSE], 5L)
+
+  lines <- c(
+    lines,
+    sprintf("Vehicles Shown : %d", nrow(df)),
+    sprintf("Mean MPG       : %.1f (range %.1f - %.1f)", mean(df$mpg), min(df$mpg), max(df$mpg)),
+    sprintf("Mean HP        : %.0f (peak %.0f)", mean(df$hp), max(df$hp)),
+    sprintf("Mean HP/1k lbs : %.1f (peak %.1f)", mean(ptw), max(ptw)),
+    "",
+    "Top Models by Fuel Economy:"
+  )
+
+  for (i in seq_len(nrow(top_df))) {
+    lines <- c(
+      lines,
+      sprintf("  %d. %s - %.1f mpg, %d hp, %.2fk lbs (%s)",
+              i, top_df$model[i], top_df$mpg[i], top_df$hp[i],
+              top_df$wt[i], top_df$transmission[i])
+    )
+  }
+
+  paste(lines, collapse = "\n")
 }

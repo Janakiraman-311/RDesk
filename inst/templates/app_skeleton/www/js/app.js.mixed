@@ -1,62 +1,545 @@
-// {{APP_NAME}} - UI logic (Mixed variant)
+// {{APP_NAME}} - Interactive Workbench Controller (Mixed Variant)
 
-rdesk.on("data_ready", function(data) {
-  if (data.chart) {
-    document.getElementById("main-chart").src = data.chart;
+(function() {
+  "use strict";
+
+  var CONFIGURED_THEME = "{{THEME}}";
+
+  var state = {
+    cyl: "all",
+    transmission: "all",
+    x_var: "wt",
+    y_var: "mpg",
+    chart_type: "scatter",
+    search: "",
+    activeView: "analytics",
+    rows: [],
+    cols: [],
+    totalCount: 0,
+    sortCol: null,
+    sortAsc: true
+  };
+
+  var VAR_LABELS = {
+    wt: "Weight",
+    hp: "Horsepower",
+    disp: "Displacement",
+    qsec: "1/4 Mile Time",
+    mpg: "Fuel Economy",
+    power_to_weight: "Power-to-Weight"
+  };
+
+  var DISPLAY_COLS = [
+    { key: "model",           label: "Model",    align: "left"  },
+    { key: "mpg",             label: "MPG",      align: "right" },
+    { key: "cyl",             label: "Cyl",      align: "center"},
+    { key: "hp",              label: "HP",       align: "right" },
+    { key: "wt",              label: "Wt (1k)",  align: "right" },
+    { key: "qsec",            label: "1/4 Mi",   align: "right" },
+    { key: "power_to_weight", label: "HP/1k lb", align: "right" },
+    { key: "transmission",    label: "Trans",    align: "left"  }
+  ];
+
+  function getEffectiveTheme() {
+    if (CONFIGURED_THEME === "dark") return "dark";
+    if (CONFIGURED_THEME === "light") return "light";
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      return "dark";
+    }
+    return "light";
   }
-  if (data.kpis) updateKPIs(data.kpis);
-  renderTable(data.rows, data.cols);
-  updateStatus("Initial data rendered");
-});
 
-rdesk.on("get_data_result", function(data) {
-  if (data.chart) {
-    document.getElementById("main-chart").src = data.chart;
+  function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
-  if (data.kpis) updateKPIs(data.kpis);
-  renderTable(data.rows, data.cols);
-  updateStatus("Refreshed - " + data.rows.length + " rows");
-});
 
-rdesk.on("filter_result", function(result) {
-  renderTable(result.data.rows, result.data.cols);
-  if (result.chart) document.getElementById("main-chart").src = result.chart;
-  if (result.kpis) updateKPIs(result.kpis);
-  updateStatus("Showing " + result.count + " rows");
-});
+  function buildFilterPayload() {
+    return {
+      cyl: state.cyl,
+      transmission: state.transmission,
+      x_var: state.x_var,
+      y_var: state.y_var,
+      chart_type: state.chart_type,
+      search: state.search,
+      theme_mode: getEffectiveTheme()
+    };
+  }
 
-rdesk.on("__loading__", function(state) {
-  updateStatus(state.active ? (state.message || "Working...") : "Ready");
-});
+  function updateChartHeader() {
+    var titleEl = document.getElementById("chart-title");
+    var badgeEl = document.getElementById("chart-badge");
+    var xGroup = document.getElementById("x-var-group");
+    var xLabel = VAR_LABELS[state.x_var] || state.x_var;
+    var yLabel = VAR_LABELS[state.y_var] || state.y_var;
 
-function updateKPIs(kpis) {
-  document.getElementById("kpi-mpg").textContent = kpis.avg_mpg || "-";
-  document.getElementById("kpi-count").textContent = kpis.count || "-";
-  document.getElementById("kpi-hp").textContent = kpis.avg_hp || "-";
-}
+    if (state.chart_type === "scatter") {
+      if (titleEl) titleEl.textContent = yLabel + " vs " + xLabel;
+      if (badgeEl) badgeEl.textContent = "Scatter + OLS";
+      if (xGroup) xGroup.classList.remove("is-muted");
+    } else if (state.chart_type === "boxplot") {
+      if (titleEl) titleEl.textContent = yLabel + " by Cylinders";
+      if (badgeEl) badgeEl.textContent = "Distribution";
+      if (xGroup) xGroup.classList.add("is-muted");
+    } else {
+      if (titleEl) titleEl.textContent = "Top Models by " + yLabel;
+      if (badgeEl) badgeEl.textContent = "Top 12 Ranking";
+      if (xGroup) xGroup.classList.add("is-muted");
+    }
+  }
 
-function renderTable(rows, cols) {
-  var head = document.getElementById("table-head");
-  var body = document.getElementById("table-body");
-  if (!head || !body || !rows || rows.length === 0) return;
+  function updateKPIs(kpis) {
+    if (!kpis) return;
+    var set = function(id, val) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = (val !== undefined && val !== null) ? val : "-";
+    };
+    set("kpi-count", kpis.count);
+    set("kpi-count-sub", kpis.count_sub);
+    set("kpi-mpg", kpis.avg_mpg);
+    set("kpi-mpg-sub", kpis.mpg_sub);
+    set("kpi-hp", kpis.avg_hp);
+    set("kpi-hp-sub", kpis.hp_sub);
+    set("kpi-ptw", kpis.avg_ptw);
+    set("kpi-ptw-sub", kpis.ptw_sub);
+  }
 
-  head.innerHTML = "<tr>" + cols.slice(0, 6).map(function(c) {
-    return "<th>" + c + "</th>";
-  }).join("") + "</tr>";
+  function getFilteredAndSortedRows() {
+    var rows = state.rows.slice();
+    var q = state.search.trim().toLowerCase();
 
-  body.innerHTML = rows.slice(0, 20).map(function(row) {
-    return "<tr>" + cols.slice(0, 6).map(function(c) {
-      return "<td>" + (row[c] !== undefined ? row[c] : "") + "</td>";
+    if (q) {
+      rows = rows.filter(function(r) {
+        var hay = [
+          r.model,
+          r.transmission,
+          r.cyl !== undefined ? (r.cyl + " cyl") : "",
+          r.efficiency_tier
+        ].join(" ").toLowerCase();
+        return hay.indexOf(q) !== -1;
+      });
+    }
+
+    if (state.sortCol) {
+      var col = state.sortCol;
+      var dir = state.sortAsc ? 1 : -1;
+      rows.sort(function(a, b) {
+        var va = a[col];
+        var vb = b[col];
+        if (typeof va === "number" && typeof vb === "number") {
+          return (va - vb) * dir;
+        }
+        return String(va || "").localeCompare(String(vb || "")) * dir;
+      });
+    }
+    return rows;
+  }
+
+  function renderTable() {
+    var head = document.getElementById("table-head");
+    var body = document.getElementById("table-body");
+    var badge = document.getElementById("table-count-badge");
+    var statusRows = document.getElementById("status-rows");
+    if (!head || !body) return;
+
+    var activeCols = DISPLAY_COLS.filter(function(c) {
+      return state.cols.length === 0 || state.cols.indexOf(c.key) !== -1;
+    });
+    if (activeCols.length === 0) {
+      activeCols = state.cols.slice(0, 7).map(function(c) {
+        return { key: c, label: c, align: "left" };
+      });
+    }
+
+    head.innerHTML = "<tr>" + activeCols.map(function(c) {
+      var indicator = "";
+      if (state.sortCol === c.key) {
+        indicator = state.sortAsc ? " &#9650;" : " &#9660;";
+      }
+      return '<th class="col-' + c.align + ' sortable" data-col="' + escapeHtml(c.key) + '">' +
+        escapeHtml(c.label) + '<span class="sort-ind">' + indicator + "</span></th>";
     }).join("") + "</tr>";
-  }).join("");
-}
 
-function updateStatus(msg) {
-  var el = document.getElementById("status-label");
-  if (el) el.textContent = msg;
-}
+    var ths = head.querySelectorAll("th[data-col]");
+    for (var i = 0; i < ths.length; i++) {
+      ths[i].addEventListener("click", function() {
+        var colKey = this.getAttribute("data-col");
+        if (state.sortCol === colKey) {
+          state.sortAsc = !state.sortAsc;
+        } else {
+          state.sortCol = colKey;
+          state.sortAsc = (colKey === "model" || colKey === "transmission");
+        }
+        renderTable();
+      });
+    }
 
-// Request data on load
-rdesk.ready(function() {
-  rdesk.send("get_data", {});
-});
+    var filteredRows = getFilteredAndSortedRows();
+    if (badge) {
+      badge.textContent = filteredRows.length + " of " + (state.totalCount || state.rows.length) + " rows";
+    }
+    if (statusRows) {
+      statusRows.textContent = filteredRows.length + " / " + (state.totalCount || state.rows.length) + " rows";
+    }
+
+    if (filteredRows.length === 0) {
+      body.innerHTML = '<tr><td colspan="' + activeCols.length + '" class="table-empty">No vehicles match your search or filter criteria.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = filteredRows.map(function(row) {
+      return "<tr>" + activeCols.map(function(c) {
+        var raw = row[c.key];
+        var cellHtml;
+        if (c.key === "cyl") {
+          cellHtml = '<span class="cyl-badge cyl-' + escapeHtml(raw) + '">' + escapeHtml(raw) + "</span>";
+        } else if (c.key === "model") {
+          cellHtml = '<span class="model-name">' + escapeHtml(raw) + "</span>";
+        } else if (c.key === "transmission") {
+          var cls = String(raw) === "Manual" ? "trans-manual" : "trans-auto";
+          cellHtml = '<span class="trans-tag ' + cls + '">' + escapeHtml(raw) + "</span>";
+        } else if (typeof raw === "number") {
+          var formatted = (c.key === "hp") ? Math.round(raw) : raw.toFixed(c.key === "wt" ? 2 : 1);
+          cellHtml = '<span class="num-cell">' + escapeHtml(formatted) + "</span>";
+        } else {
+          cellHtml = escapeHtml(raw !== undefined ? raw : "");
+        }
+        return '<td class="col-' + c.align + '">' + cellHtml + "</td>";
+      }).join("") + "</tr>";
+    }).join("");
+  }
+
+  function renderRuntime(rt) {
+    if (!rt) return;
+    var setText = function(id, val) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = (val !== undefined && val !== null) ? val : "-";
+    };
+
+    setText("sidebar-r-version", rt.r_short || rt.r_version);
+    setText("sidebar-pid", "PID " + (rt.pid || "-"));
+
+    setText("rt-r-version", rt.r_short || rt.r_version);
+    setText("rt-platform", rt.platform || rt.r_version);
+    setText("rt-pid", rt.pid);
+    setText("rt-os", rt.os);
+    setText("rt-memory", (rt.memory_mb || "0.0") + " MB");
+    setText("rt-memory-sub", "Ncells + Vcells (" + (rt.machine || "host") + ")");
+    setText("rt-loaded-count", rt.loaded_namespaces);
+    setText("rt-attached-count", (rt.attached_count || 0) + " attached on search path");
+    setText("rt-workdir", rt.working_dir);
+    setText("rt-rdesk-ver", "v" + (rt.rdesk_version || "{{RDESK_VER}}"));
+    setText("rt-ggplot-ver", "v" + (rt.ggplot2_version || "-"));
+    setText("rt-updated", rt.timestamp);
+
+    var libList = document.getElementById("rt-lib-paths");
+    if (libList && Array.isArray(rt.lib_paths)) {
+      libList.innerHTML = rt.lib_paths.map(function(p, idx) {
+        return '<li class="path-item"><span class="path-idx">' + (idx + 1) +
+          '</span><span class="mono-text">' + escapeHtml(p) + "</span></li>";
+      }).join("");
+    }
+
+    var pkgWrap = document.getElementById("rt-packages-list");
+    if (pkgWrap && Array.isArray(rt.attached_packages)) {
+      pkgWrap.innerHTML = rt.attached_packages.map(function(pkg) {
+        return '<span class="pkg-chip">' + escapeHtml(pkg) + "</span>";
+      }).join("");
+    }
+  }
+
+  function applyDatasetPayload(rows, cols, chart, kpis, totalCount, timestamp) {
+    state.rows = Array.isArray(rows) ? rows : [];
+    state.cols = Array.isArray(cols) ? cols : [];
+    if (typeof totalCount === "number") {
+      state.totalCount = totalCount;
+    } else if (state.totalCount === 0) {
+      state.totalCount = state.rows.length;
+    }
+
+    var chartEl = document.getElementById("main-chart");
+    if (chart && chartEl) {
+      chartEl.src = chart;
+      chartEl.classList.remove("is-loading");
+    }
+
+    updateKPIs(kpis);
+    updateChartHeader();
+    renderTable();
+
+    var upd = document.getElementById("status-updated");
+    if (upd && timestamp) {
+      upd.textContent = "Updated " + timestamp;
+    }
+  }
+
+  function setStatus(msg, mode) {
+    var label = document.getElementById("status-label");
+    var dot = document.getElementById("status-dot");
+    if (label) label.textContent = msg;
+    if (dot) {
+      dot.className = "status-dot " + (mode || "ready");
+    }
+  }
+
+  function switchView(viewName) {
+    state.activeView = viewName === "runtime" ? "runtime" : "analytics";
+    var analyticsView = document.getElementById("view-analytics");
+    var runtimeView = document.getElementById("view-runtime");
+    var tabAnalytics = document.getElementById("tab-analytics");
+    var tabRuntime = document.getElementById("tab-runtime");
+
+    if (analyticsView) analyticsView.hidden = (state.activeView !== "analytics");
+    if (runtimeView) runtimeView.hidden = (state.activeView !== "runtime");
+
+    if (tabAnalytics) {
+      tabAnalytics.classList.toggle("active", state.activeView === "analytics");
+      tabAnalytics.setAttribute("aria-selected", state.activeView === "analytics" ? "true" : "false");
+    }
+    if (tabRuntime) {
+      tabRuntime.classList.toggle("active", state.activeView === "runtime");
+      tabRuntime.setAttribute("aria-selected", state.activeView === "runtime" ? "true" : "false");
+    }
+
+    if (state.activeView === "runtime") {
+      rdesk.send("get_runtime_info", {});
+    }
+  }
+
+  function requestFilterUpdate() {
+    var chartEl = document.getElementById("main-chart");
+    if (chartEl) chartEl.classList.add("is-loading");
+    updateChartHeader();
+    setStatus("Updating view...", "busy");
+    rdesk.send("filter", buildFilterPayload());
+  }
+
+  function bindControls() {
+    var cylEl = document.getElementById("cyl-filter");
+    var transEl = document.getElementById("trans-filter");
+    var xEl = document.getElementById("x-var-select");
+    var yEl = document.getElementById("y-var-select");
+    var searchEl = document.getElementById("table-search");
+    var clearSearchBtn = document.getElementById("btn-clear-search");
+    var chartGroup = document.getElementById("chart-type-group");
+
+    if (cylEl) {
+      cylEl.addEventListener("change", function() {
+        state.cyl = this.value;
+        requestFilterUpdate();
+      });
+    }
+    if (transEl) {
+      transEl.addEventListener("change", function() {
+        state.transmission = this.value;
+        requestFilterUpdate();
+      });
+    }
+    if (xEl) {
+      xEl.addEventListener("change", function() {
+        state.x_var = this.value;
+        requestFilterUpdate();
+      });
+    }
+    if (yEl) {
+      yEl.addEventListener("change", function() {
+        state.y_var = this.value;
+        requestFilterUpdate();
+      });
+    }
+
+    if (chartGroup) {
+      var segBtns = chartGroup.querySelectorAll(".seg-btn");
+      for (var i = 0; i < segBtns.length; i++) {
+        segBtns[i].addEventListener("click", function() {
+          var nextType = this.getAttribute("data-chart");
+          if (!nextType || nextType === state.chart_type) return;
+          state.chart_type = nextType;
+          for (var j = 0; j < segBtns.length; j++) {
+            segBtns[j].classList.toggle("active", segBtns[j] === this);
+          }
+          requestFilterUpdate();
+        });
+      }
+    }
+
+    if (searchEl) {
+      searchEl.addEventListener("input", function() {
+        state.search = this.value;
+        if (clearSearchBtn) {
+          clearSearchBtn.style.visibility = state.search ? "visible" : "hidden";
+        }
+        renderTable();
+      });
+    }
+
+    if (clearSearchBtn) {
+      clearSearchBtn.style.visibility = "hidden";
+      clearSearchBtn.addEventListener("click", function() {
+        state.search = "";
+        if (searchEl) searchEl.value = "";
+        clearSearchBtn.style.visibility = "hidden";
+        renderTable();
+      });
+    }
+
+    var resetBtn = document.getElementById("btn-reset-filters");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", function() {
+        state.cyl = "all";
+        state.transmission = "all";
+        state.x_var = "wt";
+        state.y_var = "mpg";
+        state.chart_type = "scatter";
+        state.search = "";
+        state.sortCol = null;
+
+        if (cylEl) cylEl.value = "all";
+        if (transEl) transEl.value = "all";
+        if (xEl) xEl.value = "wt";
+        if (yEl) yEl.value = "mpg";
+        if (searchEl) searchEl.value = "";
+        if (clearSearchBtn) clearSearchBtn.style.visibility = "hidden";
+        if (chartGroup) {
+          var segBtns = chartGroup.querySelectorAll(".seg-btn");
+          for (var k = 0; k < segBtns.length; k++) {
+            segBtns[k].classList.toggle("active", segBtns[k].getAttribute("data-chart") === "scatter");
+          }
+        }
+        requestFilterUpdate();
+      });
+    }
+
+    var tabAnalytics = document.getElementById("tab-analytics");
+    var tabRuntime = document.getElementById("tab-runtime");
+    var openRuntime = document.getElementById("btn-open-runtime");
+
+    if (tabAnalytics) tabAnalytics.addEventListener("click", function() { switchView("analytics"); });
+    if (tabRuntime) tabRuntime.addEventListener("click", function() { switchView("runtime"); });
+    if (openRuntime) openRuntime.addEventListener("click", function() { switchView("runtime"); });
+
+    var btnRefresh = document.getElementById("btn-refresh");
+    if (btnRefresh) {
+      btnRefresh.addEventListener("click", function() {
+        setStatus("Refreshing dataset...", "busy");
+        rdesk.send("get_data", buildFilterPayload());
+      });
+    }
+
+    var btnExport = document.getElementById("btn-export-csv");
+    if (btnExport) {
+      btnExport.addEventListener("click", function() {
+        setStatus("Opening export dialog...", "busy");
+        rdesk.send("export_csv", buildFilterPayload());
+      });
+    }
+
+    var btnCopy = document.getElementById("btn-copy-summary");
+    if (btnCopy) {
+      btnCopy.addEventListener("click", function() {
+        rdesk.send("copy_summary", buildFilterPayload());
+      });
+    }
+
+    var btnRefreshRt = document.getElementById("btn-refresh-runtime");
+    if (btnRefreshRt) {
+      btnRefreshRt.addEventListener("click", function() {
+        setStatus("Refreshing runtime diagnostics...", "busy");
+        rdesk.send("get_runtime_info", {});
+      });
+    }
+
+    // Re-render chart if OS color scheme changes in system theme mode
+    if (CONFIGURED_THEME === "system" && window.matchMedia) {
+      var mq = window.matchMedia("(prefers-color-scheme: dark)");
+      var onSchemeChange = function() { requestFilterUpdate(); };
+      if (mq.addEventListener) {
+        mq.addEventListener("change", onSchemeChange);
+      } else if (mq.addListener) {
+        mq.addListener(onSchemeChange);
+      }
+    }
+  }
+
+  // -- RDesk Message Listeners -----------------------------------------------
+
+  rdesk.on("data_ready", function(data) {
+    applyDatasetPayload(data.rows, data.cols, data.chart, data.kpis, data.total_count, data.timestamp);
+    if (data.runtime) renderRuntime(data.runtime);
+    setStatus("Connected", "ready");
+  });
+
+  rdesk.on("get_data_result", function(data) {
+    applyDatasetPayload(data.rows, data.cols, data.chart, data.kpis, data.total_count, data.timestamp);
+    setStatus("Refreshed", "ready");
+  });
+
+  rdesk.on("filter_result", function(result) {
+    var rows = result.data ? result.data.rows : [];
+    var cols = result.data ? result.data.cols : [];
+    applyDatasetPayload(rows, cols, result.chart, result.kpis, result.total_count, result.timestamp);
+    setStatus("Ready", "ready");
+  });
+
+  rdesk.on("runtime_info", function(rt) {
+    renderRuntime(rt);
+    setStatus("Runtime diagnostics updated", "ready");
+  });
+
+  rdesk.on("export_csv_result", function(res) {
+    if (res && res.ok) {
+      setStatus("Exported " + res.count + " rows", "ready");
+    } else if (res && res.cancelled) {
+      setStatus("Export cancelled", "ready");
+    } else {
+      setStatus("Export failed", "error");
+    }
+  });
+
+  rdesk.on("copy_summary_result", function(res) {
+    if (res && res.ok) {
+      setStatus("Summary copied to clipboard", "ready");
+    } else {
+      setStatus("Clipboard copy failed", "error");
+    }
+  });
+
+  rdesk.on("refresh", function() {
+    rdesk.send("get_data", buildFilterPayload());
+  });
+
+  rdesk.on("trigger_export", function() {
+    rdesk.send("export_csv", buildFilterPayload());
+  });
+
+  rdesk.on("trigger_copy", function() {
+    rdesk.send("copy_summary", buildFilterPayload());
+  });
+
+  rdesk.on("switch_view", function(payload) {
+    if (payload && payload.view) {
+      switchView(payload.view);
+    }
+  });
+
+  rdesk.on("__loading__", function(payload) {
+    if (payload && payload.active) {
+      setStatus(payload.message || "Working...", "busy");
+    } else {
+      setStatus("Ready", "ready");
+    }
+  });
+
+  // -- Boot ------------------------------------------------------------------
+  bindControls();
+
+  rdesk.ready(function() {
+    rdesk.send("get_data", buildFilterPayload());
+    rdesk.send("get_runtime_info", {});
+  });
+})();

@@ -1,38 +1,319 @@
-# R/plots.R.mixed
-# Full dashboard visualizations for RDesk
+# {{APP_NAME}} - Visualization & KPI Engine
+# Uses ggplot2 and base R only (matches DESCRIPTION Depends)
 
-#' Render the main chart
-make_chart <- function(data) {
-  if (is.null(data) || nrow(data) == 0) return(NULL)
-  
-  p <- ggplot2::ggplot(data, ggplot2::aes(x = wt, y = mpg)) +
-    ggplot2::geom_point(ggplot2::aes(color = as.factor(cyl)), size = 3) +
-    ggplot2::theme_minimal() +
-    ggplot2::labs(
-      title = "MPG vs Weight",
-      x = "Weight",
-      y = "MPG",
-      color = "Cyl"
-    )
-    
-  RDesk::rdesk_plot_to_base64(p)
+#' Human-readable axis and metric labels
+#' @keywords internal
+rdesk_var_label <- function(var) {
+  labels <- c(
+    wt              = "Weight (1,000 lbs)",
+    hp              = "Horsepower (HP)",
+    disp            = "Displacement (cu in)",
+    qsec            = "1/4 Mile Time (sec)",
+    mpg             = "Fuel Economy (MPG)",
+    power_to_weight = "Power-to-Weight (HP / 1k lbs)"
+  )
+  if (!is.null(var) && var %in% names(labels)) labels[[var]] else as.character(var)
 }
 
-#' Get dashboard KPIs
-#' @param data Reactive data source
-#' @return List of KPI values
-get_app_kpis <- function(data) {
-  if (is.null(data) || nrow(data) == 0) {
-    return(list(avg_mpg = "0.0", count = "0", avg_hp = "0"))
+#' Build a cohesive theme palette for light or dark surfaces
+#' @keywords internal
+rdesk_chart_palette <- function(theme_mode = "{{THEME}}") {
+  is_dark <- identical(tolower(as.character(theme_mode)), "dark")
+  if (is_dark) {
+    list(
+      is_dark    = TRUE,
+      bg         = "#141821",
+      panel_bg   = "#141821",
+      grid_major = "#222939",
+      grid_minor = "#1b202d",
+      axis_line  = "#2d364a",
+      text       = "#e6eaf2",
+      text_muted = "#8b95a7",
+      trend      = "#94a3b8",
+      trend_fill = "#334155",
+      cyl_colors = c("4 cyl" = "#38bdf8", "6 cyl" = "#a78bfa", "8 cyl" = "#fb923c")
+    )
+  } else {
+    list(
+      is_dark    = FALSE,
+      bg         = "#ffffff",
+      panel_bg   = "#ffffff",
+      grid_major = "#eef0f4",
+      grid_minor = "#f6f7f9",
+      axis_line  = "#d1d5db",
+      text       = "#111827",
+      text_muted = "#6b7280",
+      trend      = "#475569",
+      trend_fill = "#cbd5e1",
+      cyl_colors = c("4 cyl" = "#0284c7", "6 cyl" = "#7c3aed", "8 cyl" = "#ea580c")
+    )
   }
-  
-  # Defensive column checks
-  avg_mpg <- if ("mpg" %in% names(data)) format(mean(data$mpg), digits = 1, nsmall = 1) else "N/A"
-  avg_hp  <- if ("hp" %in% names(data)) format(round(mean(data$hp))) else "N/A"
-  
+}
+
+#' Shared minimal desktop ggplot2 theme
+#' @keywords internal
+rdesk_ggplot_theme <- function(pal) {
+  ggplot2::theme_minimal(base_size = 11.5) +
+    ggplot2::theme(
+      plot.background    = ggplot2::element_rect(fill = pal$bg, color = NA),
+      panel.background   = ggplot2::element_rect(fill = pal$panel_bg, color = NA),
+      panel.grid.major   = ggplot2::element_line(color = pal$grid_major, linewidth = 0.45),
+      panel.grid.minor   = ggplot2::element_blank(),
+      axis.line          = ggplot2::element_line(color = pal$axis_line, linewidth = 0.45),
+      axis.ticks         = ggplot2::element_line(color = pal$axis_line, linewidth = 0.4),
+      axis.text          = ggplot2::element_text(color = pal$text_muted, size = 9.5),
+      axis.title         = ggplot2::element_text(color = pal$text, size = 10, face = "bold"),
+      axis.title.x       = ggplot2::element_text(margin = ggplot2::margin(t = 8)),
+      axis.title.y       = ggplot2::element_text(margin = ggplot2::margin(r = 8)),
+      plot.title         = ggplot2::element_text(color = pal$text, size = 12.5, face = "bold", hjust = 0),
+      plot.subtitle      = ggplot2::element_text(color = pal$text_muted, size = 9.5, hjust = 0,
+                                                 margin = ggplot2::margin(b = 10)),
+      legend.position    = "top",
+      legend.justification = "left",
+      legend.background  = ggplot2::element_rect(fill = pal$bg, color = NA),
+      legend.key         = ggplot2::element_rect(fill = pal$bg, color = NA),
+      legend.title       = ggplot2::element_text(color = pal$text_muted, size = 9, face = "bold"),
+      legend.text        = ggplot2::element_text(color = pal$text, size = 9),
+      plot.margin        = ggplot2::margin(t = 12, r = 14, b = 10, l = 10)
+    )
+}
+
+#' Render the primary analytics chart as a base64 PNG data URI
+#'
+#' @param df Data frame (e.g. from init_data())
+#' @param x_var Column name for the X axis (default "wt")
+#' @param y_var Column name for the Y axis (default "mpg")
+#' @param chart_type One of "scatter", "boxplot", "bar" (default "scatter")
+#' @param theme_mode One of "light", "dark", "system"
+#' @return Character string "data:image/png;base64,..."
+make_chart <- function(df,
+                       x_var      = "wt",
+                       y_var      = "mpg",
+                       chart_type = "scatter",
+                       theme_mode = "{{THEME}}") {
+  pal <- rdesk_chart_palette(theme_mode)
+
+  if (is.null(df) || nrow(df) == 0L) {
+    empty_p <- ggplot2::ggplot() +
+      ggplot2::annotate(
+        "text", x = 0.5, y = 0.55,
+        label = "No matching observations",
+        color = pal$text, size = 4.6, fontface = "bold"
+      ) +
+      ggplot2::annotate(
+        "text", x = 0.5, y = 0.42,
+        label = "Adjust cylinder, transmission, or search filters to view data.",
+        color = pal$text_muted, size = 3.4
+      ) +
+      ggplot2::xlim(0, 1) + ggplot2::ylim(0, 1) +
+      ggplot2::theme_void() +
+      ggplot2::theme(
+        plot.background  = ggplot2::element_rect(fill = pal$bg, color = NA),
+        panel.background = ggplot2::element_rect(fill = pal$bg, color = NA)
+      )
+    return(RDesk::rdesk_plot_to_base64(empty_p, width = 7.2, height = 4.4, dpi = 120))
+  }
+
+  # Validate variables with safe defaults
+  allowed_x <- c("wt", "hp", "disp", "qsec", "mpg", "power_to_weight")
+  allowed_y <- c("mpg", "hp", "qsec", "wt", "disp", "power_to_weight")
+  if (is.null(x_var) || !x_var %in% names(df) || !x_var %in% allowed_x) {
+    x_var <- if ("wt" %in% names(df)) "wt" else names(df)[1]
+  }
+  if (is.null(y_var) || !y_var %in% names(df) || !y_var %in% allowed_y) {
+    y_var <- if ("mpg" %in% names(df)) "mpg" else names(df)[min(2L, ncol(df))]
+  }
+  if (is.null(chart_type) || !chart_type %in% c("scatter", "boxplot", "bar")) {
+    chart_type <- "scatter"
+  }
+
+  cyl_levels <- sort(unique(df$cyl))
+  cyl_labels <- paste0(cyl_levels, " cyl")
+  plot_df <- data.frame(
+    x_val        = as.numeric(df[[x_var]]),
+    y_val        = as.numeric(df[[y_var]]),
+    cyl_f        = factor(paste0(df$cyl, " cyl"), levels = cyl_labels),
+    model        = if ("model" %in% names(df)) as.character(df$model) else paste("Row", seq_len(nrow(df))),
+    transmission = if ("transmission" %in% names(df)) as.character(df$transmission) else "All",
+    stringsAsFactors = FALSE
+  )
+
+  x_lbl <- rdesk_var_label(x_var)
+  y_lbl <- rdesk_var_label(y_var)
+  active_colors <- pal$cyl_colors[names(pal$cyl_colors) %in% cyl_labels]
+
+  if (chart_type == "scatter") {
+    cor_str <- ""
+    if (nrow(plot_df) >= 3L &&
+        stats::sd(plot_df$x_val, na.rm = TRUE) > 0 &&
+        stats::sd(plot_df$y_val, na.rm = TRUE) > 0) {
+      r_val <- stats::cor(plot_df$x_val, plot_df$y_val, use = "complete.obs")
+      cor_str <- sprintf("  |  Pearson r = %.2f", r_val)
+    }
+
+    p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = x_val, y = y_val))
+    if (nrow(plot_df) >= 3L && length(unique(plot_df$x_val)) > 1L) {
+      p <- p + ggplot2::geom_smooth(
+        method    = "lm",
+        formula   = y ~ x,
+        se        = TRUE,
+        color     = pal$trend,
+        fill      = pal$trend_fill,
+        alpha     = if (pal$is_dark) 0.35 else 0.4,
+        linewidth = 0.85
+      )
+    }
+    p <- p +
+      ggplot2::geom_point(
+        ggplot2::aes(color = cyl_f, shape = transmission),
+        size  = 3.1,
+        alpha = 0.92
+      ) +
+      ggplot2::scale_color_manual(values = active_colors, name = "Cylinders") +
+      ggplot2::scale_shape_manual(
+        values = c("Automatic" = 16, "Manual" = 17, "All" = 16),
+        name   = "Transmission"
+      ) +
+      ggplot2::labs(
+        title    = paste(y_lbl, "vs", x_lbl),
+        subtitle = sprintf("OLS trend with 95%% CI  |  n = %d%s", nrow(plot_df), cor_str),
+        x        = x_lbl,
+        y        = y_lbl
+      ) +
+      rdesk_ggplot_theme(pal)
+
+  } else if (chart_type == "boxplot") {
+    med_val <- stats::median(plot_df$y_val, na.rm = TRUE)
+    p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = cyl_f, y = y_val, color = cyl_f, fill = cyl_f)) +
+      ggplot2::geom_boxplot(
+        alpha         = if (pal$is_dark) 0.25 else 0.18,
+        width         = 0.48,
+        outlier.shape = NA,
+        linewidth     = 0.75
+      ) +
+      ggplot2::geom_jitter(
+        width = 0.12,
+        size  = 2.6,
+        alpha = 0.9
+      ) +
+      ggplot2::scale_color_manual(values = active_colors, name = "Cylinders") +
+      ggplot2::scale_fill_manual(values = active_colors, name = "Cylinders") +
+      ggplot2::labs(
+        title    = paste(y_lbl, "Distribution by Cylinder Count"),
+        subtitle = sprintf("Box quartiles + individual observations  |  n = %d  |  Overall median = %.1f",
+                           nrow(plot_df), med_val),
+        x        = "Engine Configuration",
+        y        = y_lbl
+      ) +
+      rdesk_ggplot_theme(pal) +
+      ggplot2::theme(legend.position = "none")
+
+  } else {
+    # Top models horizontal bar chart
+    ord <- order(plot_df$y_val, decreasing = TRUE)
+    top_df <- utils::head(plot_df[ord, , drop = FALSE], 12L)
+    top_df$model_f <- stats::reorder(top_df$model, top_df$y_val)
+    max_y <- max(top_df$y_val, na.rm = TRUE)
+    if (!is.finite(max_y) || max_y <= 0) max_y <- 1
+
+    p <- ggplot2::ggplot(top_df, ggplot2::aes(x = model_f, y = y_val, fill = cyl_f)) +
+      ggplot2::geom_col(width = 0.66, alpha = 0.92) +
+      ggplot2::geom_text(
+        ggplot2::aes(label = formatC(y_val, format = "f", digits = 1)),
+        hjust = -0.18,
+        size  = 3.0,
+        color = pal$text_muted
+      ) +
+      ggplot2::coord_flip() +
+      ggplot2::scale_y_continuous(limits = c(0, max_y * 1.15), expand = c(0, 0)) +
+      ggplot2::scale_fill_manual(values = active_colors, name = "Cylinders") +
+      ggplot2::labs(
+        title    = paste("Top Models by", y_lbl),
+        subtitle = sprintf("Showing top %d of %d filtered vehicles", nrow(top_df), nrow(plot_df)),
+        x        = NULL,
+        y        = y_lbl
+      ) +
+      rdesk_ggplot_theme(pal) +
+      ggplot2::theme(panel.grid.major.y = ggplot2::element_blank())
+  }
+
+  RDesk::rdesk_plot_to_base64(p, width = 7.2, height = 4.4, dpi = 120)
+}
+
+#' Compute dashboard KPI values and contextual sub-labels
+#'
+#' @param df Filtered data frame
+#' @param total_rows Optional total unfiltered row count
+#' @return Named list of KPI strings and sub-labels
+get_app_kpis <- function(df, total_rows = NULL) {
+  if (is.null(df) || nrow(df) == 0L) {
+    return(list(
+      count     = "0",
+      count_sub = "No matching observations",
+      avg_mpg   = "0.0",
+      mpg_sub   = "range -",
+      avg_hp    = "0",
+      hp_sub    = "peak -",
+      avg_ptw   = "0.0",
+      ptw_sub   = "HP per 1,000 lbs",
+      top_model = "-"
+    ))
+  }
+
+  n <- nrow(df)
+  total_n <- if (!is.null(total_rows) && is.numeric(total_rows)) as.integer(total_rows) else n
+
+  n_manual <- if ("transmission" %in% names(df)) {
+    sum(df$transmission == "Manual", na.rm = TRUE)
+  } else if ("am" %in% names(df)) {
+    sum(df$am == 1, na.rm = TRUE)
+  } else {
+    0L
+  }
+
+  avg_mpg <- if ("mpg" %in% names(df)) formatC(mean(df$mpg, na.rm = TRUE), format = "f", digits = 1) else "N/A"
+  mpg_sub <- if ("mpg" %in% names(df)) {
+    sprintf("range %.1f-%.1f mpg", min(df$mpg, na.rm = TRUE), max(df$mpg, na.rm = TRUE))
+  } else {
+    "fuel economy"
+  }
+
+  avg_hp <- if ("hp" %in% names(df)) formatC(round(mean(df$hp, na.rm = TRUE)), format = "d") else "N/A"
+  hp_sub <- if ("hp" %in% names(df)) {
+    sprintf("peak %d hp | med %d", round(max(df$hp, na.rm = TRUE)), round(stats::median(df$hp, na.rm = TRUE)))
+  } else {
+    "engine output"
+  }
+
+  ptw_vec <- if ("power_to_weight" %in% names(df)) {
+    df$power_to_weight
+  } else if (all(c("hp", "wt") %in% names(df))) {
+    df$hp / df$wt
+  } else {
+    NULL
+  }
+
+  avg_ptw <- if (!is.null(ptw_vec)) formatC(mean(ptw_vec, na.rm = TRUE), format = "f", digits = 1) else "N/A"
+  top_model <- if ("model" %in% names(df) && !is.null(ptw_vec)) {
+    df$model[which.max(ptw_vec)]
+  } else {
+    "-"
+  }
+  ptw_sub <- if (!is.null(ptw_vec)) {
+    sprintf("HP/1k lb | top: %s", top_model)
+  } else {
+    "HP per 1,000 lbs"
+  }
+
   list(
-    avg_mpg = avg_mpg,
-    count   = format(nrow(data)),
-    avg_hp  = avg_hp
+    count     = format(n),
+    count_sub = sprintf("of %d total | %d manual", total_n, n_manual),
+    avg_mpg   = avg_mpg,
+    mpg_sub   = mpg_sub,
+    avg_hp    = avg_hp,
+    hp_sub    = hp_sub,
+    avg_ptw   = avg_ptw,
+    ptw_sub   = ptw_sub,
+    top_model = top_model
   )
 }
