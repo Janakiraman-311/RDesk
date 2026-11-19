@@ -2,118 +2,381 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Data Intelligence Studio</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+  <!-- Sidebar Rail -->
   <aside class="sidebar">
-    <div class="sidebar-header">
-      <h1 class="app-title">Data Intelligence Studio</h1>
-      <p class="app-sub">Built with RDesk</p>
+    <div class="sidebar-brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12h4l2.5-7 4 14 2.5-7H21" />
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1 class="app-title">Data Studio</h1>
+        <p class="app-sub">Clinical &amp; Biostatistical</p>
+      </div>
     </div>
 
-    <nav class="sidebar-nav">
-      <button class="nav-btn active" data-panel="overview">
-        Overview
-      </button>
-      <button class="nav-btn" data-panel="distributions">
-        Distributions
-      </button>
-      <button class="nav-btn" data-panel="correlations">
-        Correlations
-      </button>
-      <button class="nav-btn" data-panel="outliers">
-        Outliers
-      </button>
-      <button class="nav-btn" data-panel="variables">
-        Variables
-      </button>
-    </nav>
+    <div class="sidebar-section">
+      <div class="section-label">Analysis Modules</div>
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <button class="nav-btn active" data-panel="overview">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="9" rx="1.5" />
+            <rect x="14" y="3" width="7" height="5" rx="1.5" />
+            <rect x="14" y="12" width="7" height="9" rx="1.5" />
+            <rect x="3" y="16" width="7" height="5" rx="1.5" />
+          </svg>
+          <span>Overview &amp; KPIs</span>
+        </button>
 
+        <button class="nav-btn" data-panel="distributions">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 20h18" />
+            <path d="M4 19c3 0 4-13 8-13s5 13 8 13" />
+            <path d="M12 6v13" stroke-dasharray="2 2" />
+          </svg>
+          <span>Distributions</span>
+        </button>
 
+        <button class="nav-btn" data-panel="correlations">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+          </svg>
+          <span>Correlations</span>
+        </button>
+
+        <button class="nav-btn" data-panel="outliers">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4" />
+            <circle cx="12" cy="16" r="0.6" fill="currentColor" />
+          </svg>
+          <span>Outliers &amp; Audit</span>
+          <span id="nav-badge-outliers" class="nav-badge hidden">0</span>
+        </button>
+
+        <button class="nav-btn" data-panel="variables">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h16M4 12h16M4 18h10" />
+            <path d="M18 15v6M15 18h6" />
+          </svg>
+          <span>Variables &amp; Subgroups</span>
+          <span id="nav-badge-vars" class="nav-badge hidden">0</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Reference Cohorts</div>
+      <div class="preset-list">
+        <button class="preset-btn active" id="btn-preset-cardio" data-preset="cardio_trial">
+          <div class="preset-top">
+            <span class="preset-dot"></span>
+            <span class="preset-name">Phase III Cardio-Metabolic</span>
+          </div>
+          <span class="preset-meta">n = 480 &middot; 3 Arms &middot; SBP / LDL / CRP</span>
+        </button>
+
+        <button class="preset-btn" id="btn-preset-pk" data-preset="pk_biomarker">
+          <div class="preset-top">
+            <span class="preset-dot"></span>
+            <span class="preset-name">PK &amp; Biomarker Assay</span>
+          </div>
+          <span class="preset-meta">n = 360 &middot; 3 Doses &middot; Cmax / AUC / IL-6</span>
+        </button>
+      </div>
+    </div>
 
     <div class="sidebar-footer">
       <button id="btn-open" class="btn-primary">
-        Open dataset...
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </svg>
+        <span>Open CSV / RDS File...</span>
       </button>
+
+      <div class="footer-tools">
+        <button id="btn-theme-toggle" class="btn-ghost" title="Toggle Light / Dark Mode">
+          <svg id="icon-theme-sun" class="btn-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+          <svg id="icon-theme-moon" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+          <span id="theme-toggle-label">Dark Mode</span>
+        </button>
+
+        <button id="btn-settings" class="btn-ghost icon-only" title="Preferences">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
+      </div>
     </div>
   </aside>
 
+  <!-- Main Workspace -->
   <main class="main-content">
 
     <header class="content-header">
-      <div id="dataset-info" class="dataset-info hidden">
-        <span id="dataset-name" class="dataset-name"></span>
-        <span id="dataset-dims" class="dataset-dims"></span>
+      <div id="dataset-info" class="dataset-info">
+        <div class="dataset-title-row">
+          <h2 id="dataset-name" class="dataset-name">Initializing Studio...</h2>
+          <span id="dataset-badge" class="source-badge">Cohort</span>
+        </div>
+        <div id="dataset-dims" class="dataset-dims">Loading Phase III Cardio-Metabolic Clinical Trial Cohort</div>
       </div>
-      <div id="no-data-prompt" class="no-data-prompt-container">
-        <p class="no-data-prompt">Open a CSV or RDS file to begin analysis</p>
-        <button id="btn-sample" class="btn-sample-data">
-          Load complex sample dataset
-        </button>
+
+      <div id="no-data-prompt" class="no-data-prompt-container hidden">
+        <p class="no-data-prompt">No active dataset. Load a reference cohort or open a local CSV / RDS file.</p>
+        <div class="empty-actions">
+          <button id="btn-sample" class="btn-action primary-tint">Load Phase III Clinical Trial</button>
+          <button id="btn-empty-pk" class="btn-action">Load PK &amp; Biomarker Assay</button>
+        </div>
       </div>
+
       <div class="header-actions">
-        <button id="btn-profile" class="btn-action hidden">
-          Full profile
+        <button id="btn-profile" class="btn-action hidden" title="Re-run full biostatistical profile">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+          <span>Re-Profile</span>
         </button>
-        <button id="btn-export" class="btn-action hidden">
-          Export report
+        <button id="btn-export-csv" class="btn-action hidden" title="Export variable dictionary as CSV">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="M12 18v-6M9 15l3 3 3-3" />
+          </svg>
+          <span>Export CSV</span>
+        </button>
+        <button id="btn-export" class="btn-action accent hidden" title="Export standalone HTML report with charts">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>Export HTML Report</span>
         </button>
       </div>
     </header>
 
-    <!-- Overview panel -->
+    <!-- Panel 1: Overview & Cohort KPIs -->
     <section id="panel-overview" class="panel active">
       <div class="kpi-grid" id="kpi-grid"></div>
-      <div class="chart-card">
-        <img id="overview-chart" class="chart-img" alt="" />
+
+      <div class="card chart-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Completeness &amp; Cohort Quality Audit</h3>
+            <p class="card-subtitle">Observed completeness rate per variable against 95% clinical trial completeness threshold</p>
+          </div>
+          <span id="overview-status-pill" class="status-pill">Audit Ready</span>
+        </div>
+        <div class="chart-stage">
+          <img id="overview-chart" class="chart-img" alt="Variable completeness chart" />
+        </div>
       </div>
     </section>
 
-    <!-- Distributions panel -->
+    <!-- Panel 2: Distributions Explorer -->
     <section id="panel-distributions" class="panel hidden">
-      <div class="chart-card full">
-        <img id="dist-chart" class="chart-img" alt="" />
+      <div class="control-bar">
+        <div class="control-group">
+          <label for="dist-var-select">Numeric Variable</label>
+          <select id="dist-var-select" class="select-input"></select>
+        </div>
+
+        <div class="control-group">
+          <label for="dist-group-select">Stratify / Group By</label>
+          <select id="dist-group-select" class="select-input"></select>
+        </div>
+
+        <div class="control-group push-right">
+          <label>Visualization</label>
+          <div class="segmented" role="group" aria-label="Distribution view mode">
+            <button type="button" class="seg-btn active" data-dist-mode="density">Histogram + Density</button>
+            <button type="button" class="seg-btn" data-dist-mode="violin">Violin + Boxplot</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="dist-stats-strip" class="stats-strip"></div>
+
+      <div class="card chart-card">
+        <div class="chart-stage tall">
+          <img id="dist-chart" class="chart-img" alt="Variable distribution chart" />
+        </div>
+      </div>
+
+      <div id="dist-group-card" class="card table-card hidden">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title" id="dist-group-title">Cohort Breakdown</h3>
+            <p class="card-subtitle" id="dist-group-subtitle">Per-stratum descriptive statistics</p>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="dist-group-table">
+            <thead id="dist-group-thead"></thead>
+            <tbody id="dist-group-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
-    <!-- Correlations panel -->
+    <!-- Panel 3: Correlations Matrix -->
     <section id="panel-correlations" class="panel hidden">
-      <div class="chart-card">
-        <img id="corr-chart" class="chart-img" alt="" />
+      <div class="control-bar">
+        <div class="control-group">
+          <label>Correlation Estimator</label>
+          <div class="segmented" role="group" aria-label="Correlation method">
+            <button type="button" class="seg-btn active" data-corr-method="pearson">Pearson r</button>
+            <button type="button" class="seg-btn" data-corr-method="spearman">Spearman &rho;</button>
+            <button type="button" class="seg-btn" data-corr-method="kendall">Kendall &tau;</button>
+          </div>
+        </div>
+
+        <div class="control-group push-right">
+          <label for="corr-search">Filter Pairs</label>
+          <div class="inline-filters">
+            <input type="text" id="corr-search" class="text-input" placeholder="Search variable name..." />
+            <select id="corr-filter" class="select-input compact">
+              <option value="all">All Pairs</option>
+              <option value="sig">Significant (p &lt; 0.05)</option>
+              <option value="moderate">|r| &ge; 0.30</option>
+              <option value="strong">|r| &ge; 0.50</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="table-card">
-        <h3 class="card-title">Top correlations</h3>
-        <table id="corr-table">
-          <thead id="corr-thead"></thead>
-          <tbody id="corr-tbody"></tbody>
-        </table>
+
+      <div class="card chart-card">
+        <div class="chart-stage tall">
+          <img id="corr-chart" class="chart-img" alt="Correlation matrix heatmap" />
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Pairwise Correlations &amp; 95% Confidence Intervals</h3>
+            <p class="card-subtitle" id="corr-count-label">Ranked by absolute magnitude</p>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="corr-table">
+            <thead id="corr-thead"></thead>
+            <tbody id="corr-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
-    <!-- Outliers panel -->
+    <!-- Panel 4: Outliers & Quality Audit -->
     <section id="panel-outliers" class="panel hidden">
-      <div class="chart-card">
-        <img id="outlier-chart" class="chart-img" alt="" />
+      <div class="control-bar">
+        <div class="control-group">
+          <label>Tukey Fence Criterion</label>
+          <div class="segmented" role="group" aria-label="Tukey IQR threshold">
+            <button type="button" class="seg-btn active" data-outlier-th="1.5">1.5&times; IQR (Standard)</button>
+            <button type="button" class="seg-btn" data-outlier-th="3.0">3.0&times; IQR (Extreme)</button>
+          </div>
+        </div>
+
+        <div class="control-group push-right">
+          <span id="outlier-summary-badge" class="status-pill warn">0 flagged observations</span>
+        </div>
       </div>
-      <div class="table-card">
-        <h3 class="card-title">Outlier summary</h3>
-        <table id="outlier-table">
-          <thead id="outlier-thead"></thead>
-          <tbody id="outlier-tbody"></tbody>
-        </table>
+
+      <div class="card chart-card">
+        <div class="chart-stage tall">
+          <img id="outlier-chart" class="chart-img" alt="Tukey IQR outlier diagnostic plot" />
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Per-Variable Outlier Audit &amp; Flagged Row Indices</h3>
+            <p class="card-subtitle">1-based dataset row indices falling outside [Q1 &minus; k&middot;IQR, Q3 + k&middot;IQR]</p>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="outlier-table">
+            <thead id="outlier-thead"></thead>
+            <tbody id="outlier-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
-    <!-- Variables panel -->
+    <!-- Panel 5: Variable Dictionary & Subgroup Comparison -->
     <section id="panel-variables" class="panel hidden">
-      <div class="table-card full">
-        <h3 class="card-title">Variable summary</h3>
-        <table id="var-table">
-          <thead id="var-thead"></thead>
-          <tbody id="var-tbody"></tbody>
-        </table>
+      <div class="card table-card">
+        <div class="card-header wrap">
+          <div>
+            <h3 class="card-title">Variable Dictionary</h3>
+            <p class="card-subtitle">Complete schema, missingness, parametric (Mean &plusmn; SD) and non-parametric (Median [IQR]) summaries</p>
+          </div>
+          <div class="toolbar-inline">
+            <input type="text" id="var-search" class="text-input" placeholder="Filter variables..." />
+            <select id="var-type-filter" class="select-input compact">
+              <option value="all">All Types</option>
+              <option value="Numeric">Numeric</option>
+              <option value="Categorical">Categorical</option>
+            </select>
+            <button id="btn-copy-summary" class="btn-action primary-tint">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span>Copy Summary Table</span>
+            </button>
+          </div>
+        </div>
+        <div class="table-scroll tall-table">
+          <table id="var-table">
+            <thead id="var-thead"></thead>
+            <tbody id="var-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="subgroup-card" class="card table-card">
+        <div class="card-header wrap">
+          <div>
+            <h3 class="card-title">Subgroup Comparison (Table 1)</h3>
+            <p class="card-subtitle">Stratified Mean &plusmn; SD with omnibus Welch ANOVA / t-test p-values</p>
+          </div>
+          <div class="toolbar-inline">
+            <label for="subgroup-select" class="inline-label">Stratify by</label>
+            <select id="subgroup-select" class="select-input compact"></select>
+            <button id="btn-copy-subgroup" class="btn-action">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span>Copy Table 1</span>
+            </button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="subgroup-table">
+            <thead id="subgroup-thead"></thead>
+            <tbody id="subgroup-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -122,39 +385,44 @@
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal-overlay hidden">
     <div class="modal-content">
-      <h2 class="modal-title">Settings</h2>
-      
+      <div class="modal-header">
+        <h2 class="modal-title">Studio Preferences</h2>
+        <button id="btn-settings-close" class="btn-icon-close" aria-label="Close settings">&times;</button>
+      </div>
+
       <div class="form-group">
-        <label for="settings-theme">Theme</label>
+        <label for="settings-theme">Interface &amp; Chart Theme</label>
         <select id="settings-theme" class="form-control">
-          <option value="light">Light Mode</option>
-          <option value="dark">Dark Mode</option>
+          <option value="light">Light Instrument Mode</option>
+          <option value="dark">Dark Instrument Mode</option>
         </select>
       </div>
-      
+
       <div class="form-group">
-        <label for="settings-corr">Correlation Method</label>
+        <label for="settings-corr">Default Correlation Method</label>
         <select id="settings-corr" class="form-control">
-          <option value="pearson">Pearson (Linear)</option>
-          <option value="spearman">Spearman (Rank)</option>
-          <option value="kendall">Kendall (Tau)</option>
+          <option value="pearson">Pearson r (Parametric Linear)</option>
+          <option value="spearman">Spearman &rho; (Rank-Order)</option>
+          <option value="kendall">Kendall &tau; (Concordance)</option>
         </select>
       </div>
-      
+
       <div class="form-group">
-        <label for="settings-outlier">Outlier Threshold (IQR multiplier)</label>
+        <label for="settings-outlier">Default Tukey Outlier Fence</label>
         <select id="settings-outlier" class="form-control">
-          <option value="1.5">1.5 IQR (Standard)</option>
-          <option value="3.0">3.0 IQR (Extreme)</option>
+          <option value="1.5">1.5&times; IQR (Standard Clinical Audit)</option>
+          <option value="3.0">3.0&times; IQR (Extreme Outliers Only)</option>
         </select>
       </div>
-      
+
       <div class="modal-actions">
         <button id="btn-settings-cancel" class="btn-secondary">Cancel</button>
-        <button id="btn-settings-save" class="btn-primary">Save Settings</button>
+        <button id="btn-settings-save" class="btn-primary inline">Apply &amp; Save</button>
       </div>
     </div>
   </div>
+
+  <div id="studio-toast-stack" class="studio-toast-stack" role="status" aria-live="polite"></div>
 
   <script src="js/rdesk.js"></script>
   <script src="js/app.js"></script>

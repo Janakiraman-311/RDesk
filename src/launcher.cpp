@@ -1613,8 +1613,16 @@ int main(int argc, char* argv[]) {
 
 #ifdef _WIN32
     // Single Instance Check (Windows only)
-    size_t title_hash = std::hash<std::string>{}(title);
-    std::wstring mutex_name = L"Local\\RDesk_Instance_" + std::to_wstring(title_hash);
+    size_t title_hash = std::hash<std::string>{}(title + "|" + www);
+    std::wstring instance_prop = L"RDesk_Instance_" + std::to_wstring(title_hash);
+    if (GetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER", nullptr, 0) == 0) {
+        wchar_t appDataPath[MAX_PATH];
+        if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appDataPath))) {
+            std::wstring perAppDataDir = std::wstring(appDataPath) + L"\\RDesk_WebView2\\" + instance_prop;
+            SetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER", perAppDataDir.c_str());
+        }
+    }
+    std::wstring mutex_name = L"Local\\" + instance_prop;
     HANDLE hMutex = CreateMutexW(NULL, TRUE, mutex_name.c_str());
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         HWND hwndExisting = FindWindowW(nullptr, widen(title).c_str());
@@ -1645,6 +1653,12 @@ int main(int argc, char* argv[]) {
 
 #ifdef _WIN32
         g_hwnd = (HWND)w.window().value();
+        if (g_hwnd) {
+            SetPropW(g_hwnd, instance_prop.c_str(), reinterpret_cast<HANDLE>(1));
+            ShowWindow(g_hwnd, SW_SHOWNORMAL);
+            UpdateWindow(g_hwnd);
+            SetForegroundWindow(g_hwnd);
+        }
         
         if (parent_pid != 0) {
             std::thread(parent_watchdog, (DWORD)parent_pid).detach();

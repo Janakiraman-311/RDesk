@@ -7,67 +7,340 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="app-header">
-    <h1>{{APP_TITLE}}</h1>
-    <span class="app-subtitle">Built with RDesk</span>
-  </header>
-
-  <div class="app-container">
-    <aside class="app-sidebar">
-      <div class="sidebar-group">
-        <label>Data Filter</label>
-        <!-- Add more filters by copying this block and changing the column name -->
-        <select id="cyl-filter" onchange="rdesk.send('filter', { column: 'cyl', value: this.value })">
-          <option value="all">All Cylinders</option>
-          <option value="4">4 Cylinders</option>
-          <option value="6">6 Cylinders</option>
-          <option value="8">8 Cylinders</option>
-        </select>
+  <div class="app-shell">
+    <!-- Top Desktop Header Bar -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+            <path d="M3 17.5a3.5 3.5 0 0 1 7 0"></path>
+            <circle cx="6.5" cy="14" r="1.5"></circle>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>{{APP_TITLE}}</h1>
+          <span class="version-pill">RDesk {{RDESK_VER}}</span>
+        </div>
       </div>
-      <div class="sidebar-footer">
-        <button id="btn-refresh" class="btn-primary" onclick="rdesk.send('get_data', {})">
-          Refresh All
+
+      <nav class="header-tabs" role="tablist" aria-label="Workspace views">
+        <button id="tab-analytics" class="nav-tab active" role="tab" aria-selected="true" data-view="analytics">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          <span>Analytics</span>
+        </button>
+        <button id="tab-runtime" class="nav-tab" role="tab" aria-selected="false" data-view="runtime">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+            <rect x="9" y="9" width="6" height="6"></rect>
+            <line x1="9" y1="1" x2="9" y2="4"></line>
+            <line x1="15" y1="1" x2="15" y2="4"></line>
+            <line x1="9" y1="20" x2="9" y2="23"></line>
+            <line x1="15" y1="20" x2="15" y2="23"></line>
+            <line x1="20" y1="9" x2="23" y2="9"></line>
+            <line x1="20" y1="14" x2="23" y2="14"></line>
+            <line x1="1" y1="9" x2="4" y2="9"></line>
+            <line x1="1" y1="14" x2="4" y2="14"></line>
+          </svg>
+          <span>Runtime &amp; Env</span>
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <button id="btn-copy-summary" class="btn-ghost" title="Copy summary to clipboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span>Copy Summary</span>
+        </button>
+        <button id="btn-export-csv" class="btn-ghost" title="Export filtered rows to CSV">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Export CSV</span>
+        </button>
+        <button id="btn-refresh" class="btn-primary btn-sm" title="Refresh data from R">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>Refresh</span>
         </button>
       </div>
-    </aside>
+    </header>
 
-    <main class="app-main">
-      <section class="kpi-bar">
-        <div class="kpi-card">
-          <div class="kpi-label">Avg MPG</div>
-          <div id="kpi-mpg" class="kpi-value">-</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Total Rows</div>
-          <div id="kpi-count" class="kpi-value">-</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Avg HP</div>
-          <div id="kpi-hp" class="kpi-value">-</div>
-        </div>
-      </section>
+    <!-- Main Workbench Body -->
+    <div class="app-container">
+      <!-- Left Control Sidebar -->
+      <aside class="app-sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Data Filters</div>
 
-      <section class="dashboard-grid">
-        <div class="chart-section">
-          <h3 class="section-title">MPG vs Weight</h3>
-          <img id="main-chart" class="chart-img" alt="Chart loading..." />
-        </div>
+          <div class="control-group">
+            <label for="cyl-filter">Cylinders</label>
+            <select id="cyl-filter" class="form-select">
+              <option value="all">All Cylinders</option>
+              <option value="4">4 Cylinders</option>
+              <option value="6">6 Cylinders</option>
+              <option value="8">8 Cylinders</option>
+            </select>
+          </div>
 
-        <div class="table-section">
-          <h3 class="section-title">Data Explorer</h3>
-          <div class="table-wrap">
-            <table id="data-table">
-              <thead id="table-head"></thead>
-              <tbody id="table-body"></tbody>
-            </table>
+          <div class="control-group">
+            <label for="trans-filter">Transmission</label>
+            <select id="trans-filter" class="form-select">
+              <option value="all">All Transmissions</option>
+              <option value="Automatic">Automatic</option>
+              <option value="Manual">Manual</option>
+            </select>
           </div>
         </div>
-      </section>
-      
-      <div class="app-footer">
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Chart Mapping</div>
+
+          <div class="control-group">
+            <label>Chart Type</label>
+            <div id="chart-type-group" class="segmented-control" role="group" aria-label="Chart Type">
+              <button type="button" class="seg-btn active" data-chart="scatter">Scatter</button>
+              <button type="button" class="seg-btn" data-chart="boxplot">Boxplot</button>
+              <button type="button" class="seg-btn" data-chart="bar">Top Bar</button>
+            </div>
+          </div>
+
+          <div id="x-var-group" class="control-group">
+            <label for="x-var-select">X-Axis Variable</label>
+            <select id="x-var-select" class="form-select">
+              <option value="wt" selected>Weight (wt)</option>
+              <option value="hp">Horsepower (hp)</option>
+              <option value="disp">Displacement (disp)</option>
+              <option value="qsec">1/4 Mile Time (qsec)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="y-var-select">Y-Axis Metric</label>
+            <select id="y-var-select" class="form-select">
+              <option value="mpg" selected>Fuel Economy (mpg)</option>
+              <option value="hp">Horsepower (hp)</option>
+              <option value="qsec">1/4 Mile Time (qsec)</option>
+            </select>
+          </div>
+
+          <button id="btn-reset-filters" type="button" class="btn-secondary btn-block">
+            Reset Controls
+          </button>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="session-card">
+            <div class="session-card-head">
+              <span class="session-dot"></span>
+              <span class="session-title">R Session</span>
+              <span id="sidebar-pid" class="mono-pill">PID -</span>
+            </div>
+            <div id="sidebar-r-version" class="session-meta">Connecting to R...</div>
+            <button id="btn-open-runtime" type="button" class="session-link">
+              Inspect Runtime &amp; Libs &rarr;
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Primary Workspace Content -->
+      <main class="app-main">
+        <!-- View 1: Analytics Workbench -->
+        <div id="view-analytics" class="workspace-view active">
+          <section class="kpi-bar" aria-label="Key performance indicators">
+            <div class="kpi-card">
+              <div class="kpi-head">
+                <span class="kpi-label">Vehicles</span>
+                <svg class="kpi-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                  <line x1="3" y1="9" x2="21" y2="9"></line>
+                  <line x1="9" y1="21" x2="9" y2="9"></line>
+                </svg>
+              </div>
+              <div id="kpi-count" class="kpi-value">-</div>
+              <div id="kpi-count-sub" class="kpi-sub">Loading fleet...</div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-head">
+                <span class="kpi-label">Mean Fuel Economy</span>
+                <svg class="kpi-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2v4"></path>
+                  <path d="m16.2 7.8 2.9-2.9"></path>
+                  <path d="M18 12h4"></path>
+                  <path d="M2 12h4"></path>
+                  <path d="m4.9 4.9 2.9 2.9"></path>
+                  <circle cx="12" cy="12" r="4"></circle>
+                </svg>
+              </div>
+              <div id="kpi-mpg" class="kpi-value">-</div>
+              <div id="kpi-mpg-sub" class="kpi-sub">miles per gallon</div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-head">
+                <span class="kpi-label">Mean Horsepower</span>
+                <svg class="kpi-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+              </div>
+              <div id="kpi-hp" class="kpi-value">-</div>
+              <div id="kpi-hp-sub" class="kpi-sub">engine output</div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-head">
+                <span class="kpi-label">Power-to-Weight</span>
+                <svg class="kpi-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                  <polyline points="16 7 22 7 22 13"></polyline>
+                </svg>
+              </div>
+              <div id="kpi-ptw" class="kpi-value">-</div>
+              <div id="kpi-ptw-sub" class="kpi-sub">HP per 1,000 lbs</div>
+            </div>
+          </section>
+
+          <section class="dashboard-grid">
+            <div class="panel chart-section">
+              <div class="panel-header">
+                <div class="panel-title-wrap">
+                  <h2 id="chart-title" class="section-title">Fuel Economy vs Weight</h2>
+                  <span id="chart-badge" class="badge-subtle">Scatter + OLS</span>
+                </div>
+              </div>
+              <div class="chart-stage">
+                <img id="main-chart" class="chart-img" alt="Analytics visualization" />
+              </div>
+            </div>
+
+            <div class="panel table-section">
+              <div class="panel-header">
+                <div class="panel-title-wrap">
+                  <h2 class="section-title">Data Explorer</h2>
+                  <span id="table-count-badge" class="badge-subtle">0 rows</span>
+                </div>
+                <div class="search-box">
+                  <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input id="table-search" type="text" placeholder="Search models..." autocomplete="off" />
+                  <button id="btn-clear-search" type="button" class="search-clear" title="Clear search" aria-label="Clear search">&times;</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="data-table">
+                  <thead id="table-head"></thead>
+                  <tbody id="table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- View 2: System & Runtime Info -->
+        <div id="view-runtime" class="workspace-view" hidden>
+          <div class="view-header">
+            <div>
+              <h2 class="view-title">System &amp; R Runtime Environment</h2>
+              <p class="view-subtitle">Live diagnostics reported directly from the active RDesk session process.</p>
+            </div>
+            <button id="btn-refresh-runtime" type="button" class="btn-secondary">
+              Refresh Diagnostics
+            </button>
+          </div>
+
+          <section class="kpi-bar runtime-kpi-bar">
+            <div class="kpi-card">
+              <div class="kpi-head"><span class="kpi-label">R Version</span></div>
+              <div id="rt-r-version" class="kpi-value kpi-value-sm">-</div>
+              <div id="rt-platform" class="kpi-sub">-</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Session PID</span></div>
+              <div id="rt-pid" class="kpi-value mono-num">-</div>
+              <div id="rt-os" class="kpi-sub">-</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-head"><span class="kpi-label">R Heap Memory</span></div>
+              <div id="rt-memory" class="kpi-value mono-num">-</div>
+              <div id="rt-memory-sub" class="kpi-sub">Ncells + Vcells used</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-head"><span class="kpi-label">Loaded Namespaces</span></div>
+              <div id="rt-loaded-count" class="kpi-value mono-num">-</div>
+              <div id="rt-attached-count" class="kpi-sub">-</div>
+            </div>
+          </section>
+
+          <section class="runtime-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <h3 class="section-title">Active Library Paths (.libPaths)</h3>
+              </div>
+              <ul id="rt-lib-paths" class="path-list"></ul>
+
+              <div class="kv-grid">
+                <div class="kv-row">
+                  <span class="kv-key">Working Directory</span>
+                  <span id="rt-workdir" class="kv-val mono-text">-</span>
+                </div>
+                <div class="kv-row">
+                  <span class="kv-key">RDesk Version</span>
+                  <span id="rt-rdesk-ver" class="kv-val mono-text">-</span>
+                </div>
+                <div class="kv-row">
+                  <span class="kv-key">ggplot2 Version</span>
+                  <span id="rt-ggplot-ver" class="kv-val mono-text">-</span>
+                </div>
+                <div class="kv-row">
+                  <span class="kv-key">Snapshot Time</span>
+                  <span id="rt-updated" class="kv-val mono-text">-</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3 class="section-title">Attached Search Path Packages</h3>
+              </div>
+              <div id="rt-packages-list" class="pkg-chip-wrap"></div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Native Desktop Status Bar -->
+    <footer class="status-bar">
+      <div class="status-left">
+        <span id="status-dot" class="status-dot ready"></span>
         <span id="status-label" class="status-label">Ready</span>
       </div>
-    </main>
+      <div class="status-right">
+        <span id="status-rows" class="status-meta">0 rows</span>
+        <span class="status-sep">|</span>
+        <span id="status-updated" class="status-meta">Updated --:--:--</span>
+        <span class="status-sep">|</span>
+        <span class="status-meta">Theme: {{THEME}}</span>
+      </div>
+    </footer>
   </div>
 
   <script src="js/rdesk.js"></script>

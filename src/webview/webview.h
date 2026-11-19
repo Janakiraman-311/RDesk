@@ -3986,7 +3986,11 @@ public:
     }
 
     if (m_owns_window) {
+      // Win32 ShowWindow ignores nCmdShow on the very first call if the
+      // parent process passed STARTF_USESHOWWINDOW (e.g. processx SW_HIDE).
+      // Calling ShowWindow twice ensures the window is always shown.
       ShowWindow(m_window, SW_SHOW);
+      ShowWindow(m_window, SW_SHOWNORMAL);
       UpdateWindow(m_window);
       SetFocus(m_window);
     }
@@ -4194,7 +4198,11 @@ private:
       return error_info{WEBVIEW_ERROR_UNSPECIFIED, "SHGetFolderPathW failed"};
     }
     wchar_t userDataFolder[MAX_PATH];
-    PathCombineW(userDataFolder, dataPath, currentExeName);
+    DWORD envUserDataLen = GetEnvironmentVariableW(
+        L"WEBVIEW2_USER_DATA_FOLDER", userDataFolder, MAX_PATH);
+    if (envUserDataLen == 0 || envUserDataLen >= MAX_PATH) {
+      PathCombineW(userDataFolder, dataPath, currentExeName);
+    }
 
     m_com_handler = new webview2_com_handler(
         wnd, cb,
