@@ -59,3 +59,34 @@ test_that("rdesk_relative_path() resolves same-directory and nested-directory ca
     expect_equal(rdesk_relative_path(p_abc, p_abd), "../d")
   })
 })
+
+test_that("Unix bundler escaping and plist helpers sanitize special characters", {
+  expect_equal(RDesk:::rdesk_escape_c_string('a\\b"c'), 'a\\\\b\\"c')
+  expect_equal(RDesk:::rdesk_escape_xml('A & B <"C">'), 'A &amp; B &lt;&quot;C&quot;&gt;')
+
+  tmp <- withr::local_tempdir()
+  RDesk:::rdesk_write_info_plist(tmp, "App&Demo", "1.0.0")
+  plist_txt <- paste(readLines(file.path(tmp, "Info.plist"), warn = FALSE), collapse = "\n")
+  expect_match(plist_txt, "App&amp;Demo", fixed = TRUE)
+
+  wrapper <- RDesk:::rdesk_portable_rscript_wrapper_lines()
+  expect_equal(wrapper[1], "#!/usr/bin/env bash")
+  expect_match(paste(wrapper, collapse = "\n"), "exec \"\\$DIR/R\"", perl = TRUE)
+})
+
+test_that("rdesk_prune_package_lib removes non-runtime subdirectories", {
+  lib_dir <- withr::local_tempdir()
+  pkg_dir <- file.path(lib_dir, "demoPkg")
+  for (sub in c("R", "Meta", "help", "html", "doc", "tests", "demo")) {
+    dir.create(file.path(pkg_dir, sub), recursive = TRUE)
+  }
+
+  RDesk:::rdesk_prune_package_lib(lib_dir)
+  expect_true(dir.exists(file.path(pkg_dir, "R")))
+  expect_true(dir.exists(file.path(pkg_dir, "Meta")))
+  expect_false(dir.exists(file.path(pkg_dir, "help")))
+  expect_false(dir.exists(file.path(pkg_dir, "html")))
+  expect_false(dir.exists(file.path(pkg_dir, "doc")))
+  expect_false(dir.exists(file.path(pkg_dir, "tests")))
+  expect_false(dir.exists(file.path(pkg_dir, "demo")))
+})

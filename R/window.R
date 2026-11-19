@@ -71,10 +71,10 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
   proc <- processx::process$new(
     command = launcher,
     args    = launcher_args,
-    stdin   = "|",   # allow writing QUIT and other commands
-    stdout  = "|",   # pipe so we can read READY signal and events
-    stderr  = "|",
-    cleanup = TRUE   # kill window if R session exits
+    stdin   = "|",       # allow writing QUIT and other commands
+    stdout  = "|",       # pipe so we can read READY signal and events
+    stderr  = log_file,  # avoid blocking on an undrained stderr pipe
+    cleanup = TRUE       # kill window if R session exits
   )
 
   # Wait for READY signal from launcher stdout
@@ -104,13 +104,12 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
   }
 
   if (!ready) {
-    err <- paste(proc$read_error_lines(), collapse = "\n")
     proc$kill()
     log_content <- ""
     if (file.exists(log_file)) {
       log_content <- paste(readLines(log_file, warn = FALSE), collapse = "\n")
     }
-    stop("[RDesk] Launcher failed to start correctly:\n", err, "\nLauncher Log:\n", log_content)
+    stop("[RDesk] Launcher failed to start correctly.\nLauncher Log:\n", log_content)
   }
 
   .rdesk_window_buffers[[as.character(proc$get_pid())]] <- buffered
@@ -168,7 +167,7 @@ rdesk_req_id <- function() {
 #' @return A list of parsed JSON events
 #' @keywords internal
 rdesk_read_events <- function(proc) {
-  if (is.null(proc) || !proc$is_alive()) return(list())
+  if (is.null(proc)) return(list())
   key <- as.character(proc$get_pid())
   buffered <- if (exists(key, envir = .rdesk_window_buffers, inherits = FALSE)) {
     .rdesk_window_buffers[[key]]
@@ -179,7 +178,8 @@ rdesk_read_events <- function(proc) {
     rm(list = key, envir = .rdesk_window_buffers, inherits = FALSE)
   }
 
-  lines  <- c(buffered, proc$read_output_lines())
+  out_lines <- tryCatch(proc$read_output_lines(), error = function(e) character(0))
+  lines  <- c(buffered, out_lines)
   events <- list()
   for (line in lines) {
     if (length(line) == 0 || is.na(line)) next

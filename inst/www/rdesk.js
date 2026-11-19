@@ -333,6 +333,7 @@
 
     var fileInput = null;
     var textInput = null;
+    var colorInput = null;
 
     if (options.type === "open") {
       var uploadZone = document.createElement("div");
@@ -414,6 +415,21 @@
       };
 
       inputContainer.appendChild(textInput);
+    } else if (options.type === "color") {
+      colorInput = document.createElement("input");
+      colorInput.type = "color";
+      colorInput.value = options.value || "#ffffff";
+      colorInput.style.cssText = [
+        "width:100%",
+        "height:48px",
+        "padding:4px",
+        "background:rgba(0,0,0,0.2)",
+        "border:1px solid rgba(255,255,255,0.15)",
+        "border-radius:8px",
+        "cursor:pointer",
+        "box-sizing:border-box"
+      ].join(";");
+      inputContainer.appendChild(colorInput);
     }
 
     var btnContainer = document.createElement("div");
@@ -443,7 +459,7 @@
 
     var confirmBtn = document.createElement("button");
     confirmBtn.innerText = options.type === "open" ? "Open" : "Save";
-    if (options.type === "folder") confirmBtn.innerText = "Select";
+    if (options.type === "folder" || options.type === "color") confirmBtn.innerText = "Select";
     confirmBtn.style.cssText = [
       "padding:10px 20px",
       "background:#4b8df8",
@@ -503,6 +519,9 @@
         } else {
           textInput.style.border = "1px solid #ff3b30";
         }
+      } else if (options.type === "color") {
+        closeModal();
+        if (options.onConfirm) options.onConfirm(colorInput.value);
       }
     };
 
@@ -599,13 +618,17 @@
   });
 
   rdesk.on("__dialog_color_web__", function(payload) {
-    var input = document.createElement("input");
-    input.type = "color";
-    input.value = payload.color || "#ffffff";
-    input.onchange = function(e) {
-      rdesk.send("__dialog_result_web__", { id: payload.id, result: e.target.value });
-    };
-    input.click();
+    createDialogModal({
+      title: payload.title || "Select Color",
+      type: "color",
+      value: payload.color || "#ffffff",
+      onConfirm: function(color) {
+        rdesk.send("__dialog_result_web__", { id: payload.id, result: color });
+      },
+      onCancel: function() {
+        rdesk.send("__dialog_cancel_web__", { id: payload.id });
+      }
+    });
   });
 
   // Auto-init on load

@@ -37,6 +37,9 @@ int main(int argc, char *argv[]) {
     strip_last_component(bundle_root);
 
     /* Path to app entry point. */
+    char app_dir_path[PATH_MAX];
+    snprintf(app_dir_path, sizeof(app_dir_path), "%s/app", bundle_root);
+
     char app_r_path[PATH_MAX];
     snprintf(app_r_path, sizeof(app_r_path), "%s/app/app.R", bundle_root);
 
@@ -44,6 +47,10 @@ int main(int argc, char *argv[]) {
     if (stat(app_r_path, &st) != 0) {
         fprintf(stderr, "[RDesk Stub] Error: app/app.R not found at: %s\n", app_r_path);
         return 1;
+    }
+
+    if (chdir(app_dir_path) != 0) {
+        perror("[RDesk Stub] Warning: chdir to app directory failed");
     }
 
     /* Check if bundled R wrapper exists. */

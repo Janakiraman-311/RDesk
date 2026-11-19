@@ -50,26 +50,34 @@ int main(int argc, char* argv[]) {
     strncpy(contents_path, real_exec_path, PATH_MAX - 1);
     contents_path[PATH_MAX - 1] = '\0';
 
-    // Target binary: Contents/Resources/R-runtime/R/bin/Rscript
-    char rscript_path[PATH_MAX];
-    snprintf(rscript_path, sizeof(rscript_path), "%s/Resources/R-runtime/R/bin/Rscript", contents_path);
+    // Target binary: Contents/Resources/R-runtime/R/bin/R
+    char r_path[PATH_MAX];
+    snprintf(r_path, sizeof(r_path), "%s/Resources/R-runtime/R/bin/R", contents_path);
 
-    // Verify Rscript exists
+    // Verify R executable exists
     struct stat st;
-    if (stat(rscript_path, &st) != 0) {
-        fprintf(stderr, "[RDesk Stub] Error: R runtime not found at: %s\n", rscript_path);
+    if (stat(r_path, &st) != 0) {
+        fprintf(stderr, "[RDesk Stub] Error: R runtime not found at: %s\n", r_path);
         return 1;
     }
 
     // Target R script: Contents/Resources/app/app.R
+    char app_dir_path[PATH_MAX];
+    snprintf(app_dir_path, sizeof(app_dir_path), "%s/Resources/app", contents_path);
+
     char app_r_path[PATH_MAX];
     snprintf(app_r_path, sizeof(app_r_path), "%s/Resources/app/app.R", contents_path);
+
+    if (chdir(app_dir_path) != 0) {
+        perror("[RDesk Stub] Warning: chdir to Resources/app directory failed");
+    }
 
     // Set isolated environment variables for R
     char r_home_env[PATH_MAX + 32];
     char r_libs_env[PATH_MAX * 2 + 64];
     char r_share_env[PATH_MAX + 32];
     char r_doc_env[PATH_MAX + 32];
+    char r_bundle_root_env[PATH_MAX + 32];
     char app_name_env[256];
 
     const char* app_name = "{{APP_NAME}}";
@@ -78,27 +86,32 @@ int main(int argc, char* argv[]) {
     snprintf(r_libs_env, sizeof(r_libs_env), "R_LIBS=%s/Resources/packages/library:%s/Resources/R-runtime/R/library", contents_path, contents_path);
     snprintf(r_share_env, sizeof(r_share_env), "R_SHARE_DIR=%s/Resources/R-runtime/R/share", contents_path);
     snprintf(r_doc_env, sizeof(r_doc_env), "R_DOC_DIR=%s/Resources/R-runtime/R/doc", contents_path);
+    snprintf(r_bundle_root_env, sizeof(r_bundle_root_env), "R_BUNDLE_ROOT=%s/Resources", contents_path);
     snprintf(app_name_env, sizeof(app_name_env), "R_APP_NAME=%s", app_name);
 
     putenv(r_home_env);
     putenv(r_libs_env);
     putenv(r_share_env);
     putenv(r_doc_env);
+    putenv(r_bundle_root_env);
     putenv("R_BUNDLE_APP=1");
     putenv(app_name_env);
 
-    // Prepare execv arguments: Rscript --vanilla Contents/Resources/app/app.R
+    // Prepare execv arguments: R --vanilla --no-echo --no-restore -f Contents/Resources/app/app.R
     char* const args[] = {
-        rscript_path,
+        r_path,
         "--vanilla",
+        "--no-echo",
+        "--no-restore",
+        "-f",
         app_r_path,
         NULL
     };
 
-    // Execute Rscript
-    execv(rscript_path, args);
+    // Execute R
+    execv(r_path, args);
 
     // execv only returns if execution failed
-    perror("[RDesk] execv failed to launch Rscript");
+    perror("[RDesk] execv failed to launch R");
     return 1;
 }

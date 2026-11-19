@@ -84,6 +84,11 @@ static std::mutex         g_log_mutex;
   static const UINT         WM_TRAYICON = WM_USER + 1;
 #endif
 
+static bool is_debug_enabled() {
+    const char* dbg = std::getenv("RDESK_DEBUG");
+    return dbg != nullptr && dbg[0] != '\0';
+}
+
 static void log_message(const std::string& msg) {
     std::lock_guard<std::mutex> lk(g_log_mutex);
     if (g_log_file.is_open()) {
@@ -99,7 +104,11 @@ static void write_stdout(const std::string& line) {
     
     if (g_log_file.is_open()) {
         std::lock_guard<std::mutex> llk(g_log_mutex);
-        g_log_file << "[TX] " << line << "\n";
+        if (is_debug_enabled()) {
+            g_log_file << "[TX] " << line << "\n";
+        } else {
+            g_log_file << "[TX] (" << line.size() << " bytes)\n";
+        }
         g_log_file.flush();
     }
 }
@@ -141,11 +150,21 @@ static std::string g_www_path;
         if (hRange.location != NSNotFound) {
             rel = [rel substringToIndex:hRange.location];
         }
-        
-        NSString *fullPath = [NSString stringWithFormat:@"%s/%@", g_www_path.c_str(), rel];
-        
-        if (![[NSFileManager defaultManager] fileExistsAtPath:fullPath]) {
-             fullPath = [NSString stringWithFormat:@"%s/index.html", g_www_path.c_str()];
+        while ([rel hasPrefix:@"/"]) {
+            rel = [rel substringFromIndex:1];
+        }
+        if ([rel length] == 0) {
+            rel = @"index.html";
+        }
+
+        NSString *baseDir = [[NSString stringWithUTF8String:g_www_path.c_str()] stringByStandardizingPath];
+        NSString *basePrefix = [baseDir hasSuffix:@"/"] ? baseDir : [baseDir stringByAppendingString:@"/"];
+        NSString *candidate = [[baseDir stringByAppendingPathComponent:rel] stringByStandardizingPath];
+        NSString *fullPath = candidate;
+        if (![candidate hasPrefix:basePrefix] && ![candidate isEqualToString:baseDir]) {
+            fullPath = [baseDir stringByAppendingPathComponent:@"index.html"];
+        } else if (![[NSFileManager defaultManager] fileExistsAtPath:fullPath]) {
+            fullPath = [baseDir stringByAppendingPathComponent:@"index.html"];
         }
         
         NSData *data = [NSData dataWithContentsOfFile:fullPath];
@@ -232,12 +251,30 @@ static void uri_scheme_request_cb(WebKitURISchemeRequest* request,
     if (q != std::string::npos) rel = rel.substr(0, q);
     size_t h = rel.find('#');
     if (h != std::string::npos) rel = rel.substr(0, h);
+    while (!rel.empty() && (rel.front() == '/' || rel.front() == '\\')) {
+      rel.erase(rel.begin());
+    }
+    if (rel.empty() || rel.find("..") != std::string::npos || rel.find('\\') != std::string::npos) {
+      rel = "index.html";
+    }
 
     std::string full = g_www_path + "/" + rel;
 
-    // Check if file exists, fallback to index.html
+    // Canonicalize and verify path stays within g_www_path
+    char real_base[PATH_MAX];
+    char real_full[PATH_MAX];
     struct stat st;
-    if (stat(full.c_str(), &st) != 0) {
+    if (realpath(g_www_path.c_str(), real_base) != nullptr &&
+        realpath(full.c_str(), real_full) != nullptr &&
+        stat(real_full, &st) == 0 && S_ISREG(st.st_mode)) {
+      std::string base_prefix = std::string(real_base) + "/";
+      std::string resolved_str(real_full);
+      if (resolved_str.compare(0, base_prefix.size(), base_prefix) == 0) {
+        full = resolved_str;
+      } else {
+        full = g_www_path + "/index.html";
+      }
+    } else {
       full = g_www_path + "/index.html";
     }
 
@@ -905,10 +942,11 @@ static void set_system_tray_menu(const std::string&) {}
 #endif
 
 #ifdef __APPLE__
-@interface RDeskMenuHandler : NSObject
+@interface RDeskMenuHandler : NSObject <NSWindowDelegate>
 - (void)menuClicked:(id)sender;
 - (void)statusItemClicked:(id)sender;
 - (void)activateApp;
+- (BOOL)windowShouldClose:(NSWindow *)sender;
 @end
 
 @implementation RDeskMenuHandler
@@ -934,9 +972,24 @@ static void set_system_tray_menu(const std::string&) {}
     write_stdout(out.dump());
 }
 
+- (BOOL)windowShouldClose:(NSWindow *)sender {
+    if (g_intercept_close.load()) {
+        json out;
+        out["event"] = "WINDOW_CLOSING";
+        write_stdout(out.dump());
+        return NO;
+    }
+    return YES;
+}
+
 - (void)activateApp {
     [NSApp activateIgnoringOtherApps:YES];
-    [[NSApp mainWindow] makeKeyAndOrderFront:nil];
+    NSWindow* win = (NSWindow*)(g_webview ? g_webview->window().value() : nullptr);
+    if (!win) win = [NSApp mainWindow];
+    if (win) {
+        [win setDelegate:self];
+        [win makeKeyAndOrderFront:nil];
+    }
 }
 @end
 
@@ -1137,13 +1190,7 @@ static void process_command(const std::string& line) {
                         core->Release();
                     }
 #else
-                    // Escape single quotes and backslashes for JS eval
-                    std::string escaped = "";
-                    for (char c : payload_str) {
-                        if (c == '\'' || c == '\\') escaped += '\\';
-                        escaped += c;
-                    }
-                    std::string js = "window.dispatchEvent(new MessageEvent('message', {data: '" + escaped + "'}))";
+                    std::string js = "window.dispatchEvent(new MessageEvent('message', {data: " + json(payload_str).dump() + "}))";
                     g_webview->eval(js);
 #endif
                 });
@@ -1287,6 +1334,31 @@ static void process_command(const std::string& line) {
         return;
     }
 
+    if (cmd == "INTERCEPT_CLOSE") {
+        g_intercept_close.store(j["payload"].value("enabled", false));
+        return;
+    }
+
+    if (cmd == "CLIPBOARD_WRITE") {
+        std::string text = j["payload"].value("text", "");
+        dispatch_to_webview([text]() {
+            set_clipboard_text(text);
+        });
+        return;
+    }
+
+    if (cmd == "CLIPBOARD_READ") {
+        dispatch_to_webview([id]() {
+            std::string text = get_clipboard_text();
+            json out;
+            out["event"]  = "DIALOG_RESULT";
+            out["id"]     = id;
+            out["result"] = text;
+            write_stdout(out.dump());
+        });
+        return;
+    }
+
 #ifdef _WIN32
 
     if (cmd == "DIALOG_OPEN") {
@@ -1417,25 +1489,6 @@ static void process_command(const std::string& line) {
         return;
     }
 
-    if (cmd == "INTERCEPT_CLOSE") {
-        g_intercept_close.store(j["payload"].value("enabled", false));
-        return;
-    }
-    if (cmd == "CLIPBOARD_WRITE") {
-        set_clipboard_text(j["payload"].value("text", ""));
-        return;
-    }
-
-    if (cmd == "CLIPBOARD_READ") {
-        std::string text = get_clipboard_text();
-        json out;
-        out["event"]  = "DIALOG_RESULT";
-        out["id"]     = id;
-        out["result"] = text;
-        write_stdout(out.dump());
-        return;
-    }
-
     if (cmd == "REGISTER_HOTKEY") {
         json pl = j.value("payload", json::object());
         int  hk_id = pl.value("id", 0);
@@ -1458,7 +1511,11 @@ static void process_command(const std::string& line) {
 static void stdin_reader() {
     std::string line;
     while (std::getline(std::cin, line)) {
-        log_message("[RX] " + line);
+        if (is_debug_enabled()) {
+            log_message("[RX] " + line);
+        } else {
+            log_message("[RX] (" + std::to_string(line.size()) + " bytes)");
+        }
         if (line.empty()) continue;
         process_command(line);
         if (g_quit.load()) break;
@@ -1528,8 +1585,14 @@ int main(int argc, char* argv[]) {
 
     std::string url    = args[0];
     std::string title  = args.size() > 1 ? args[1] : "RDesk App";
-    int         width  = args.size() > 2 ? std::stoi(args[2]) : 1200;
-    int         height = args.size() > 3 ? std::stoi(args[3]) : 800;
+    int width = 1200;
+    if (args.size() > 2) {
+        try { width = std::stoi(args[2]); } catch (...) { width = 1200; }
+    }
+    int height = 800;
+    if (args.size() > 3) {
+        try { height = std::stoi(args[3]); } catch (...) { height = 800; }
+    }
     std::string www    = args.size() > 4 ? args[4] : "";
     
     unsigned long parent_pid = 0;
@@ -1571,7 +1634,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     try {
-        webview::webview w(true, nullptr);
+        webview::webview w(is_debug_enabled(), nullptr);
         {
             std::lock_guard<std::mutex> lk(g_webview_mutex);
             g_webview = &w;

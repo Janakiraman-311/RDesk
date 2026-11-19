@@ -62,8 +62,15 @@ int main(int argc, char* argv[]) {
     }
 
     // Target R script: Contents/Resources/app/app.R
+    char app_dir_path[PATH_MAX];
+    snprintf(app_dir_path, sizeof(app_dir_path), "%s/Resources/app", contents_path);
+
     char app_r_path[PATH_MAX];
     snprintf(app_r_path, sizeof(app_r_path), "%s/Resources/app/app.R", contents_path);
+
+    if (chdir(app_dir_path) != 0) {
+        perror("[RDesk Stub] Warning: chdir to Resources/app directory failed");
+    }
 
     // Set isolated environment variables for R
     char r_home_env[PATH_MAX + 32];

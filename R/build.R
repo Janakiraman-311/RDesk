@@ -668,12 +668,26 @@ rdesk_fetch_portable_r <- function(r_version,
   return(actual_v)
 }
 
+rdesk_prune_package_lib <- function(lib_dir) {
+  if (!dir.exists(lib_dir)) return(invisible(NULL))
+  pkg_dirs <- list.dirs(lib_dir, full.names = TRUE, recursive = FALSE)
+  drop_subdirs <- c("help", "html", "doc", "tests", "demo")
+  for (pdir in pkg_dirs) {
+    for (sub in drop_subdirs) {
+      target <- file.path(pdir, sub)
+      if (dir.exists(target)) unlink(target, recursive = TRUE)
+    }
+  }
+  invisible(NULL)
+}
+
 rdesk_prune_runtime <- function(runtime_dir) {
-  prune <- c("doc", "tests", "Tcl", "share/locale", "library/tcltk", "library/KernSmooth", "library/spatial")
+  prune <- c("doc", "tests", "Tcl", "bin/i386", "library/tcltk", "library/KernSmooth", "library/spatial")
   for (p in prune) {
     target <- file.path(runtime_dir, p)
     if (dir.exists(target)) unlink(target, recursive = TRUE)
   }
+  rdesk_prune_package_lib(file.path(runtime_dir, "library"))
 }
 
 rdesk_detect_runtime_version <- function(r_home) {
@@ -883,6 +897,19 @@ rdesk_snapshot_bundle <- function(lib_dir, stage_root) {
   jsonlite::write_json(lockfile, file.path(stage_root, "renv.lock"), pretty = TRUE, auto_unbox = TRUE)
 }
 
+rdesk_escape_c_string <- function(x) {
+  x <- gsub("\\", "\\\\", as.character(x), fixed = TRUE)
+  gsub("\"", "\\\"", x, fixed = TRUE)
+}
+
+rdesk_escape_xml <- function(x) {
+  x <- gsub("&", "&amp;", as.character(x), fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  x <- gsub(">", "&gt;", x, fixed = TRUE)
+  x <- gsub("\"", "&quot;", x, fixed = TRUE)
+  gsub("'", "&apos;", x, fixed = TRUE)
+}
+
 # ---- macOS Bundler and Helpers -----------------------------------------------
 
 rdesk_build_macos_app <- function(app_dir, app_name,
@@ -938,7 +965,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   tmp_c <- file.path(tempdir(), paste0("stub_", digest::digest(app_name, algo="crc32"), ".c"))
   on.exit(unlink(tmp_c, force = TRUE), add = TRUE)
   lines <- readLines(stub_c_src)
-  lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE)
+  lines <- gsub("{{APP_NAME}}", rdesk_escape_c_string(app_name), lines, fixed = TRUE)
   writeLines(lines, tmp_c)
 
   stub_dst <- file.path(contents, "MacOS", app_name)
@@ -991,7 +1018,7 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   extra_pkgs <- character(0)
   if (file.exists(desc_path)) {
     desc <- read.dcf(desc_path)
-    for (field in c("Depends", "Imports", "Suggests")) {
+    for (field in c("Depends", "Imports")) {
       if (field %in% colnames(desc)) {
         val <- as.character(desc[1, field])
         val_clean <- gsub("\\([^)]+\\)", "", val)
@@ -1009,12 +1036,13 @@ rdesk_build_macos_app <- function(app_dir, app_name,
   if (nzchar(installed_rdesk)) {
     rdesk_copy_dir(installed_rdesk, file.path(pkg_dst, "RDesk"))
   }
+  if (prune_runtime) rdesk_prune_package_lib(pkg_dst)
 
-  # 7. Fix dynamic library paths (otool and install_name_tool)
-  rdesk_fix_macos_rpaths(bundle_path)
-
-  # 7c. Patch R shell script wrapper to resolve R_HOME_DIR dynamically
+  # 7a. Patch R and Rscript shell script wrappers to resolve R_HOME_DIR dynamically
   rdesk_patch_macos_R_shell_script(bundle_path)
+
+  # 7b. Fix dynamic library paths (otool and install_name_tool)
+  rdesk_fix_macos_rpaths(bundle_path)
 
   # 7d. Pre-flight check: Verify that the bundled R runtime actually loads and executes
   message("[RDesk] Running pre-flight check on bundled R runtime...")
@@ -1246,11 +1274,74 @@ rdesk_fix_macos_rpaths <- function(app_bundle_path) {
   message("[RDesk]   Patched ", length(macho_binaries), " Mach-O binaries - audit PASSED.")
   invisible(macho_binaries)
 }
+rdesk_portable_rscript_wrapper_lines <- function() {
+  c(
+    "#!/usr/bin/env bash",
+    "# ============================================================================",
+    "# RDesk Portable Rscript Shell Wrapper",
+    "# Avoids hardcoded host paths inside compiled Rscript binaries.",
+    "# ============================================================================",
+    "",
+    "DIR=\"$( cd \"$( dirname \"${BASH_SOURCE[0]}\" )\" && pwd )\"",
+    "",
+    "r_opts=()",
+    "exprs=()",
+    "file=\"\"",
+    "args=()",
+    "",
+    "while [[ $# -gt 0 ]]; do",
+    "  case \"$1\" in",
+    "    --vanilla|--no-environ|--no-site-file|--no-init-file|--restore|--no-restore|--quiet|--verbose)",
+    "      r_opts+=(\"$1\")",
+    "      shift",
+    "      ;;",
+    "    --default-packages=*)",
+    "      r_opts+=(\"$1\")",
+    "      shift",
+    "      ;;",
+    "    -e)",
+    "      if [[ $# -gt 1 ]]; then",
+    "        exprs+=(\"$2\")",
+    "        shift 2",
+    "      else",
+    "        echo \"Error: -e requires an argument\" >&2",
+    "        exit 1",
+    "      fi",
+    "      ;;",
+    "    -*)",
+    "      r_opts+=(\"$1\")",
+    "      shift",
+    "      ;;",
+    "    *)",
+    "      file=\"$1\"",
+    "      shift",
+    "      args+=(\"$@\")",
+    "      break",
+    "      ;;",
+    "  esac",
+    "done",
+    "",
+    "if [[ ${#exprs[@]} -gt 0 ]]; then",
+    "  combined_expr=\"\"",
+    "  for expr in \"${exprs[@]}\"; do",
+    "    combined_expr+=\"${expr}\"$'\n'",
+    "  done",
+    "  exec \"$DIR/R\" \"${r_opts[@]}\" --slave -e \"${combined_expr}\" --args \"${args[@]}\"",
+    "elif [[ -n \"$file\" ]]; then",
+    "  exec \"$DIR/R\" \"${r_opts[@]}\" --slave -f \"$file\" --args \"${args[@]}\"",
+    "else",
+    "  echo \"Usage: Rscript [options] [-e expr | file] [args]\" >&2",
+    "  exit 1",
+    "fi"
+  )
+}
+
 rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
   if (Sys.info()["sysname"] != "Darwin") return(invisible(NULL))
-  message("[RDesk] Patching bin/R shell script to make R_HOME_DIR dynamic...")
+  message("[RDesk] Patching bin/R and bin/Rscript for dynamic R_HOME_DIR...")
 
-  r_bin <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "bin", "R")
+  r_bin_dir <- file.path(app_bundle_path, "Contents", "Resources", "R-runtime", "R", "bin")
+  r_bin <- file.path(r_bin_dir, "R")
   if (file.exists(r_bin)) {
     lines <- readLines(r_bin)
     idx <- grep("^[ \t]*R_HOME_DIR=", lines)
@@ -1265,6 +1356,14 @@ rdesk_patch_macos_R_shell_script <- function(app_bundle_path) {
   } else {
     stop("[RDesk]   CRITICAL: bin/R script not found at: ", r_bin)
   }
+
+  rscript_bin <- file.path(r_bin_dir, "Rscript")
+  if (file.exists(rscript_bin)) {
+    file.remove(rscript_bin)
+  }
+  writeLines(rdesk_portable_rscript_wrapper_lines(), rscript_bin)
+  Sys.chmod(rscript_bin, "0755")
+  message("[RDesk]   Replaced bin/Rscript with portable shell wrapper.")
 }
 
 
@@ -1313,6 +1412,8 @@ rdesk_sign_macos_app <- function(app_bundle, identity = "-") {
 rdesk_write_info_plist <- function(contents_dir, app_name, app_version) {
   plist_path <- file.path(contents_dir, "Info.plist")
   app_name_lower <- tolower(gsub("[^[:alnum:]]+", "", app_name))
+  safe_name <- rdesk_escape_xml(app_name)
+  safe_ver  <- rdesk_escape_xml(app_version)
 
   plist_content <- c(
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -1320,17 +1421,17 @@ rdesk_write_info_plist <- function(contents_dir, app_name, app_version) {
     '<plist version="1.0">',
     '<dict>',
     '  <key>CFBundleName</key>',
-    sprintf('  <string>%s</string>', app_name),
+    sprintf('  <string>%s</string>', safe_name),
     '  <key>CFBundleDisplayName</key>',
-    sprintf('  <string>%s</string>', app_name),
+    sprintf('  <string>%s</string>', safe_name),
     '  <key>CFBundleIdentifier</key>',
     sprintf('  <string>com.rdesk.%s</string>', app_name_lower),
     '  <key>CFBundleVersion</key>',
-    sprintf('  <string>%s</string>', app_version),
+    sprintf('  <string>%s</string>', safe_ver),
     '  <key>CFBundleShortVersionString</key>',
-    sprintf('  <string>%s</string>', app_version),
+    sprintf('  <string>%s</string>', safe_ver),
     '  <key>CFBundleExecutable</key>',
-    sprintf('  <string>%s</string>', app_name),
+    sprintf('  <string>%s</string>', safe_name),
     '  <key>CFBundleIconFile</key>',
     '  <string>AppIcon</string>',
     '  <key>CFBundlePackageType</key>',
@@ -1406,7 +1507,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   tmp_c <- file.path(tempdir(), paste0("stub_", digest::digest(app_name, algo="crc32"), ".c"))
   on.exit(unlink(tmp_c, force = TRUE), add = TRUE)
   lines <- readLines(stub_c_src)
-  lines <- gsub("{{APP_NAME}}", app_name, lines, fixed = TRUE)
+  lines <- gsub("{{APP_NAME}}", rdesk_escape_c_string(app_name), lines, fixed = TRUE)
   writeLines(lines, tmp_c)
 
   stub_dst <- file.path(stage_root, app_name)
@@ -1481,65 +1582,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
     file.remove(rscript_wrapper_path)
   }
 
-  rscript_content <- c(
-    "#!/usr/bin/env bash",
-    "# ============================================================================",
-    "# RDesk Portable Rscript Shell Wrapper",
-    "# Avoids hardcoded host paths inside compiled Rscript binaries.",
-    "# ============================================================================",
-    "",
-    "DIR=\"$( cd \"$( dirname \"${BASH_SOURCE[0]}\" )\" && pwd )\"",
-    "",
-    "r_opts=()",
-    "exprs=()",
-    "file=\"\"",
-    "args=()",
-    "",
-    "while [[ $# -gt 0 ]]; do",
-    "  case \"$1\" in",
-    "    --vanilla|--no-environ|--no-site-file|--no-init-file|--restore|--no-restore|--quiet|--verbose)",
-    "      r_opts+=(\"$1\")",
-    "      shift",
-    "      ;;",
-    "    --default-packages=*)",
-    "      r_opts+=(\"$1\")",
-    "      shift",
-    "      ;;",
-    "    -e)",
-    "      if [[ $# -gt 1 ]]; then",
-    "        exprs+=(\"$2\")",
-    "        shift 2",
-    "      else",
-    "        echo \"Error: -e requires an argument\" >&2",
-    "        exit 1",
-    "      fi",
-    "      ;;",
-    "    -*)",
-    "      r_opts+=(\"$1\")",
-    "      shift",
-    "      ;;",
-    "    *)",
-    "      file=\"$1\"",
-    "      shift",
-    "      args+=(\"$@\")",
-    "      break",
-    "      ;;",
-    "  esac",
-    "done",
-    "",
-    "if [[ ${#exprs[@]} -gt 0 ]]; then",
-    "  combined_expr=\"\"",
-    "  for expr in \"${exprs[@]}\"; do",
-    "    combined_expr+=\"${expr}\"$'\n'",
-    "  done",
-    "  exec \"$DIR/R\" \"${r_opts[@]}\" --slave -e \"${combined_expr}\" --args \"${args[@]}\"",
-    "elif [[ -n \"$file\" ]]; then",
-    "  exec \"$DIR/R\" \"${r_opts[@]}\" --slave -f \"$file\" --args \"${args[@]}\"",
-    "else",
-    "  echo \"Usage: Rscript [options] [-e expr | file] [args]\" >&2",
-    "  exit 1",
-    "fi"
-  )
+  rscript_content <- rdesk_portable_rscript_wrapper_lines()
 
   writeLines(rscript_content, rscript_wrapper_path)
   Sys.chmod(rscript_wrapper_path, "0755")
@@ -1573,7 +1616,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   extra_pkgs <- character(0)
   if (file.exists(desc_path)) {
     desc <- read.dcf(desc_path)
-    for (field in c("Depends", "Imports", "Suggests")) {
+    for (field in c("Depends", "Imports")) {
       if (field %in% colnames(desc)) {
         val <- as.character(desc[1, field])
         val_clean <- gsub("\\([^)]+\\)", "", val)
@@ -1591,6 +1634,7 @@ rdesk_build_linux_app <- function(app_dir, app_name,
   if (nzchar(installed_rdesk)) {
     rdesk_copy_dir(installed_rdesk, file.path(pkg_dst, "RDesk"))
   }
+  if (prune_runtime) rdesk_prune_package_lib(pkg_dst)
 
   # 5. Generate run.sh startup script
   run_sh_path <- file.path(stage_root, "run.sh")
