@@ -88,7 +88,8 @@ test_that("rdesk_render_iss_template configures user and system install scopes",
   )
   txt_user <- paste(iss_user, collapse = "\n")
   expect_match(txt_user, "PrivilegesRequired=lowest", fixed = TRUE)
-  expect_match(txt_user, "DefaultDirName={localappdata}\\{#AppName}", fixed = TRUE)
+  expect_match(txt_user, "DefaultDirName={autopf}\\{#AppName}", fixed = TRUE)
+  expect_match(txt_user, "Software\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients", fixed = TRUE)
 
   iss_sys <- RDesk:::rdesk_render_iss_template(
     stage_root = tmp_dir,
@@ -102,4 +103,23 @@ test_that("rdesk_render_iss_template configures user and system install scopes",
   txt_sys <- paste(iss_sys, collapse = "\n")
   expect_match(txt_sys, "PrivilegesRequired=admin", fixed = TRUE)
   expect_match(txt_sys, "DefaultDirName={autopf}\\{#AppName}", fixed = TRUE)
+})
+
+test_that("rdesk_launcher_path resolves R_BUNDLE_ROOT/bin in bundled mode", {
+  bundle_dir <- withr::local_tempdir()
+  bin_dir <- file.path(bundle_dir, "bin")
+  dir.create(bin_dir, recursive = TRUE)
+  bin_name <- if (.Platform$OS.type == "windows") "rdesk-launcher.exe" else "rdesk-launcher"
+  fake_launcher <- file.path(bin_dir, bin_name)
+  file.create(fake_launcher)
+
+  withr::local_envvar(
+    R_BUNDLE_APP = "1",
+    R_BUNDLE_ROOT = bundle_dir
+  )
+  resolved <- RDesk:::rdesk_launcher_path()
+  expect_equal(
+    normalizePath(resolved, winslash = "/"),
+    normalizePath(fake_launcher, winslash = "/")
+  )
 })

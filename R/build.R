@@ -122,7 +122,7 @@ build_app <- function(app_dir = ".",
     }
     # Auto-detect package dependencies from DESCRIPTION
     detected_pkgs <- character(0)
-    for (field in c("Depends", "Imports", "Suggests")) {
+    for (field in c("Depends", "Imports")) {
       if (field %in% colnames(desc)) {
         val <- as.character(desc[1, field])
         # Clean up version numbers, e.g. "haven (>= 2.0.0)"
@@ -301,6 +301,12 @@ build_app <- function(app_dir = ".",
   }
 
   # ---- Step 4b: Prune and snapshot package versions into bundle -----------
+  # Avoid shipping duplicate rdesk-launcher.exe inside packages/library/RDesk/bin
+  # when stage_root/bin/rdesk-launcher.exe is already bundled.
+  dup_bin <- file.path(pkg_lib, "RDesk", "bin")
+  if (file.exists(file.path(bin_stage, "rdesk-launcher.exe")) && dir.exists(dup_bin)) {
+    unlink(dup_bin, recursive = TRUE)
+  }
   if (prune_runtime) rdesk_prune_package_lib(pkg_lib)
   message("[RDesk] Step 4b/6 - snapshotting package versions...")
   rdesk_snapshot_bundle(pkg_lib, stage_root)
@@ -846,6 +852,7 @@ rdesk_build_stub <- function(stub_cpp, out_exe, app_name, icon_file = NULL) {
     tempdir(),
     paste0("stub_", digest::digest(app_name, algo = "crc32"), ".cpp")
   )
+  on.exit(unlink(tmp_cpp, force = TRUE), add = TRUE)
   lines <- readLines(stub_cpp)
   lines <- gsub("{{APP_NAME}}", rdesk_escape_cpp_wstring(app_name), lines, fixed = TRUE)
   writeLines(lines, tmp_cpp)
@@ -861,6 +868,7 @@ rdesk_build_stub <- function(stub_cpp, out_exe, app_name, icon_file = NULL) {
     if (nzchar(windres) && file.exists(windres)) {
       tmp_rc  <- file.path(tempdir(), "stub_icon.rc")
       tmp_res <- file.path(tempdir(), "stub_icon.res")
+      on.exit(unlink(c(tmp_rc, tmp_res), force = TRUE), add = TRUE)
       ico_norm <- gsub("\\", "/", normalizePath(icon_file, mustWork = TRUE), fixed = TRUE)
       writeLines(sprintf('IDI_ICON1 ICON "%s"', ico_norm), tmp_rc)
       rc_res <- system2(windres, args = c("-i", shQuote(tmp_rc), "-o", shQuote(tmp_res), "-O", "coff"))
@@ -921,7 +929,7 @@ rdesk_render_iss_template <- function(stage_root,
   iss_content <- readLines(template_path)
 
   priv_req <- if (identical(install_scope, "system")) "admin" else "lowest"
-  def_dir  <- if (identical(install_scope, "system")) "{autopf}\\{#AppName}" else "{localappdata}\\{#AppName}"
+  def_dir  <- "{autopf}\\{#AppName}"
 
   iss_content <- gsub("{{PrivilegesRequired}}", priv_req, iss_content, fixed = TRUE)
   iss_content <- gsub("{{DefaultDirName}}", def_dir, iss_content, fixed = TRUE)
@@ -970,6 +978,7 @@ rdesk_build_installer <- function(stage_root,
     install_scope = install_scope
   )
   iss_temp <- file.path(tempdir(), "installer.iss")
+  on.exit(unlink(iss_temp, force = TRUE), add = TRUE)
   writeLines(iss_content, iss_temp)
   iscc <- rdesk_find_iscc()
   if (is.null(iscc)) stop("[build_app] Inno Setup compiler (ISCC.exe) not found.")

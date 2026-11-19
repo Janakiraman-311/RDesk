@@ -163,6 +163,18 @@ App <- R6::R6Class("App",
         utils::download.file(version_url, tmp, mode = "wb", quiet = TRUE)
         latest <- jsonlite::fromJSON(tmp)
 
+        if (!is.null(latest$url) && nzchar(latest$url) &&
+            !grepl("^https://", latest$url, ignore.case = TRUE)) {
+          warning("[RDesk] Update download URL in version metadata must use https://.")
+          return(list(
+            update_available = FALSE,
+            current_version  = current_version,
+            latest_version   = latest$version,
+            download_url     = NULL,
+            error            = "download_url must use https://"
+          ))
+        }
+
         has_update <- utils::compareVersion(latest$version, current_version) > 0
 
         list(
@@ -623,9 +635,6 @@ App <- R6::R6Class("App",
       rdesk_log(sprintf("Starting application: %s", private$.title), level = "INFO", app_name = private$.title)
 
       private$.running <- TRUE
-      if (getOption("rdesk.async_backend", "callr") == "mirai") {
-        rdesk_start_daemons()  # Pre-warm worker pool
-      }
 
       if (.Platform$OS.type == "windows") {
         url <- "https://app.rdesk/index.html"
@@ -643,6 +652,18 @@ App <- R6::R6Class("App",
       if (is.null(private$.window_proc)) {
         private$.running <- FALSE
         return(invisible(self))
+      }
+
+      if (getOption("rdesk.async_backend", "callr") == "mirai") {
+        rdesk_start_daemons()  # Pre-warm worker pool after window starts
+      }
+
+      if (!is.null(private$.icon) && nzchar(private$.icon) && file.exists(private$.icon)) {
+        private$.send_launcher_cmd(
+          "SET_ICON",
+          list(icon = normalizePath(private$.icon, mustWork = FALSE)),
+          queue_if_unavailable = TRUE
+        )
       }
 
       # Flush queued messages

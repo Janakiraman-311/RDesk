@@ -101,8 +101,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         } else {
             wchar_t tmp_buf[MAX_PATH + 2] = {};
             DWORD n = GetTempPathW(MAX_PATH + 1, tmp_buf);
-            std::wstring fallback = (n > 0) ? std::wstring(tmp_buf, n) : L".";
-            log_dir_str = fallback + L"\\RDesk\\" + safe_log_name;
+            std::wstring fallback = (n > 0 && n <= MAX_PATH + 1) ? std::wstring(tmp_buf, n) : L".";
+            log_dir_str = (std::filesystem::path(fallback) / L"RDesk" / safe_log_name).wstring();
         }
     }
 

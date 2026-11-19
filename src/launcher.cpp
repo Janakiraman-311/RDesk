@@ -26,9 +26,11 @@ using json = nlohmann::json;
   #include <wrl.h>
   #include "webview/webview.h"
   #include <WebView2.h>
-  #pragma comment(lib, "comdlg32.lib")
-  #pragma comment(lib, "shell32.lib")
-  #pragma comment(lib, "ole32.lib")
+  #ifdef _MSC_VER
+    #pragma comment(lib, "comdlg32.lib")
+    #pragma comment(lib, "shell32.lib")
+    #pragma comment(lib, "ole32.lib")
+  #endif
 #elif defined(__APPLE__)
   #define WEBVIEW_COCOA 1
   #include "webview/webview.h"
@@ -471,6 +473,7 @@ static std::map<UINT, std::string> g_menu_actions; // ID → action id string
 static UINT  g_menu_id_counter = 1000;
 static HWND  g_hwnd = nullptr;
 static NOTIFYICONDATAW g_nid = {};
+static HICON g_custom_tray_icon = nullptr;
 static bool  g_tray_active = false;
 static bool  g_notify_icon_added = false;
 
@@ -481,7 +484,7 @@ static void ensure_notify_icon(bool visible) {
     g_nid.hWnd = g_hwnd;
     g_nid.uID = 1001;
     g_nid.uCallbackMessage = WM_TRAYICON;
-    g_nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    g_nid.hIcon = g_custom_tray_icon ? g_custom_tray_icon : LoadIcon(nullptr, IDI_APPLICATION);
     g_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     if (wcslen(g_nid.szTip) == 0) {
         wcsncpy_s(g_nid.szTip, L"RDesk App", 127);
@@ -727,6 +730,17 @@ static void show_notification(const std::string& title, const std::string& body)
 static void set_system_tray(const std::string& label, const std::string& icon_path) {
     if (!g_hwnd) return;
 
+    if (!icon_path.empty()) {
+        std::wstring wicon = widen(icon_path);
+        HICON loaded = static_cast<HICON>(LoadImageW(
+            nullptr, wicon.c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE
+        ));
+        if (loaded) {
+            if (g_custom_tray_icon) DestroyIcon(g_custom_tray_icon);
+            g_custom_tray_icon = loaded;
+        }
+    }
+
     std::wstring wlabel = widen(label);
     wcsncpy_s(g_nid.szTip, wlabel.c_str(), 127);
 
@@ -734,6 +748,7 @@ static void set_system_tray(const std::string& label, const std::string& icon_pa
     if (!g_notify_icon_added) return;
 
     g_tray_active = true;
+    g_nid.hIcon = g_custom_tray_icon ? g_custom_tray_icon : LoadIcon(nullptr, IDI_APPLICATION);
     g_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_STATE;
     g_nid.dwState = 0;
     g_nid.dwStateMask = NIS_HIDDEN;
@@ -745,6 +760,10 @@ static void remove_system_tray() {
     if (g_notify_icon_added) {
         Shell_NotifyIconW(NIM_DELETE, &g_nid);
         g_notify_icon_added = false;
+    }
+    if (g_custom_tray_icon) {
+        DestroyIcon(g_custom_tray_icon);
+        g_custom_tray_icon = nullptr;
     }
 }
 
@@ -766,9 +785,19 @@ static bool set_clipboard_text(const std::string& text) {
         CloseClipboard();
         return false;
     }
-    memcpy(GlobalLock(hGlobal), wtext.c_str(), size);
+    void* locked = GlobalLock(hGlobal);
+    if (!locked) {
+        GlobalFree(hGlobal);
+        CloseClipboard();
+        return false;
+    }
+    memcpy(locked, wtext.c_str(), size);
     GlobalUnlock(hGlobal);
-    SetClipboardData(CF_UNICODETEXT, hGlobal);
+    if (!SetClipboardData(CF_UNICODETEXT, hGlobal)) {
+        GlobalFree(hGlobal);
+        CloseClipboard();
+        return false;
+    }
     CloseClipboard();
     return true;
 }
@@ -780,7 +809,11 @@ static std::string get_clipboard_text() {
         CloseClipboard();
         return "";
     }
-    wchar_t* pText = (wchar_t*)GlobalLock(hData);
+    wchar_t* pText = static_cast<wchar_t*>(GlobalLock(hData));
+    if (!pText) {
+        CloseClipboard();
+        return "";
+    }
     std::string result = narrow(pText);
     GlobalUnlock(hData);
     CloseClipboard();
@@ -1528,6 +1561,27 @@ static void process_command(const std::string& line) {
         });
         return;
     }
+
+    if (cmd == "SET_ICON") {
+        std::string icon = j["payload"].value("icon", "");
+        if (!icon.empty()) {
+            dispatch_to_webview([icon]() {
+                if (!g_hwnd) return;
+                std::wstring wicon = widen(icon);
+                HICON hBig = static_cast<HICON>(LoadImageW(
+                    nullptr, wicon.c_str(), IMAGE_ICON,
+                    GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_LOADFROMFILE
+                ));
+                HICON hSmall = static_cast<HICON>(LoadImageW(
+                    nullptr, wicon.c_str(), IMAGE_ICON,
+                    GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE
+                ));
+                if (hBig) SendMessageW(g_hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hBig));
+                if (hSmall) SendMessageW(g_hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hSmall));
+            });
+        }
+        return;
+    }
 #endif
 }
 
@@ -1638,10 +1692,23 @@ int main(int argc, char* argv[]) {
 #ifdef _WIN32
     // Single Instance Check (Windows only)
     size_t title_hash = std::hash<std::string>{}(title + "|" + www);
-    std::wstring mutex_name = L"Local\\RDesk_Instance_" + std::to_wstring(title_hash);
+    std::wstring instance_prop = L"RDesk_Instance_" + std::to_wstring(title_hash);
+    std::wstring mutex_name = L"Local\\" + instance_prop;
     HANDLE hMutex = CreateMutexW(NULL, TRUE, mutex_name.c_str());
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         HWND hwndExisting = FindWindowW(nullptr, widen(title).c_str());
+        if (!hwndExisting) {
+            struct FindCtx { const wchar_t* prop; HWND found; } ctx{ instance_prop.c_str(), nullptr };
+            EnumWindows([](HWND hwnd, LPARAM lp) -> BOOL {
+                auto* c = reinterpret_cast<FindCtx*>(lp);
+                if (GetPropW(hwnd, c->prop) != nullptr) {
+                    c->found = hwnd;
+                    return FALSE;
+                }
+                return TRUE;
+            }, reinterpret_cast<LPARAM>(&ctx));
+            hwndExisting = ctx.found;
+        }
         if (hwndExisting) {
             if (IsIconic(hwndExisting)) {
                 ShowWindow(hwndExisting, SW_RESTORE);
@@ -1694,6 +1761,9 @@ int main(int argc, char* argv[]) {
 
 #ifdef _WIN32
         g_hwnd = (HWND)w.window().value();
+        if (g_hwnd) {
+            SetPropW(g_hwnd, instance_prop.c_str(), reinterpret_cast<HANDLE>(1));
+        }
         
         if (parent_pid != 0) {
             std::thread(parent_watchdog, (DWORD)parent_pid).detach();
@@ -1922,6 +1992,13 @@ int main(int argc, char* argv[]) {
             Shell_NotifyIconW(NIM_DELETE, &g_nid);
             g_notify_icon_added = false;
             g_tray_active = false;
+        }
+        if (g_custom_tray_icon) {
+            DestroyIcon(g_custom_tray_icon);
+            g_custom_tray_icon = nullptr;
+        }
+        if (g_hwnd) {
+            RemovePropW(g_hwnd, instance_prop.c_str());
         }
 
         if (core) {

@@ -71,10 +71,13 @@ function IsWebView2Installed(): Boolean;
 var
   Ver: String;
   SubKey: String;
+  WowSubKey: String;
 begin
   SubKey := 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  WowSubKey := 'Software\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
   Result :=
     (RegQueryStringValue(HKLM, SubKey, 'pv', Ver) and (Ver <> '')) or
+    (RegQueryStringValue(HKLM, WowSubKey, 'pv', Ver) and (Ver <> '')) or
     (RegQueryStringValue(HKCU, SubKey, 'pv', Ver) and (Ver <> ''));
 end;
 
