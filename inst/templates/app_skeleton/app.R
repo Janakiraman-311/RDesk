@@ -2,6 +2,15 @@
 # Generated: {{DATE}}
 
 resolve_app_dir <- function() {
+  # Bundled stubs provide the authoritative app root.
+  bundle_root <- Sys.getenv("R_BUNDLE_ROOT")
+  if (nzchar(bundle_root)) {
+    bundled_app <- file.path(bundle_root, "app")
+    if (file.exists(file.path(bundled_app, "app.R"))) {
+      return(normalizePath(bundled_app, winslash = "/", mustWork = TRUE))
+    }
+  }
+
   # Prefer the actual app.R path when this file is sourced by another script.
   for (i in rev(seq_len(sys.nframe()))) {
     frame <- sys.frame(i)
@@ -49,15 +58,32 @@ resolve_app_dir <- function() {
 app_dir <- resolve_app_dir()
 
 # Load RDesk - dev mode or installed
-pkg_root <- dirname(dirname(dirname(app_dir)))
-is_dev   <- file.exists(file.path(pkg_root, "DESCRIPTION")) &&
-            file.exists(file.path(pkg_root, "R", "App.R"))
-
-if (!nzchar(Sys.getenv("R_BUNDLE_APP")) && is_dev) {
-  devtools::load_all(pkg_root, quiet = TRUE)
-} else {
-  library(RDesk)
+find_dev_root <- function(d) {
+  cur <- d
+  for (i in 1:5) {
+    cur <- dirname(cur)
+    if (file.exists(file.path(cur, "DESCRIPTION")) &&
+        file.exists(file.path(cur, "R", "App.R"))) {
+      return(cur)
+    }
+  }
+  NULL
 }
+
+dev_root <- if (!nzchar(Sys.getenv("R_BUNDLE_APP"))) find_dev_root(app_dir) else NULL
+if (!is.null(dev_root)) {
+  devtools::load_all(dev_root, quiet = TRUE)
+} else {
+  suppressPackageStartupMessages(library(RDesk))
+}
+
+# Force callr backend in bundled mode to avoid nanonext/mirai daemon socket
+# conflicts with the processx pipe-based launcher IPC.
+if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+  options(rdesk.async_backend = "callr")
+}
+
+suppressPackageStartupMessages(library(ggplot2))
 
 # Source all R/ modules
 r_dir <- file.path(app_dir, "R")
