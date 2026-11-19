@@ -4,3 +4,4 @@ Date: {{DATE}}
 RDeskVersion: {{RDESK_VER}}
 DataSource: {{DATA_SOURCE}}
 Depends: ggplot2
+Depends: ggplot2

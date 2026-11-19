@@ -77,6 +77,12 @@ if (!is.null(dev_root)) {
   suppressPackageStartupMessages(library(RDesk))
 }
 
+# Force callr backend in bundled mode to avoid nanonext/mirai daemon socket
+# conflicts with the processx pipe-based launcher IPC.
+if (nzchar(Sys.getenv("R_BUNDLE_APP"))) {
+  options(rdesk.async_backend = "callr")
+}
+
 suppressPackageStartupMessages(library(ggplot2))
 
 # Source all R/ modules
