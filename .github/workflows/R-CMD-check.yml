@@ -47,7 +47,7 @@ jobs:
       - name: Make scripts executable
         if: matrix.os != 'windows-latest'
         run: |
-          chmod +x configure cleanup
+          chmod +x configure cleanup exec/rdesk.R
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -91,7 +91,7 @@ jobs:
             "R6", "jsonlite", "digest", "processx", "callr",
             "mirai", "base64enc", "zip", "testthat", "withr",
             "knitr", "rmarkdown", "ggplot2", "dplyr", "broom", "devtools",
-            "rstudioapi",
+            "Rapp", "rstudioapi",
             "renv", "rcmdcheck"
           )
           installed <- rownames(installed.packages())
