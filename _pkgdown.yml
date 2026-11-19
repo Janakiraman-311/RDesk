@@ -195,6 +195,9 @@ reference:
   - title: "Build & Distribute"
     desc: "Package your app into a self-contained ZIP or Windows installer."
     contents: [build_app]
+  - title: "CLI & Diagnostics"
+    desc: "Command-line launcher installation, app/demo launching, and environment readiness checks."
+    contents: [install_rdesk_cli, rdesk_run, rdesk_demo, rdesk_sitrep]
   - title: "IPC Communication"
     desc: "Low-level helpers for the RDesk message envelope protocol."
     contents: [rdesk_message, rdesk_parse_message]
