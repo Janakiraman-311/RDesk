@@ -76,7 +76,8 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
   if (is.null(log_file)) {
     log_file <- tempfile("rdesk_launcher_", fileext = ".log")
   }
-  
+  stderr_file <- tempfile("rdesk_launcher_stderr_", fileext = ".log")
+
   launcher_args <- c(url, title, as.character(width), as.character(height), www_path, as.character(Sys.getpid()), paste0("--log-file=", log_file))
 
   proc <- processx::process$new(
@@ -84,7 +85,7 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
     args    = launcher_args,
     stdin   = "|",       # allow writing QUIT and other commands
     stdout  = "|",       # pipe so we can read READY signal and events
-    stderr  = log_file,  # avoid blocking on an undrained stderr pipe
+    stderr  = stderr_file, # separate from --log-file so fd 2 never clobbers structured logs
     cleanup = TRUE       # kill window if R session exits
   )
 
@@ -128,10 +129,17 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
 
   if (!ready) {
     proc$kill()
-    log_content <- ""
+    log_parts <- character(0)
     if (file.exists(log_file)) {
-      log_content <- paste(readLines(log_file, warn = FALSE), collapse = "\n")
+      log_parts <- c(log_parts, readLines(log_file, warn = FALSE))
     }
+    if (file.exists(stderr_file)) {
+      err_lines <- readLines(stderr_file, warn = FALSE)
+      if (length(err_lines) > 0L) {
+        log_parts <- c(log_parts, "--- stderr ---", err_lines)
+      }
+    }
+    log_content <- paste(log_parts, collapse = "\n")
     stop("[RDesk] Launcher failed to start correctly.\nLauncher Log:\n", log_content)
   }
 
@@ -167,10 +175,22 @@ rdesk_close_window <- function(proc) {
 #' @keywords internal
 rdesk_send_cmd <- function(proc, cmd, payload = list(), id = NULL) {
   if (is.null(proc) || !proc$is_alive()) return(invisible(NULL))
-  msg        <- list(cmd = cmd, payload = payload)
+  msg <- list(cmd = cmd, payload = payload)
   if (!is.null(id)) msg$id <- id
-  line       <- jsonlite::toJSON(msg, auto_unbox = TRUE, null = "null")
-  proc$write_input(paste0(line, "\n"))
+  line <- jsonlite::toJSON(msg, auto_unbox = TRUE, null = "null")
+  rem <- charToRaw(enc2utf8(paste0(line, "\n")))
+  deadline <- Sys.time() + getOption("rdesk.write_timeout", 30)
+  while (length(rem) > 0L) {
+    if (!proc$is_alive()) break
+    rem <- proc$write_input(rem)
+    if (length(rem) > 0L) {
+      if (Sys.time() >= deadline) {
+        warning("[RDesk] Timed out writing ", length(rem), " remaining bytes for command: ", cmd)
+        break
+      }
+      Sys.sleep(0.005)
+    }
+  }
   invisible(NULL)
 }
 

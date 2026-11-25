@@ -433,9 +433,22 @@ function handleLoadedData(data) {
   // Variable Dictionary & Subgroup Table 1
   renderVariableDictionary(data.variable_summary);
   populateSubgroupDropdown(data);
-  renderSubgroupTable(data.subgroup_table, data.subgroup_col);
+  renderSubgroupTable(data.subgroup_table, data.subgroup_col, data.subgroup_footnote);
 
   showToast("Profiled " + label, "success");
+
+  rdesk.send("studio_data_rendered", {
+    preset_id: presetId,
+    n_rows: Number(unwrapScalar(data.n_rows) || 0),
+    n_cols: Number(unwrapScalar(data.n_cols) || 0),
+    kpi_count: document.querySelectorAll("#kpi-grid .kpi-card").length,
+    table1_rows: document.querySelectorAll("#subgroup-tbody tr").length,
+    has_overview_chart: (document.getElementById("overview-chart").src || "").indexOf("data:image/png;base64,") === 0,
+    has_dist_chart: (document.getElementById("dist-chart").src || "").indexOf("data:image/png;base64,") === 0,
+    has_corr_chart: (document.getElementById("corr-chart").src || "").indexOf("data:image/png;base64,") === 0,
+    has_outlier_chart: (document.getElementById("outlier-chart").src || "").indexOf("data:image/png;base64,") === 0,
+    primary_metric: unwrapScalar(data.overview && data.overview.primary_metric_value) || ""
+  });
 }
 
 function updateNavBadges(overview) {
@@ -462,6 +475,8 @@ function renderKPIs(overview) {
 
   var pctComplete = Number(unwrapScalar(overview.pct_complete_cases) || 0);
   var pctMiss = Number(unwrapScalar(overview.pct_missing) || 0);
+  var pctCompleteStr = unwrapScalar(overview.pct_complete_fmt) || (pctComplete.toFixed(1) + "%");
+  var pctMissStr = unwrapScalar(overview.pct_missing_fmt) || (pctMiss.toFixed(2) + "%");
   var nOut = Number(unwrapScalar(overview.total_outliers) || 0);
   var varsOut = Number(unwrapScalar(overview.vars_with_outliers) || 0);
 
@@ -474,7 +489,7 @@ function renderKPIs(overview) {
     },
     {
       label: "Complete Cases",
-      value: pctComplete.toFixed(1) + "%",
+      value: pctCompleteStr,
       sub: unwrapScalar(overview.complete_cases) + " of " + unwrapScalar(overview.n_rows) + " complete",
       tone: pctComplete >= 90 ? "tone-success" : "tone-warning"
     },
@@ -492,7 +507,7 @@ function renderKPIs(overview) {
     },
     {
       label: "Missing Data Rate",
-      value: pctMiss.toFixed(2) + "%",
+      value: pctMissStr,
       sub: unwrapScalar(overview.total_missing) + " missing cells total",
       tone: pctMiss === 0 ? "tone-success" : (pctMiss < 5 ? "tone-warning" : "tone-danger")
     },
@@ -570,10 +585,11 @@ function renderDistributionStats(ds) {
 
   var nValid = unwrapScalar(ds.n) || 0;
   var nMiss = unwrapScalar(ds.n_missing) || 0;
-  var meanStr = formatNum(ds.mean, 2) + " \u00B1 " + formatNum(ds.sd, 2);
-  var medStr = formatNum(ds.median, 2) + " [" + formatNum(ds.q1, 2) + ", " + formatNum(ds.q3, 2) + "]";
-  var rangeStr = formatNum(ds.min, 2) + " to " + formatNum(ds.max, 2);
-  var skewVal = formatNum(ds.skewness, 3);
+  var meanStr = (unwrapScalar(ds.mean_fmt) || formatNum(ds.mean, 2)) + " \u00B1 " + (unwrapScalar(ds.sd_fmt) || formatNum(ds.sd, 2));
+  var medStr = (unwrapScalar(ds.median_fmt) || formatNum(ds.median, 2)) + " [" + (unwrapScalar(ds.q1_fmt) || formatNum(ds.q1, 2)) + ", " + (unwrapScalar(ds.q3_fmt) || formatNum(ds.q3, 2)) + "]";
+  var rangeStr = (unwrapScalar(ds.min_fmt) || formatNum(ds.min, 2)) + " to " + (unwrapScalar(ds.max_fmt) || formatNum(ds.max, 2));
+  var skewVal = unwrapScalar(ds.skew_fmt) || formatNum(ds.skewness, 3);
+  var iqrStr = unwrapScalar(ds.iqr_fmt) || formatNum(ds.iqr, 2);
   var swLabel = unwrapScalar(ds.shapiro_label) || "N/A";
   var normStatus = unwrapScalar(ds.normality_status) || "";
 
@@ -599,7 +615,7 @@ function renderDistributionStats(ds) {
 
   var cards = [
     { label: "Mean \u00B1 SD", value: meanStr, sub: "n = " + nValid + " valid" },
-    { label: "Median [Q1, Q3]", value: medStr, sub: "IQR = " + formatNum(ds.iqr, 2) },
+    { label: "Median [Q1, Q3]", value: medStr, sub: "IQR = " + iqrStr },
     { label: "Observed Range", value: rangeStr, sub: "Min to Max" },
     { label: "Skewness", value: skewVal, sub: Math.abs(Number(unwrapScalar(ds.skewness) || 0)) > 1 ? "Substantially skewed" : "Symmetric / Mild" },
     { label: "Shapiro-Wilk", value: swLabel === "N/A" ? "N/A" : ("p " + (swLabel.indexOf("<") === 0 ? swLabel : "= " + swLabel)), sub: normStatus },
@@ -657,13 +673,15 @@ function renderCorrelationsTable(corrData) {
     "<th>Variable 2</th>" +
     "<th>" + methodLbl + "</th>" +
     "<th>95% CI</th>" +
-    "<th>p-value</th>" +
+    "<th>p (Nominal)</th>" +
+    "<th>FDR q (BH)</th>" +
     "<th>Pairs (n)</th>" +
     "<th>Strength</th>" +
+    "<th>Note</th>" +
     "</tr>";
 
   if (!corrData || !corrData.rows || corrData.rows.length === 0) {
-    tbody.innerHTML = "<tr><td colspan='7' class='empty-row'>At least two numeric variables are required to compute correlations.</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='9' class='empty-row'>At least two numeric variables are required to compute correlations.</td></tr>";
     if (countLbl) countLbl.textContent = "0 pairs";
     return;
   }
@@ -676,11 +694,13 @@ function renderCorrelationsTable(corrData) {
     var v2 = String(unwrapScalar(row.var2) || "");
     var rVal = Number(unwrapScalar(row.r) || 0);
     var pNum = Number(unwrapScalar(row.p_num) !== null ? unwrapScalar(row.p_num) : 1);
+    var pAdjRaw = unwrapScalar(row.p_adj_num);
+    var pAdjNum = Number(pAdjRaw !== null && pAdjRaw !== undefined ? pAdjRaw : pNum);
 
     if (q && v1.toLowerCase().indexOf(q) === -1 && v2.toLowerCase().indexOf(q) === -1) {
       return false;
     }
-    if (flt === "sig" && !(pNum < 0.05)) return false;
+    if (flt === "sig" && !(pAdjNum < 0.05)) return false;
     if (flt === "moderate" && Math.abs(rVal) < 0.30) return false;
     if (flt === "strong" && Math.abs(rVal) < 0.50) return false;
     return true;
@@ -691,7 +711,7 @@ function renderCorrelationsTable(corrData) {
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = "<tr><td colspan='7' class='empty-row'>No correlation pairs match the current filter.</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='9' class='empty-row'>No correlation pairs match the current filter.</td></tr>";
     return;
   }
 
@@ -699,10 +719,18 @@ function renderCorrelationsTable(corrData) {
     var rVal = Number(unwrapScalar(row.r) || 0);
     var pct = Math.min(100, Math.round(Math.abs(rVal) * 100));
     var signCls = rVal >= 0 ? "pos" : "neg";
-    var rStr = (rVal >= 0 ? "+" : "") + rVal.toFixed(3);
+    var rFmt = unwrapScalar(row.r_fmt);
+    var rStr = rFmt ? ((rVal >= 0 && rFmt.charAt(0) !== "-" ? "+" : "") + rFmt) : ((rVal >= 0 ? "+" : "") + rVal.toFixed(3));
     var pVal = unwrapScalar(row.p_value) || "N/A";
     var pNum = Number(unwrapScalar(row.p_num) !== null ? unwrapScalar(row.p_num) : 1);
+    var pAdjVal = unwrapScalar(row.p_adj_bh) || pVal;
+    var pAdjRaw = unwrapScalar(row.p_adj_num);
+    var pAdjNum = Number(pAdjRaw !== null && pAdjRaw !== undefined ? pAdjRaw : pNum);
     var strength = unwrapScalar(row.strength) || "";
+    var note = String(unwrapScalar(row.note) || "");
+    var noteHtml = note === "Coupled"
+      ? "<span class='coupled-badge' title='Variables share a mathematical definition'>Coupled</span>"
+      : "--";
     var pillCls = (strength === "Very Strong" || strength === "Strong")
       ? "status-pill"
       : (strength === "Moderate" ? "status-pill warn" : "type-badge numeric");
@@ -717,8 +745,10 @@ function renderCorrelationsTable(corrData) {
       "</div></td>" +
       "<td class='mono'>" + escapeHtml(unwrapScalar(row.ci_95) || "N/A") + "</td>" +
       "<td class='mono'>" + (pNum < 0.05 ? "<strong>" + escapeHtml(pVal) + "</strong>" : escapeHtml(pVal)) + "</td>" +
+      "<td class='mono'>" + (pAdjNum < 0.05 ? "<strong>" + escapeHtml(pAdjVal) + "</strong>" : escapeHtml(pAdjVal)) + "</td>" +
       "<td>" + escapeHtml(unwrapScalar(row.n_pairs)) + "</td>" +
       "<td><span class='" + pillCls + "'>" + escapeHtml(strength) + "</span></td>" +
+      "<td>" + noteHtml + "</td>" +
       "</tr>"
     );
   }).join("");
@@ -749,6 +779,9 @@ function renderOutliersTable(outlierData) {
   tbody.innerHTML = outlierData.rows.map(function (row) {
     var nOut = Number(unwrapScalar(row.n_outliers) || 0);
     var pct = Number(unwrapScalar(row.pct_outliers) || 0);
+    var pctStr = unwrapScalar(row.pct_outliers_fmt) || pct.toFixed(2);
+    var loStr = unwrapScalar(row.lower_fmt) || formatNum(row.lower_bound, 2);
+    var hiStr = unwrapScalar(row.upper_fmt) || formatNum(row.upper_bound, 2);
     var badgeCls = nOut === 0 ? "status-pill success" : (pct >= 3 ? "status-pill danger" : "status-pill warn");
 
     return (
@@ -756,9 +789,9 @@ function renderOutliersTable(outlierData) {
       "<td class='mono'><strong>" + escapeHtml(unwrapScalar(row.variable)) + "</strong></td>" +
       "<td>" + escapeHtml(unwrapScalar(row.n_valid)) + "</td>" +
       "<td><span class='" + badgeCls + "'>" + escapeHtml(nOut) + "</span></td>" +
-      "<td>" + escapeHtml(pct.toFixed(2)) + "%</td>" +
-      "<td class='mono'>" + escapeHtml(formatNum(row.lower_bound, 2)) + "</td>" +
-      "<td class='mono'>" + escapeHtml(formatNum(row.upper_bound, 2)) + "</td>" +
+      "<td>" + escapeHtml(pctStr) + "%</td>" +
+      "<td class='mono'>" + escapeHtml(loStr) + "</td>" +
+      "<td class='mono'>" + escapeHtml(hiStr) + "</td>" +
       "<td class='flag-cell'>" + escapeHtml(unwrapScalar(row.flagged_rows) || "None") + "</td>" +
       "</tr>"
     );
@@ -832,11 +865,14 @@ function renderVariableDictionary(varData) {
     var badgeCls = isNum ? "type-badge numeric" : "type-badge categorical";
     var nMiss = Number(unwrapScalar(row.n_missing) || 0);
     var pctMiss = Number(unwrapScalar(row.pct_missing) || 0);
+    var pctMissStr = unwrapScalar(row.pct_missing_fmt) || pctMiss.toFixed(1);
     var missDisplay = nMiss > 0
-      ? (nMiss + " (" + pctMiss.toFixed(1) + "%)")
+      ? (nMiss + " (" + pctMissStr + "%)")
       : "0 (0.0%)";
     var meanSd = String(unwrapScalar(row.mean_sd) || "--").replace("+/-", "\u00B1");
     var medIqr = String(unwrapScalar(row.median_iqr) || "--");
+    var minStr = isNum ? (unwrapScalar(row.min_fmt) || formatNum(row.min, 2)) : "--";
+    var maxStr = isNum ? (unwrapScalar(row.max_fmt) || formatNum(row.max, 2)) : "--";
 
     return (
       "<tr>" +
@@ -847,8 +883,8 @@ function renderVariableDictionary(varData) {
       "<td>" + escapeHtml(unwrapScalar(row.n_unique)) + "</td>" +
       "<td>" + escapeHtml(meanSd) + "</td>" +
       "<td>" + escapeHtml(medIqr) + "</td>" +
-      "<td>" + (isNum ? escapeHtml(formatNum(row.min, 2)) : "--") + "</td>" +
-      "<td>" + (isNum ? escapeHtml(formatNum(row.max, 2)) : "--") + "</td>" +
+      "<td>" + escapeHtml(minStr) + "</td>" +
+      "<td>" + escapeHtml(maxStr) + "</td>" +
       "</tr>"
     );
   }).join("");
@@ -880,13 +916,18 @@ function populateSubgroupDropdown(data) {
   }
 }
 
-function renderSubgroupTable(tableData, groupCol) {
+function renderSubgroupTable(tableData, groupCol, footnote) {
   var thead = document.getElementById("subgroup-thead");
   var tbody = document.getElementById("subgroup-tbody");
+  var footEl = document.getElementById("subgroup-footnote");
 
   if (!tableData || !tableData.rows || tableData.rows.length === 0) {
     thead.innerHTML = "";
     tbody.innerHTML = "<tr><td class='empty-row'>Select a categorical variable with 2 to 8 levels for Table 1 comparison.</td></tr>";
+    if (footEl) {
+      footEl.textContent = "";
+      footEl.classList.add("hidden");
+    }
     return;
   }
 
@@ -896,19 +937,37 @@ function renderSubgroupTable(tableData, groupCol) {
   }).join("") + "</tr>";
 
   tbody.innerHTML = tableData.rows.map(function (row) {
-    return "<tr>" + cols.map(function (c, idx) {
+    return "<tr>" + cols.map(function (c) {
       var val = unwrapScalar(row[c]);
-      var str = (val === null || val === undefined) ? "--" : String(val).replace("+/-", "\u00B1");
-      if (idx === 0) {
+      var str = (val === null || val === undefined || val === "") ? "--" : String(val).replace("+/-", "\u00B1");
+      if (c === "Section") {
+        return "<td><span class='section-tag'>" + escapeHtml(str) + "</span></td>";
+      }
+      if (c === "Variable") {
         return "<td class='mono'><strong>" + escapeHtml(str) + "</strong></td>";
       }
+      if (c === "Metric" || c === "Eval N") {
+        return "<td class='mono'>" + escapeHtml(str) + "</td>";
+      }
       if (c === "p-value") {
-        var sig = str.indexOf("<") === 0 || (!isNaN(parseFloat(str)) && parseFloat(str) < 0.05);
+        var sig = str !== "--" && str.indexOf("--") !== 0 &&
+          (str.indexOf("<") === 0 || (!isNaN(parseFloat(str)) && parseFloat(str) < 0.05));
         return "<td class='mono'>" + (sig ? "<strong>" + escapeHtml(str) + "</strong>" : escapeHtml(str)) + "</td>";
       }
       return "<td>" + escapeHtml(str) + "</td>";
     }).join("") + "</tr>";
   }).join("");
+
+  if (footEl) {
+    var footStr = unwrapScalar(footnote) || "";
+    if (footStr) {
+      footEl.textContent = footStr;
+      footEl.classList.remove("hidden");
+    } else {
+      footEl.textContent = "";
+      footEl.classList.add("hidden");
+    }
+  }
 }
 
 function renderGenericTable(headId, bodyId, data, labelMap) {
@@ -938,6 +997,10 @@ function renderGenericTable(headId, bodyId, data, labelMap) {
 rdesk.on("load_data_result", handleLoadedData);
 rdesk.on("load_preset_result", handleLoadedData);
 rdesk.on("load_sample_result", handleLoadedData);
+
+rdesk.on("smoke_post_load_ping", function (payload) {
+  rdesk.send("smoke_post_load_pong", { token: unwrapScalar(payload && payload.token) || "" });
+});
 
 rdesk.on("run_profile_result", function (data) {
   handleLoadedData(data);
@@ -1027,8 +1090,9 @@ rdesk.on("subgroup_updated", function (data) {
   if (currentData) {
     currentData.subgroup_col = data.subgroup_col;
     currentData.subgroup_table = data.subgroup_table;
+    currentData.subgroup_footnote = data.subgroup_footnote;
   }
-  renderSubgroupTable(data.subgroup_table, data.subgroup_col);
+  renderSubgroupTable(data.subgroup_table, data.subgroup_col, data.subgroup_footnote);
 });
 
 rdesk.on("theme_charts_updated", function (data) {
@@ -1130,6 +1194,12 @@ rdesk.on("close_data", function () {
     var el = document.getElementById(id);
     if (el) el.innerHTML = "";
   });
+
+  var subFoot = document.getElementById("subgroup-footnote");
+  if (subFoot) {
+    subFoot.textContent = "";
+    subFoot.classList.add("hidden");
+  }
 
   document.getElementById("nav-badge-outliers").classList.add("hidden");
   document.getElementById("nav-badge-vars").classList.add("hidden");
