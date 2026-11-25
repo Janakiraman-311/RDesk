@@ -19,6 +19,10 @@ Hard-won lessons from debugging Windows, macOS, Linux, WebView2, `Rapp`, and Git
 - **Symptom**: Launching a second RDesk app while one is already running fails with `[RDesk] Launcher failed to start correctly` (`WEBVIEW_ERROR_INVALID_STATE`).
 - **Fix**: Isolate `WEBVIEW2_USER_DATA_FOLDER` per app in `src/launcher.cpp` (`%APPDATA%\RDesk_WebView2\RDesk_Instance_<title_hash>`) and honor `WEBVIEW2_USER_DATA_FOLDER` in `src/webview/webview.h`.
 
+### `processx` Non-Blocking Stdin Pipe Partial Write (`> 64 KB` Payloads on Linux/macOS)
+- **Symptom**: Sending large JSON payloads (e.g., Data Intelligence Studio `load_preset_result` at ~760 KB with base64 `ggplot2` charts) via a single `proc$write_input(...)` call returns an unwritten tail buffer on Linux/macOS non-blocking 64 KB pipes. Ignoring the return value drops the rest of the message including `\n`, stalling UI data loading and poisoning `rdesk-launcher`'s `std::getline()` for all subsequent menu/toast commands.
+- **Fix**: In `rdesk_send_cmd()` (`R/window.R`), encode the newline-terminated JSON string to UTF-8 raw bytes (`charToRaw(enc2utf8(...))`) and loop calling `rem <- proc$write_input(rem)` with a short sleep/timeout until `length(rem) == 0L`. Also pass a separate `stderr` temp file to `processx::process$new()` instead of the same file as `--log-file=...` so fd 2 GTK/Mesa chatter doesn't overwrite offset 0 of the launcher's structured log.
+
 ### `processx` Unread `stderr = "|"` Pipe Deadlock
 - **Symptom**: Long-running launcher sessions freeze when GTK/WebKit/WebView2 writes >64 KB of diagnostic chatter to stderr.
 - **Fix**: Always pass `stderr = log_file` (file redirection, never `"|"`) in `R/window.R`.

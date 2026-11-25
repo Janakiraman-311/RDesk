@@ -75,6 +75,15 @@ serialize_dist_stats <- function(ds) {
     iqr              = ds$iqr,
     min              = ds$min,
     max              = ds$max,
+    mean_fmt         = ds$mean_fmt,
+    sd_fmt           = ds$sd_fmt,
+    median_fmt       = ds$median_fmt,
+    q1_fmt           = ds$q1_fmt,
+    q3_fmt           = ds$q3_fmt,
+    iqr_fmt          = ds$iqr_fmt,
+    min_fmt          = ds$min_fmt,
+    max_fmt          = ds$max_fmt,
+    skew_fmt         = ds$skew_fmt,
     skewness         = ds$skewness,
     shapiro_p        = ds$shapiro_p,
     shapiro_label    = ds$shapiro_label,
@@ -148,8 +157,9 @@ build_full_profile_payload <- function(df,
     active_group     = prof$default_group,
     plot_mode        = plot_mode,
     dist_stats       = serialize_dist_stats(prof$dist_stats),
-    subgroup_col     = prof$subgroup_col,
-    subgroup_table   = rdesk_df_to_list(prof$subgroup_table),
+    subgroup_col      = prof$subgroup_col,
+    subgroup_table    = rdesk_df_to_list(prof$subgroup_table),
+    subgroup_footnote = prof$subgroup_footnote,
     corr_method      = corr_method,
     outlier_threshold = outlier_threshold,
     n_rows           = nrow(df),
@@ -164,12 +174,45 @@ build_full_profile_payload <- function(df,
 
 # ── Main Handler Registration ───────────────────────────────────────────────
 
+open_external_url <- function(url) {
+  if (.Platform$OS.type == "unix" && file.exists("/proc/version")) {
+    ver <- tryCatch(paste(readLines("/proc/version", warn = FALSE), collapse = " "),
+                    error = function(e) "")
+    if (grepl("microsoft|wsl", ver, ignore.case = TRUE)) {
+      if (nzchar(Sys.which("wslview"))) {
+        tryCatch({
+          system2("wslview", url, stdout = FALSE, stderr = FALSE, wait = FALSE)
+          return(invisible(TRUE))
+        }, error = function(e) NULL)
+      }
+      if (nzchar(Sys.which("explorer.exe"))) {
+        tryCatch({
+          system2("explorer.exe", url, stdout = FALSE, stderr = FALSE, wait = FALSE)
+          return(invisible(TRUE))
+        }, error = function(e) NULL)
+      }
+      if (nzchar(Sys.which("powershell.exe"))) {
+        tryCatch({
+          system2("powershell.exe",
+                  c("-NoProfile", "-NonInteractive", "-Command",
+                    paste0("Start-Process '", url, "'")),
+                  stdout = FALSE, stderr = FALSE, wait = FALSE)
+          return(invisible(TRUE))
+        }, error = function(e) NULL)
+      }
+    }
+  }
+  tryCatch(utils::browseURL(url), error = function(e) NULL)
+  invisible(TRUE)
+}
+
 init_handlers <- function(app) {
 
   # In-memory cache on main R thread for instant interactive control updates
   state <- new.env(parent = emptyenv())
-  state$df        <- NULL
-  state$source_key <- ""
+  state$df            <- NULL
+  state$source_key    <- ""
+  state$last_rendered <- NULL
 
   get_active_df <- function(source_info) {
     path      <- if (!is.null(source_info$path)) as.character(source_info$path) else ""
@@ -222,7 +265,8 @@ init_handlers <- function(app) {
       ),
       Help = list(
         "RDesk Documentation"          = function() {
-          utils::browseURL("https://janakiraman-311.github.io/RDesk/")
+          app$toast("Opening RDesk Documentation...", type = "info")
+          open_external_url("https://janakiraman-311.github.io/RDesk/")
         },
         "About Data Intelligence Studio" = function() {
           app$toast(
@@ -491,8 +535,9 @@ init_handlers <- function(app) {
       group_col <- if (!is.null(payload$group_col)) as.character(payload$group_col) else NULL
       sub_res   <- profile_subgroup_comparison(df, group_col = group_col)
       list(
-        subgroup_col   = sub_res$group_col,
-        subgroup_table = rdesk_df_to_list(sub_res$table)
+        subgroup_col      = sub_res$group_col,
+        subgroup_table    = rdesk_df_to_list(sub_res$table),
+        subgroup_footnote = sub_res$footnote
       )
     }, error = function(e) {
       list(error = e$message)
@@ -676,9 +721,52 @@ init_handlers <- function(app) {
     invisible(NULL)
   })
 
+  app$on_message("studio_data_rendered", function(payload) {
+    state$last_rendered <- payload
+    sentinel <- Sys.getenv("RDESK_SMOKE_DATA_SENTINEL", "")
+    if (nzchar(sentinel)) {
+      app$toast("Data Intelligence Studio — Post-Load IPC Verified", type = "info")
+      app$send("smoke_post_load_ping", list(token = "rdesk_ok"))
+    }
+    invisible(NULL)
+  })
+
+  app$on_message("smoke_post_load_pong", function(payload) {
+    sentinel <- Sys.getenv("RDESK_SMOKE_DATA_SENTINEL", "")
+    if (nzchar(sentinel) && !is.null(state$last_rendered)) {
+      lr <- state$last_rendered
+      tryCatch({
+        dir.create(dirname(sentinel), recursive = TRUE, showWarnings = FALSE)
+        jsonlite::write_json(
+          list(
+            status             = "DATA_AND_POST_LOAD_IPC_OK",
+            platform           = Sys.info()[["sysname"]],
+            post_load_pong     = identical(as.character(payload$token), "rdesk_ok"),
+            preset_id          = if (!is.null(lr$preset_id)) lr$preset_id else "",
+            n_rows             = if (!is.null(lr$n_rows)) lr$n_rows else 0L,
+            n_cols             = if (!is.null(lr$n_cols)) lr$n_cols else 0L,
+            kpi_count          = if (!is.null(lr$kpi_count)) lr$kpi_count else 0L,
+            table1_rows        = if (!is.null(lr$table1_rows)) lr$table1_rows else 0L,
+            has_overview_chart = isTRUE(lr$has_overview_chart),
+            has_dist_chart     = isTRUE(lr$has_dist_chart),
+            has_corr_chart     = isTRUE(lr$has_corr_chart),
+            has_outlier_chart  = isTRUE(lr$has_outlier_chart),
+            primary_metric     = if (!is.null(lr$primary_metric)) lr$primary_metric else "",
+            timestamp          = format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3Z", tz = "UTC")
+          ),
+          sentinel,
+          auto_unbox = TRUE,
+          pretty = TRUE
+        )
+      }, error = function(e) NULL)
+    }
+    invisible(NULL)
+  })
+
   app$on_message("close_data", function(payload) {
-    state$df         <- NULL
-    state$source_key <- ""
+    state$df            <- NULL
+    state$source_key    <- ""
+    state$last_rendered <- NULL
     invisible(NULL)
   })
 

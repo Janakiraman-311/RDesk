@@ -104,9 +104,14 @@ chart_overview <- function(df, missing_info = NULL, dark = FALSE) {
 
   # Show up to 18 variables, prioritizing variables with missingness at the top
   plot_df <- utils::head(missing_info, 18L)
-  plot_df$pct_complete <- 100 - plot_df$pct_missing
+  # Derive completeness directly from raw counts (BR-002: single rounding at display)
+  plot_df$pct_complete <- ifelse(
+    plot_df$n_total > 0,
+    100 * plot_df$n_observed / plot_df$n_total,
+    100
+  )
   plot_df$status <- ifelse(
-    plot_df$pct_missing == 0, "Complete (100%)",
+    plot_df$n_missing == 0, "Complete (100%)",
     ifelse(plot_df$pct_missing < 5, "Minor Missing (<5%)", "Elevated Missing (>=5%)")
   )
   plot_df$status <- factor(
@@ -115,7 +120,7 @@ chart_overview <- function(df, missing_info = NULL, dark = FALSE) {
   )
   plot_df$label <- ifelse(
     plot_df$n_missing > 0,
-    sprintf("%.1f%%  (%d NA)", plot_df$pct_complete, as.integer(plot_df$n_missing)),
+    paste0(fmt_pct(plot_df$pct_complete, 1L), "  (", as.integer(plot_df$n_missing), " NA)"),
     "100.0%"
   )
   plot_df$variable <- factor(plot_df$variable, levels = rev(plot_df$variable))
@@ -126,8 +131,8 @@ chart_overview <- function(df, missing_info = NULL, dark = FALSE) {
     "Elevated Missing (>=5%)" = pal$danger
   )
 
-  overall_comp <- round(mean(!is.na(df)) * 100, 2)
-  cc_pct <- round(mean(stats::complete.cases(df)) * 100, 1)
+  overall_comp <- if (length(df) > 0L) mean(!is.na(df)) * 100 else 100
+  cc_pct <- if (nrow(df) > 0L) mean(stats::complete.cases(df)) * 100 else 100
 
   p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = variable, y = pct_complete, fill = status)) +
     ggplot2::geom_col(width = 0.68, alpha = 0.9) +
@@ -145,8 +150,9 @@ chart_overview <- function(df, missing_info = NULL, dark = FALSE) {
                                 labels = function(b) paste0(b, "%")) +
     ggplot2::labs(
       title    = "Variable Completeness & Data Quality Audit",
-      subtitle = sprintf("Overall cell completeness: %.2f%%  |  Complete cases: %.1f%% (n = %d / %d)  |  Dashed line = 95%% clinical benchmark",
-                         overall_comp, cc_pct, sum(stats::complete.cases(df)), nrow(df)),
+      subtitle = sprintf("Overall cell completeness: %s  |  Complete cases: %s (n = %d / %d)  |  Dashed line = 95%% clinical benchmark",
+                         fmt_pct(overall_comp, 2L), fmt_pct(cc_pct, 1L),
+                         sum(stats::complete.cases(df)), nrow(df)),
       x        = NULL,
       y        = "Observed Completeness (%)",
       fill     = "Audit Status"
@@ -239,9 +245,10 @@ chart_distributions <- function(df,
         ggplot2::coord_flip() +
         ggplot2::labs(
           title    = sprintf("Distribution of %s — Violin & Boxplot", variable),
-          subtitle = sprintf("n = %d  |  Mean = %.2f (SD = %.2f)  |  Median = %.2f (IQR = %.2f)  |  Shapiro-Wilk p %s",
-                             nrow(plot_df), mean_v, sd_v, med_v, iqr_v,
-                             ifelse(is.na(sw_p), "N/A", ifelse(sw_p < 0.0001, "< 0.0001", paste("=", format_p_value(sw_p))))),
+          subtitle = sprintf("n = %d  |  Mean = %s (SD = %s)  |  Median = %s (IQR = %s)  |  Shapiro-Wilk p %s",
+                             nrow(plot_df), fmt_fixed(mean_v, 2L), fmt_fixed(sd_v, 2L),
+                             fmt_fixed(med_v, 2L), fmt_fixed(iqr_v, 2L),
+                             ifelse(is.na(sw_p), "N/A", ifelse(sw_p < 0.0001, "< 0.0001", paste("=", fmt_p_value(sw_p))))),
           x        = NULL,
           y        = variable,
           caption  = "Diamond marker indicates arithmetic mean; red points denote Tukey 1.5x IQR outliers."
@@ -264,9 +271,9 @@ chart_distributions <- function(df,
         ggplot2::geom_rug(alpha = 0.25, colour = pal$muted, length = grid::unit(0.025, "npc")) +
         ggplot2::labs(
           title    = sprintf("Distribution of %s — Histogram & Kernel Density", variable),
-          subtitle = sprintf("n = %d  |  Mean (dashed red) = %.2f  |  Median (solid blue) = %.2f  |  SD = %.2f  |  Shapiro-Wilk p %s",
-                             nrow(plot_df), mean_v, med_v, sd_v,
-                             ifelse(is.na(sw_p), "N/A", ifelse(sw_p < 0.0001, "< 0.0001", paste("=", format_p_value(sw_p))))),
+          subtitle = sprintf("n = %d  |  Mean (dashed red) = %s  |  Median (solid blue) = %s  |  SD = %s  |  Shapiro-Wilk p %s",
+                             nrow(plot_df), fmt_fixed(mean_v, 2L), fmt_fixed(med_v, 2L), fmt_fixed(sd_v, 2L),
+                             ifelse(is.na(sw_p), "N/A", ifelse(sw_p < 0.0001, "< 0.0001", paste("=", fmt_p_value(sw_p))))),
           x        = variable,
           y        = "Probability Density"
         ) +
@@ -376,7 +383,7 @@ chart_correlations <- function(df, method = "pearson", dark = FALSE) {
   colnames(corr_df) <- c("Var1", "Var2", "value")
   corr_df$Var1 <- factor(corr_df$Var1, levels = num_cols)
   corr_df$Var2 <- factor(corr_df$Var2, levels = rev(num_cols))
-  corr_df$label <- ifelse(is.na(corr_df$value), "--", sprintf("%.2f", corr_df$value))
+  corr_df$label <- ifelse(is.na(corr_df$value), "--", fmt_fixed(corr_df$value, 2L))
   corr_df$txt_col <- ifelse(!is.na(corr_df$value) & abs(corr_df$value) >= 0.45,
                             "#FFFFFF", pal$ink)
 
@@ -526,7 +533,7 @@ chart_outliers <- function(df, outlier_table = NULL, threshold = 1.5, dark = FAL
     ggplot2::scale_size_manual(values = c("Within Fence" = 1.25, "Outlier" = 2.4)) +
     ggplot2::scale_alpha_manual(values = c("Within Fence" = 0.35, "Outlier" = 0.95)) +
     ggplot2::labs(
-      title    = sprintf("Tukey IQR Outlier Audit (%.1fx IQR Fence)", threshold),
+      title    = sprintf("Tukey IQR Outlier Audit (%sx IQR Fence)", fmt_fixed(threshold, 1L)),
       subtitle = sprintf("%d total flagged observations across %d of %d numeric variables  |  Dashed lines = lower/upper Tukey fences",
                          total_flagged, sum(outlier_table$n_outliers > 0), nrow(outlier_table)),
       x        = NULL,

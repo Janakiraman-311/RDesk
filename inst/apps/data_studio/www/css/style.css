@@ -1089,3 +1089,38 @@ tbody tr:hover td {
 .studio-toast.tone-info    { border-left-color: var(--info); }
 .studio-toast.tone-warning { border-left-color: var(--warning); }
 .studio-toast.tone-error   { border-left-color: var(--danger); }
+
+/* ── Clinical Table Badges & Footnotes ────────────────────────────────── */
+
+.table-footnote {
+  padding: 10px 16px;
+  font-size: 0.76rem;
+  color: var(--muted);
+  background-color: var(--surface-subtle);
+  border-top: 1px solid var(--border);
+  line-height: 1.45;
+}
+
+.section-tag {
+  display: inline-block;
+  font-size: 0.69rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.coupled-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background-color: var(--warning-soft);
+  color: var(--warning);
+  white-space: nowrap;
+}

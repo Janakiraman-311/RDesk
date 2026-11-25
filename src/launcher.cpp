@@ -374,10 +374,12 @@ static gboolean webkit_console_message_cb(WebKitWebView* web_view,
 }
 
 void rdesk_setup_webkit_console_redirect(WebKitWebView* webview) {
-  g_signal_connect(webview,
-                   "console-message",
-                   G_CALLBACK(webkit_console_message_cb),
-                   nullptr);
+  if (webview && g_signal_lookup("console-message", G_OBJECT_TYPE(webview)) != 0) {
+    g_signal_connect(webview,
+                     "console-message",
+                     G_CALLBACK(webkit_console_message_cb),
+                     nullptr);
+  }
 }
 #endif
 
@@ -885,10 +887,12 @@ static void apply_menu(const std::string& payload_json) {
 
     // 1. Ensure vbox is set up as the container of the window
     if (!g_vbox) {
+        g_object_ref(webview_widget);
         gtk_container_remove(GTK_CONTAINER(window_widget), webview_widget);
         g_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
         gtk_container_add(GTK_CONTAINER(window_widget), g_vbox);
         gtk_box_pack_end(GTK_BOX(g_vbox), webview_widget, TRUE, TRUE, 0);
+        g_object_unref(webview_widget);
         gtk_widget_show(g_vbox);
     }
 

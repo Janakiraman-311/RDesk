@@ -16,18 +16,29 @@ rdesk_launcher_path <- function() {
   # Source-built launcher is in bin/ after install
   binary_name <- if (.Platform$OS.type == "windows") "rdesk-launcher.exe" else "rdesk-launcher"
   
-  # If running inside a bundle on macOS or Linux, resolve path relative to R.home()
+  # If running inside a bundle, resolve path relative to R_BUNDLE_ROOT or R.home()
   # to be robust against changes in working directory (CWD)
-  if (rdesk_is_bundle() && .Platform$OS.type != "windows") {
+  if (rdesk_is_bundle()) {
+    bundle_root <- Sys.getenv("R_BUNDLE_ROOT", "")
     r_home <- R.home()
-    if (Sys.info()["sysname"] == "Darwin") {
+    if (.Platform$OS.type == "windows") {
+      candidates <- c(
+        if (nzchar(bundle_root)) file.path(bundle_root, "bin", binary_name),
+        file.path(r_home, "..", "..", "bin", binary_name)
+      )
+      for (cand in candidates) {
+        p <- normalizePath(cand, mustWork = FALSE)
+        if (file.exists(p)) return(p)
+      }
+    } else if (Sys.info()["sysname"] == "Darwin") {
       # macOS: Contents/Resources/bin/rdesk-launcher
       path <- normalizePath(file.path(r_home, "..", "..", "bin", binary_name), mustWork = FALSE)
+      if (file.exists(path)) return(path)
     } else {
       # Linux: rdesk-launcher at the bundle root
       path <- normalizePath(file.path(r_home, "..", "..", binary_name), mustWork = FALSE)
+      if (file.exists(path)) return(path)
     }
-    if (file.exists(path)) return(path)
   }
 
   path <- system.file("bin", binary_name, package = "RDesk")
@@ -65,7 +76,8 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
   if (is.null(log_file)) {
     log_file <- tempfile("rdesk_launcher_", fileext = ".log")
   }
-  
+  stderr_file <- tempfile("rdesk_launcher_stderr_", fileext = ".log")
+
   launcher_args <- c(url, title, as.character(width), as.character(height), www_path, as.character(Sys.getpid()), paste0("--log-file=", log_file))
 
   proc <- processx::process$new(
@@ -73,7 +85,7 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
     args    = launcher_args,
     stdin   = "|",       # allow writing QUIT and other commands
     stdout  = "|",       # pipe so we can read READY signal and events
-    stderr  = log_file,  # avoid blocking on an undrained stderr pipe
+    stderr  = stderr_file, # separate from --log-file so fd 2 never clobbers structured logs
     cleanup = TRUE       # kill window if R session exits
   )
 
@@ -85,6 +97,18 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
     lines <- proc$read_output_lines()
     if (length(lines) > 0) {
       trimmed <- trimws(lines)
+      if ("ALREADY_RUNNING" %in% trimmed) {
+        message("[RDesk] Application instance is already running; focused existing window.")
+        if (rdesk_is_bundle()) {
+          quit(save = "no", status = 0)
+        }
+        return(invisible(NULL))
+      }
+      if ("WEBVIEW2_MISSING" %in% trimmed) {
+        proc$kill()
+        stop("[RDesk] Microsoft Edge WebView2 Runtime is not installed. ",
+             "Download it from: https://go.microsoft.com/fwlink/p/?LinkId=2124703")
+      }
       ready_idx <- match("READY", trimmed, nomatch = 0L)
       if (ready_idx > 0) {
         if (ready_idx > 1) {
@@ -105,10 +129,17 @@ rdesk_open_window <- function(url, title = "RDesk", width = 1200, height = 800, 
 
   if (!ready) {
     proc$kill()
-    log_content <- ""
+    log_parts <- character(0)
     if (file.exists(log_file)) {
-      log_content <- paste(readLines(log_file, warn = FALSE), collapse = "\n")
+      log_parts <- c(log_parts, readLines(log_file, warn = FALSE))
     }
+    if (file.exists(stderr_file)) {
+      err_lines <- readLines(stderr_file, warn = FALSE)
+      if (length(err_lines) > 0L) {
+        log_parts <- c(log_parts, "--- stderr ---", err_lines)
+      }
+    }
+    log_content <- paste(log_parts, collapse = "\n")
     stop("[RDesk] Launcher failed to start correctly.\nLauncher Log:\n", log_content)
   }
 
@@ -144,10 +175,22 @@ rdesk_close_window <- function(proc) {
 #' @keywords internal
 rdesk_send_cmd <- function(proc, cmd, payload = list(), id = NULL) {
   if (is.null(proc) || !proc$is_alive()) return(invisible(NULL))
-  msg        <- list(cmd = cmd, payload = payload)
+  msg <- list(cmd = cmd, payload = payload)
   if (!is.null(id)) msg$id <- id
-  line       <- jsonlite::toJSON(msg, auto_unbox = TRUE, null = "null")
-  proc$write_input(paste0(line, "\n"))
+  line <- jsonlite::toJSON(msg, auto_unbox = TRUE, null = "null")
+  rem <- charToRaw(enc2utf8(paste0(line, "\n")))
+  deadline <- Sys.time() + getOption("rdesk.write_timeout", 30)
+  while (length(rem) > 0L) {
+    if (!proc$is_alive()) break
+    rem <- proc$write_input(rem)
+    if (length(rem) > 0L) {
+      if (Sys.time() >= deadline) {
+        warning("[RDesk] Timed out writing ", length(rem), " remaining bytes for command: ", cmd)
+        break
+      }
+      Sys.sleep(0.005)
+    }
+  }
   invisible(NULL)
 }
 

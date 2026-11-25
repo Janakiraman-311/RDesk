@@ -43,3 +43,31 @@ test_that("rdesk_parse_message() coerces non-list payload to list", {
   expect_false(is.null(result))
   expect_true(is.list(result$payload))
 })
+
+test_that("rdesk_send_cmd() drains all bytes across partial pipe writes", {
+  chunks <- list()
+  mock_proc <- list(
+    is_alive = function() TRUE,
+    write_input = function(bytes) {
+      raw_bytes <- if (is.raw(bytes)) bytes else charToRaw(enc2utf8(bytes))
+      take <- min(65536L, length(raw_bytes))
+      chunks[[length(chunks) + 1L]] <<- raw_bytes[seq_len(take)]
+      if (take < length(raw_bytes)) {
+        raw_bytes[(take + 1L):length(raw_bytes)]
+      } else {
+        raw(0)
+      }
+    }
+  )
+
+  big_text <- paste(rep("ABCD1234", 32000L), collapse = "")
+  rdesk_send_cmd(mock_proc, "SEND_MSG", payload = list(blob = big_text), id = "req_big")
+
+  expect_gt(length(chunks), 1L)
+  combined <- rawToChar(unlist(chunks, use.names = FALSE))
+  expect_true(endsWith(combined, "\n"))
+  parsed <- jsonlite::fromJSON(trimws(combined))
+  expect_equal(parsed$cmd, "SEND_MSG")
+  expect_equal(parsed$id, "req_big")
+  expect_equal(parsed$payload$blob, big_text)
+})

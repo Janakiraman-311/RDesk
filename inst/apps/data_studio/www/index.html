@@ -81,15 +81,15 @@
             <span class="preset-dot"></span>
             <span class="preset-name">Phase III Cardio-Metabolic</span>
           </div>
-          <span class="preset-meta">n = 480 &middot; 3 Arms &middot; SBP / LDL / CRP</span>
+          <span class="preset-meta">n = 480 &middot; 3 Arms &middot; ANCOVA SBP / DBP / CRP</span>
         </button>
 
         <button class="preset-btn" id="btn-preset-pk" data-preset="pk_biomarker">
           <div class="preset-top">
             <span class="preset-dot"></span>
-            <span class="preset-name">PK &amp; Biomarker Assay</span>
+            <span class="preset-name">PK &amp; Biomarker NCA</span>
           </div>
-          <span class="preset-meta">n = 360 &middot; 3 Doses &middot; Cmax / AUC / IL-6</span>
+          <span class="preset-meta">n = 360 &middot; 3 Doses &middot; Steady-State Cmax / AUC</span>
         </button>
       </div>
     </div>
@@ -253,7 +253,7 @@
             <input type="text" id="corr-search" class="text-input" placeholder="Search variable name..." />
             <select id="corr-filter" class="select-input compact">
               <option value="all">All Pairs</option>
-              <option value="sig">Significant (p &lt; 0.05)</option>
+              <option value="sig">Significant (FDR q &lt; 0.05)</option>
               <option value="moderate">|r| &ge; 0.30</option>
               <option value="strong">|r| &ge; 0.50</option>
             </select>
@@ -280,6 +280,7 @@
             <tbody id="corr-tbody"></tbody>
           </table>
         </div>
+        <div id="corr-footnote" class="table-footnote">FDR q-values use Benjamini-Hochberg multiplicity adjustment across all evaluated numeric pairs. Pairs tagged <strong>Coupled</strong> share a mathematical derivation (e.g., change = Week 12 &minus; Baseline, or AUC = Dose / CL).</div>
       </div>
     </section>
 
@@ -357,7 +358,7 @@
         <div class="card-header wrap">
           <div>
             <h3 class="card-title">Subgroup Comparison (Table 1)</h3>
-            <p class="card-subtitle">Stratified Mean &plusmn; SD with omnibus Welch ANOVA / t-test p-values</p>
+            <p class="card-subtitle">Baseline &amp; post-baseline stratified summary with distribution-appropriate metrics, evaluable denominators, and clinical footnotes</p>
           </div>
           <div class="toolbar-inline">
             <label for="subgroup-select" class="inline-label">Stratify by</label>
@@ -377,6 +378,7 @@
             <tbody id="subgroup-tbody"></tbody>
           </table>
         </div>
+        <div id="subgroup-footnote" class="table-footnote hidden"></div>
       </div>
     </section>
 
