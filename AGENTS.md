@@ -15,8 +15,9 @@ Read the structured documentation in `.agents/` before making changes:
 ## Non-Negotiable Quick Rules
 
 1. **Strict Branch Separation**:
-   - `main` and `release/v1.0.7-windows` are strictly for the **Windows CRAN package** (`OS_type: windows`, no Unix `configure` / `src/Makevars`).
-   - `dev` is the **cross-platform branch** (Windows + macOS + Linux). Never merge `dev` into `main` until cross-platform CRAN readiness is explicitly approved.
+   - `main` is strictly the **CRAN release branch** (`OS_type: windows`, no Unix `configure` / `src/Makevars`) and must **only be updated right before a CRAN submission**. Never commit or push routine work directly to `main`.
+   - `release/v1.0.7-windows` holds active Windows CRAN-track work until ready to merge to `main` for submission.
+   - `dev` is the **cross-platform branch** (Windows + macOS + Linux). Land cross-platform work and shared improvements on `dev`; never merge `dev` into `main` until cross-platform CRAN readiness is explicitly approved.
 2. **Zero-Port Architecture**: Never introduce `httpuv`, `plumber`, `WebSocket`, or localhost TCP listeners. UI assets are served via virtual host (`https://app.rdesk/` on Windows) or custom URI scheme (`rdesk://app/` on macOS/Linux), and R $\leftrightarrow$ JS messaging flows strictly over stdin/stdout pipes.
 3. **Keep CRAN Tarball Clean**: Any repo-level docs or agent files (including `AGENTS.md` and `.agents/`) must be excluded in `.Rbuildignore`.
 4. **Verify Before Pushing**: Run `devtools::document()`, `devtools::test()`, and `spelling::spell_check_package()` locally, and confirm `_pkgdown.yml` indexes every exported function.

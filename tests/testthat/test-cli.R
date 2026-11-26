@@ -118,6 +118,19 @@ test_that("Rapp executes exec/rdesk.R subcommands and install_rdesk_cli installs
     Rapp::run(rdesk_script, c("build", "--app-dir", "CliDemoApp", "--dry-run"))
   ))
 
+  writeLines("ico", file.path(work_dir, "CliDemoApp", "custom.ico"))
+  writeLines("MIT", file.path(work_dir, "CliDemoApp", "LICENSE.txt"))
+  expect_no_error(suppressMessages(
+    Rapp::run(rdesk_script, c(
+      "build", "--app-dir", "CliDemoApp",
+      "--icon", file.path(work_dir, "CliDemoApp", "custom.ico"),
+      "--publisher", "CliOrg",
+      "--license", file.path(work_dir, "CliDemoApp", "LICENSE.txt"),
+      "--no-cache",
+      "--dry-run"
+    ))
+  ))
+
   bin_dir <- withr::local_tempdir()
   withr::local_envvar(RAPP_NO_MODIFY_PATH = "1")
   suppressMessages(install_rdesk_cli(destdir = bin_dir, overwrite = TRUE))

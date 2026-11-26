@@ -87,13 +87,26 @@ switch(
     #| short: v
     version <- NA_character_
 
+    #| description: Path to application icon (.ico on Windows).
+    #| short: I
+    icon <- NA_character_
+
+    #| description: Publisher name for installer metadata.
+    publisher <- NA_character_
+
+    #| description: Publisher or application website URL.
+    website <- NA_character_
+
+    #| description: Path to license text file (.txt or .rtf) for installer.
+    license <- NA_character_
+
     #| description: Also build a platform installer (.exe via Inno Setup on Windows).
     #| short: i
     installer <- FALSE
 
     #| description: Installer scope on Windows ("user" or "system").
     #| short: s
-    install_scope <- "user"
+    install_scope <- NA_character_
 
     #| description: Overwrite existing output artifacts.
     overwrite <- FALSE
@@ -101,23 +114,28 @@ switch(
     #| description: Prune unnecessary docs and tests from the bundled runtime.
     prune_runtime <- TRUE
 
+    #| description: Reuse cached R runtime and package library across builds.
+    cache <- TRUE
+
     #| description: Validate structure and environment without building.
     dry_run <- FALSE
 
-    build_args <- list(
+    RDesk::build_app(
       app_dir         = app_dir,
       out_dir         = out_dir,
       app_name        = if (is.na(app_name)) NULL else app_name,
       version         = if (is.na(version)) NULL else version,
       overwrite       = overwrite,
       build_installer = installer,
+      install_scope   = if (is.na(install_scope)) NULL else install_scope,
+      publisher       = if (is.na(publisher)) NULL else publisher,
+      website         = if (is.na(website)) NULL else website,
+      license_file    = if (is.na(license)) NULL else license,
+      icon_file       = if (is.na(icon)) NULL else icon,
       prune_runtime   = prune_runtime,
-      dry_run         = dry_run
+      dry_run         = dry_run,
+      use_cache       = isTRUE(cache)
     )
-    if ("install_scope" %in% names(formals(RDesk::build_app))) {
-      build_args$install_scope <- install_scope
-    }
-    do.call(RDesk::build_app, build_args)
   },
 
   #| title: Report RDesk toolchain and runtime readiness
