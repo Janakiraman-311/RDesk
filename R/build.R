@@ -423,9 +423,12 @@ build_app <- function(app_dir = ".",
   }
 
   old_wd <- getwd()
-  on.exit(setwd(old_wd), add = TRUE)
-  setwd(dirname(stage_root))
-  zip::zip(zip_path, files = basename(stage_root), recurse = TRUE)
+  tryCatch({
+    setwd(dirname(stage_root))
+    zip::zip(zip_path, files = basename(stage_root), recurse = TRUE)
+  }, finally = {
+    setwd(old_wd)
+  })
 
   size_mb <- round(file.info(zip_path)$size / 1024^2, 1)
   message("[RDesk] Done! ", zip_path, " (", size_mb, " MB)")
@@ -717,10 +720,14 @@ rdesk_resolve_app_asset_path <- function(app_dir, path_val) {
   if (is.null(path_val) || is.na(path_val)) return(NULL)
   val <- trimws(as.character(path_val))
   if (!nzchar(val)) return(NULL)
-  if (file.exists(val)) return(val)
   candidate <- file.path(app_dir, val)
-  if (file.exists(candidate)) return(candidate)
-  val
+  if (file.exists(candidate) && !dir.exists(candidate)) {
+    return(normalizePath(candidate, winslash = "/", mustWork = TRUE))
+  }
+  if (file.exists(val) && !dir.exists(val)) {
+    return(normalizePath(val, winslash = "/", mustWork = TRUE))
+  }
+  if (grepl("^([A-Za-z]:[/\\\\]|/|\\\\\\\\)", val)) val else candidate
 }
 
 #' Auto-detect a bundled Windows icon in app_dir
@@ -733,8 +740,9 @@ rdesk_auto_detect_icon <- function(app_dir) {
   )
   found <- candidates[file.exists(candidates) & !dir.exists(candidates)]
   if (length(found) > 0) {
-    message("[RDesk] Auto-detected application icon: ", found[1])
-    return(found[1])
+    resolved <- normalizePath(found[1], winslash = "/", mustWork = TRUE)
+    message("[RDesk] Auto-detected application icon: ", resolved)
+    return(resolved)
   }
   NULL
 }

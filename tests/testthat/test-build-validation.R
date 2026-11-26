@@ -259,3 +259,58 @@ test_that("build cache helpers compute deterministic keys and round-trip staged 
     expect_true(file.exists("lib_dst/jsonlite/DESCRIPTION"))
   })
 })
+
+test_that("relative Config/RDesk/Icon and LicenseFile normalize to absolute paths for Inno Setup", {
+  withr::with_tempdir({
+    dir.create("app/www", recursive = TRUE)
+    writeLines("app_code()", "app/app.R")
+    writeLines("<h1>IconTest</h1>", "app/www/index.html")
+    writeLines("ico", "app/app.ico")
+    writeLines("MIT", "app/LICENSE.txt")
+    writeLines(
+      c(
+        "Package: IconPkg",
+        "Version: 1.0.0",
+        "Config/RDesk/Icon: app.ico",
+        "Config/RDesk/LicenseFile: LICENSE.txt"
+      ),
+      "app/DESCRIPTION"
+    )
+
+    withr::with_dir("app", {
+      app_norm <- normalizePath(".", winslash = "/", mustWork = TRUE)
+      ico_resolved <- rdesk_resolve_app_asset_path(app_norm, "app.ico")
+      lic_resolved <- rdesk_resolve_app_asset_path(app_norm, "LICENSE.txt")
+      expect_equal(ico_resolved, normalizePath("app.ico", winslash = "/", mustWork = TRUE))
+      expect_equal(lic_resolved, normalizePath("LICENSE.txt", winslash = "/", mustWork = TRUE))
+
+      msgs <- capture.output(
+        res <- build_app(".", out_dir = "dist", dry_run = TRUE),
+        type = "message"
+      )
+      expect_true(res)
+      txt <- paste(msgs, collapse = "\n")
+      expect_true(grepl(ico_resolved, txt, fixed = TRUE))
+      expect_true(grepl(lic_resolved, txt, fixed = TRUE))
+
+      other_dir <- tempfile("other_wd_")
+      dir.create(other_dir)
+      withr::defer(unlink(other_dir, recursive = TRUE))
+      iss <- withr::with_dir(other_dir, {
+        RDesk:::rdesk_render_iss_template(
+          stage_root   = app_norm,
+          out_dir      = file.path(app_norm, "dist"),
+          app_name     = "IconPkg",
+          version      = "1.0.0",
+          publisher    = "TestOrg",
+          website      = "https://example.org",
+          license_file = lic_resolved,
+          icon_file    = ico_resolved
+        )
+      })
+      iss_txt <- paste(iss, collapse = "\n")
+      expect_true(grepl(normalizePath("app.ico", mustWork = TRUE), iss_txt, fixed = TRUE))
+      expect_true(grepl(normalizePath("LICENSE.txt", mustWork = TRUE), iss_txt, fixed = TRUE))
+    })
+  })
+})
