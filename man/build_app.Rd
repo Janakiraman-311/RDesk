@@ -21,7 +21,8 @@ build_app(
   license_file = NULL,
   icon_file = NULL,
   prune_runtime = TRUE,
-  dry_run = FALSE
+  dry_run = FALSE,
+  use_cache = TRUE
 )
 }
 \arguments{
@@ -77,8 +78,14 @@ install under \verb{Program Files} with \code{PrivilegesRequired=admin}).}
 \item{prune_runtime}{If TRUE, remove unnecessary files (Tcl/Tk, docs, tests) from
 the bundled R runtime to reduce size (~15-20MB saving). Default TRUE.}
 
-\item{dry_run}{If TRUE, performs a quick validation of the app structure and
-environment without performing the full build. Default FALSE.}
+\item{dry_run}{If TRUE, runs pre-flight validation (DESCRIPTION metadata,
+dependencies, icon/license paths, compiler, runtime, and Inno Setup when
+\code{build_installer = TRUE}) and reports staged vs. excluded files without
+writing build outputs. Default FALSE.}
+
+\item{use_cache}{If TRUE (default), caches the provisioned and pruned R runtime
+and package library in the user cache directory keyed by R version and
+resolved package versions so subsequent builds reuse them quickly.}
 }
 \value{
 The built artifact path or bundle metadata, invisibly.

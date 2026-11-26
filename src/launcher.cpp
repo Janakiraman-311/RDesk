@@ -1185,6 +1185,22 @@ static void rdesk_install_default_macos_menu() {
 }
 #endif
 
+#ifdef _WIN32
+static void apply_window_icon(HWND hwnd, const std::wstring& wicon) {
+    if (!hwnd || wicon.empty()) return;
+    HICON hBig = static_cast<HICON>(LoadImageW(
+        nullptr, wicon.c_str(), IMAGE_ICON,
+        GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_LOADFROMFILE
+    ));
+    HICON hSmall = static_cast<HICON>(LoadImageW(
+        nullptr, wicon.c_str(), IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE
+    ));
+    if (hBig) SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hBig));
+    if (hSmall) SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hSmall));
+}
+#endif
+
 // ── Stdin command processor ──────────────────────────────────────────────────
 static void process_command(const std::string& line) {
     json j;
@@ -1566,18 +1582,7 @@ static void process_command(const std::string& line) {
         std::string icon = j["payload"].value("icon", "");
         if (!icon.empty()) {
             dispatch_to_webview([icon]() {
-                if (!g_hwnd) return;
-                std::wstring wicon = widen(icon);
-                HICON hBig = static_cast<HICON>(LoadImageW(
-                    nullptr, wicon.c_str(), IMAGE_ICON,
-                    GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), LR_LOADFROMFILE
-                ));
-                HICON hSmall = static_cast<HICON>(LoadImageW(
-                    nullptr, wicon.c_str(), IMAGE_ICON,
-                    GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE
-                ));
-                if (hBig) SendMessageW(g_hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hBig));
-                if (hSmall) SendMessageW(g_hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hSmall));
+                apply_window_icon(g_hwnd, widen(icon));
             });
         }
         return;
@@ -1614,12 +1619,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
     std::vector<std::string> args;
     std::string log_file_path;
+    std::string icon_file_path;
     for (int i = 1; i < argc; ++i) {
         int len = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, nullptr, 0, nullptr, nullptr);
         std::string s(len - 1, '\0');
         WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, &s[0], len, nullptr, nullptr);
         if (s.rfind("--log-file=", 0) == 0) {
             log_file_path = s.substr(11);
+        } else if (s.rfind("--icon=", 0) == 0) {
+            icon_file_path = s.substr(7);
         } else {
             args.push_back(s);
         }
@@ -1629,10 +1637,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 int main(int argc, char* argv[]) {
     std::vector<std::string> args;
     std::string log_file_path;
+    std::string icon_file_path;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg.rfind("--log-file=", 0) == 0) {
             log_file_path = arg.substr(11);
+        } else if (arg.rfind("--icon=", 0) == 0) {
+            icon_file_path = arg.substr(7);
         } else {
             args.push_back(arg);
         }
@@ -1769,6 +1780,28 @@ int main(int argc, char* argv[]) {
 #ifdef _WIN32
         g_hwnd = (HWND)w.window().value();
         if (g_hwnd) {
+            // Apply startup icon immediately before showing window to avoid default-icon flash
+            std::vector<std::wstring> icon_candidates;
+            if (!icon_file_path.empty()) {
+                icon_candidates.push_back(widen(icon_file_path));
+            }
+            if (!www.empty()) {
+                std::wstring wwww = widen(www);
+                icon_candidates.push_back(wwww + L"\\..\\app.ico");
+                icon_candidates.push_back(wwww + L"\\app.ico");
+            }
+            std::wstring mod_dir = get_module_dir_w();
+            icon_candidates.push_back(mod_dir + L"\\app\\app.ico");
+            icon_candidates.push_back(mod_dir + L"\\app.ico");
+            icon_candidates.push_back(mod_dir + L"\\..\\app\\app.ico");
+            for (const auto& cand : icon_candidates) {
+                DWORD attrs = GetFileAttributesW(cand.c_str());
+                if (attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+                    apply_window_icon(g_hwnd, cand);
+                    break;
+                }
+            }
+
             SetPropW(g_hwnd, instance_prop.c_str(), reinterpret_cast<HANDLE>(1));
             ShowWindow(g_hwnd, SW_SHOWNORMAL);
             UpdateWindow(g_hwnd);

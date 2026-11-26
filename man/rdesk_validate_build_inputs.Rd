@@ -10,7 +10,10 @@ rdesk_validate_build_inputs(
   build_installer = FALSE,
   portable_r_method = c("extract_only", "installer"),
   runtime_dir = NULL,
-  use_download = FALSE
+  use_download = FALSE,
+  icon_file = NULL,
+  license_file = NULL,
+  dry_run = FALSE
 )
 }
 \arguments{
@@ -23,6 +26,14 @@ rdesk_validate_build_inputs(
 \item{portable_r_method}{Method for R portability.}
 
 \item{runtime_dir}{Path to pre-existing runtime.}
+
+\item{use_download}{Logical; whether to download portable R on Windows.}
+
+\item{icon_file}{Optional resolved icon path.}
+
+\item{license_file}{Optional resolved license path.}
+
+\item{dry_run}{Logical; whether running in pre-flight dry-run mode.}
 }
 \description{
 Validate build inputs before starting the process

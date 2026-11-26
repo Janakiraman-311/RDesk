@@ -8,13 +8,13 @@ Behavioral, branching, and engineering guidelines for AI coding agents working o
 
 > [!IMPORTANT]
 > **Windows CRAN Track (`release/v1.0.7-windows` $\rightarrow$ `main`):**
-> - `main` is strictly reserved for the live **Windows-only CRAN release** (`OS_type: windows` in `DESCRIPTION`).
+> - `main` is strictly reserved for the live **CRAN release** (`OS_type: windows` in `DESCRIPTION`) and must **only be updated right before a CRAN submission**. Never commit or push routine changes directly to `main`.
 > - Do **NOT** merge Unix-only build files (`configure`, `cleanup`, `src/Makevars`, `src/stub_macos.c`, `inst/stub/stub_linux.c`) into `main` or `release/*-windows`.
-> - Windows hardening fixes, showcase app updates, `Rapp` CLI improvements, and Windows CI repairs land on `release/v1.0.7-windows` and fast-forward/merge to `main`.
+> - Windows hardening fixes, showcase app updates, `Rapp` CLI improvements, and Windows CI repairs land on `release/v1.0.7-windows` first, and are merged into `main` only when preparing a CRAN release.
 >
 > **Cross-Platform Development Track (`dev`):**
 > - All macOS and Linux support (`src/Makevars`, `configure`, `cleanup`, `WKWebView` / `WebKitGTK` bridges, Mach-O dylib relocation, Linux/macOS native stubs, and cross-platform CI workflows) resides strictly on `dev`.
-> - Platform-neutral improvements (demo apps in `inst/apps/`, templates in `inst/templates/`, `R/cli.R`, `exec/rdesk.R`, `src/launcher.cpp` Win32/shared fixes) should be cherry-picked cleanly onto `dev` after verifying on `main`.
+> - Platform-neutral improvements (demo apps in `inst/apps/`, templates in `inst/templates/`, `R/cli.R`, `exec/rdesk.R`, `src/launcher.cpp` Win32/shared fixes) should be cherry-picked cleanly onto `dev` after verifying on `release/v1.0.7-windows`.
 
 ---
 
