@@ -1,0 +1,181 @@
+# The Long Road to Native R Desktop Apps - and Why RDesk Changes Everything
+
+``` r
+
+RDesk::rdesk_is_bundle()
+#> [1] FALSE
+```
+
+Deploying R applications to users who do not have R installed presents a
+significant challenge for R developers. While web-based frameworks like
+Shiny are highly effective for centralized server deployments,
+distributing desktop tools to individual machines has historically
+involved substantial architectural trade-offs.
+
+Understanding the history of desktop R deployment architectures helps
+clarify the design decisions behind RDesk and how it provides a
+standalone, port-free alternative.
+
+------------------------------------------------------------------------
+
+## 2014: DesktopDeployR and the HTTP server model
+
+In 2014, the **DesktopDeployR** framework introduced a practical
+approach to local distribution. The framework bundled a portable R
+executable alongside a Shiny application and launched a local server at
+runtime, opening a connection in the user’s default web browser.
+
+While DesktopDeployR successfully addressed basic local package
+execution, the architecture retained the requirements of a web
+application: 1. **Network dependency**: The application was served
+locally (typically on `localhost`), requiring local TCP port allocation.
+2. **Process management**: Since the backend server and frontend browser
+operated independently, closing the browser window did not guarantee the
+clean termination of the underlying R process. 3. **Enterprise
+compatibility**: Local port binding and background network operations
+frequently triggered firewall prompts or failed organizational security
+policies.
+
+------------------------------------------------------------------------
+
+## 2017: RInno and the Electron shell integration
+
+In 2017, the **RInno** package offered a different model by wrapping
+Shiny applications inside the Electron shell. This allowed developers to
+compile standard Windows installers and run apps in dedicated desktop
+windows instead of default browser tabs.
+
+However, wrapping an HTTP-based framework in a desktop shell introduced
+other constraints: \* **Resource overhead**: Electron bundles a complete
+Chromium instance, adding 150MB+ to the distribution bundle. \*
+**Architecture complexity**: The system still ran a local HTTP server
+inside the Electron container, retaining the network stack requirements
+and risk of port conflicts. \* **Lifecycle synchronization**: Zombie R
+processes could still accumulate if the container crashed or closed
+unexpectedly, as process communication remained decoupled.
+
+RInno was ultimately archived from CRAN in 2025 due to maintenance and
+compatibility issues across modern R versions.
+
+------------------------------------------------------------------------
+
+## The Zero-Port Alternative: WebView2 integration
+
+A common factor in these early frameworks was the assumption that
+**local application GUIs must be served via HTTP/TCP**.
+
+In 2021, Microsoft stabilized the **WebView2** runtime, exposing the
+modern Chromium rendering engine as a native Windows control. Crucially,
+WebView2 introduced a **virtual hostname file serving API**.
+
+Instead of launching a local HTTP server to handle static assets,
+WebView2 allows applications to map local directories directly to
+custom, virtual HTTPS hostnames internally (e.g., `https://app.rdesk/`).
+\* Files are loaded directly from disk through OS memory mapping. \* No
+TCP ports are bound. \* No loopback network stack is active. \* Process
+communication is handled via direct Win32 messages rather than network
+protocols.
+
+This primitive made the zero-port desktop architecture feasible for R
+applications.
+
+------------------------------------------------------------------------
+
+## RInside: Embedded C++ Integration
+
+Another alternative is **RInside**, which embeds the R interpreter
+directly inside a host C++ application. This architecture is clean and
+highly performant for low-level system integrations.
+
+However, RInside is designed primarily for C++ developers. It requires
+writing and compiling C++ code to manage the embedded R interpreter
+lifecycle, which differs from the high-level, interactive workflow that
+R developers typically use.
+
+------------------------------------------------------------------------
+
+## RDesk Design Philosophy
+
+RDesk was designed to provide R developers with a pure R workflow for
+building self-contained, port-free desktop applications. The
+architecture relies on five core pillars:
+
+1.  **Zero-Port IPC**: RDesk utilizes WebView2’s virtual hostname API
+    for static assets. Dynamic messaging between R and the UI uses
+    stdin/stdout pipes and WebView2’s native message bridge. The
+    application does not bind to any network interface.
+2.  **R-Centric Event Loop**: R operates as the primary process,
+    managing the application state and event loop. The C++ launcher acts
+    as a lightweight window container, ensuring that R is always in
+    control.
+3.  **Synchronous and Asynchronous Engines**: RDesk integrates a
+    pre-allocated background daemon pool using the `mirai` package,
+    enabling non-blocking background task execution with standard
+    high-level API wrappers for loading states and progress tracking.
+4.  **Reproducible Bundles**: The
+    [`build_app()`](https://janakiraman-311.github.io/RDesk/reference/build_app.md)
+    function bundles the exact active R runtime and package
+    dependencies, eliminating version mismatches or runtime library
+    discrepancies.
+5.  **Standardized Scaffolding**: The
+    [`rdesk_create_app()`](https://janakiraman-311.github.io/RDesk/reference/rdesk_create_app.md)
+    function generates a structured application template with built-in
+    styling, charts, and async handlers to establish a standard starting
+    point for development.
+
+------------------------------------------------------------------------
+
+## Technical Comparison
+
+| Feature | Shiny Server | Electron + R | RDesk |
+|:---|:---|:---|:---|
+| **Network Port Binding** | Required | Required | **None** |
+| **Offline Capability** | Server-dependent | Local | **Full Offline** |
+| **Native Integration** | None | Limited (via JS) | **Full (Menus & Dialogs)** |
+| **Packaging Format** | Web Deployment | Installer | **ZIP or Installer** |
+| **Average Bundle Size** | Host-dependent | 350MB+ | **~200MB** |
+| **Required Developer Skills** | R | R + Node.js | **R + HTML/CSS/JS** |
+
+------------------------------------------------------------------------
+
+## Getting Started
+
+To install RDesk from CRAN:
+
+``` r
+
+install.packages("RDesk")
+```
+
+To generate a working dashboard scaffold:
+
+``` r
+
+RDesk::rdesk_create_app("MyFirstApp")
+```
+
+To compile a standalone Windows installer:
+
+``` r
+
+RDesk::build_app(
+  app_dir         = "MyFirstApp",
+  app_name        = "MyFirstApp",
+  build_installer = TRUE
+)
+# Generates: dist/MyFirstApp-1.0.0-setup.exe
+```
+
+------------------------------------------------------------------------
+
+## Cross-Platform Considerations
+
+RDesk supports Windows, macOS, and Linux natively, utilizing
+platform-specific webview runtimes (WebView2 on Windows, WKWebView on
+macOS, and WebKitGTK on Linux) and robust process isolation. Standalone
+app bundles and installers can be compiled directly on each target
+platform.
+
+------------------------------------------------------------------------
+
+*RDesk is MIT licensed and actively maintained on GitHub.*
